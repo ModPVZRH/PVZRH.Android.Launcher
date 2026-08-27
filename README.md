@@ -60,7 +60,7 @@ The directory contains plugins, configuration, logs, modpacks, and vanilla state
 
 ## Injection Model
 
-The launcher follows the FusionCore model:
+The launcher follows the FusionCore model with extra fixes:
 
 1. Create a package context for PVZRH and obtain its class loader.
 2. Install class-loader, instrumentation, package-manager, Activity, and native-library hooks.
