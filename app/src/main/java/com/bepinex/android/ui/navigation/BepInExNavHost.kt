@@ -342,7 +342,12 @@ fun BepInExNavHost(
                         onOpenConfig = { configFile ->
                             editingConfig = configFile
                         },
-                        onViewLog = { },
+                        onViewLog = {
+                            val activity = context as? android.app.Activity
+                            if (activity != null) {
+                                com.bepinex.android.log.GameLogOverlay.show(activity, packageName)
+                            }
+                        },
                         onExportModpack = {
                             val outputFile = java.io.File(
                                 android.os.Environment.getExternalStorageDirectory(),
