@@ -10,6 +10,11 @@ Dedicated Android launcher and mod manager for PlantsVsZombiesRH.
 - ABI: `arm64-v8a`
 - Launcher package: `com.pvzrh.android.launcher`
 
+## Credits
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
+- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+
 ## Build
 
 Run from this directory:
