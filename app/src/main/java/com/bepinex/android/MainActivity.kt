@@ -39,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private var isExtracting = false
     private var extractionStatus = ""
     private var storagePermissionGranted = false
+    private var hasPaused = false
 
     // Settings state
     private var themeMode = AppSettings.ThemeMode.SYSTEM
@@ -126,6 +127,28 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleSharedText(intent)
+    }
+
+    override fun onPause() {
+        hasPaused = true
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasPaused) {
+            hasPaused = false
+            // Persist runtime logs/config to active modpack when returning from game
+            selectedGame?.let { game ->
+                val active = AppSettings.getActiveModpack(this, game.packageName)
+                if (!active.isNullOrEmpty()) {
+                    try {
+                        com.bepinex.android.modpack.ModpackManager()
+                            .persistRuntimeState(game.packageName, active)
+                    } catch (_: Exception) { }
+                }
+            }
+        }
     }
 
     override fun onDestroy() {

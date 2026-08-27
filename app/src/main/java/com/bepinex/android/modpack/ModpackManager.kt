@@ -256,9 +256,9 @@ class ModpackManager {
             copyDirContents(getModpackPluginsDir(packageName, modpackName), pluginsDir)
         }
         copyDirContents(File(srcRoot, "config"), configDir)
-        copyDirContents(File(srcRoot, "logs"), logsDir)
-        File(srcRoot, "logs/LogOutput.log").takeIf { it.isFile }?.copyTo(logFile, overwrite = true)
-        BepInExLog.i("Restored runtime cfg/logs from ${srcRoot.absolutePath}")
+        // Do NOT restore LogOutput.log from modpack — let each session start fresh.
+        // persistRuntimeState() will save the latest logs when the session ends.
+        BepInExLog.i("Restored runtime cfg from ${srcRoot.absolutePath}")
     }
 
     private fun stateRoot(packageName: String, modpackName: String?): File =
