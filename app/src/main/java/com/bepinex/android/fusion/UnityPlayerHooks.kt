@@ -132,8 +132,12 @@ object UnityPlayerHooks {
                     // Launch log overlay after game is fully loaded
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         try {
-                            com.bepinex.android.log.GameLogOverlay.show(act, gameContext.packageName)
-                            BepInExLog.i("Log overlay attached to game window")
+                            val enabled = com.bepinex.android.settings.AppSettings
+                                .isFloatingLogInGameEnabled(act)
+                            if (enabled) {
+                                com.bepinex.android.log.GameLogOverlay.show(act, gameContext.packageName)
+                                BepInExLog.i("Log overlay attached to game window")
+                            }
                         } catch (e: Exception) {
                             BepInExLog.e("Failed to launch log overlay", e)
                         }

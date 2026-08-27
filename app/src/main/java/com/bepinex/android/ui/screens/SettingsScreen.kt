@@ -29,10 +29,12 @@ fun SettingsScreen(
     packageName: String,
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
+    floatingLogInGame: Boolean,
     onNavigateBack: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
+    onFloatingLogInGameChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onCopyGameResources: () -> Unit
@@ -65,7 +67,7 @@ fun SettingsScreen(
             // Appearance section
             item {
                 Text(
-                    "Appearance",
+                    stringResource(R.string.settings_section_appearance),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -114,17 +116,35 @@ fun SettingsScreen(
             item {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    stringResource(R.string.settings_ingame_section),
+                    stringResource(R.string.settings_section_ingame),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
 
+            // Floating log overlay toggle
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_floating_log)) },
+                    supportingContent = { Text(stringResource(R.string.settings_floating_log_desc)) },
+                    leadingContent = {
+                        Icon(Icons.Outlined.Terminal, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = floatingLogInGame,
+                            onCheckedChange = onFloatingLogInGameChanged
+                        )
+                    }
+                )
+            }
+
             // Maintenance section
             item {
                 Text(
-                    "Maintenance",
+                    stringResource(R.string.settings_section_maintenance),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

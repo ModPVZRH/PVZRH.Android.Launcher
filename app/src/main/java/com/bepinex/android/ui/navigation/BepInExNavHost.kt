@@ -407,14 +407,19 @@ fun BepInExNavHost(
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val settingsContext = LocalContext.current
+                    val floatingLogInGame = AppSettings.isFloatingLogInGameEnabled(settingsContext)
                     SettingsScreen(
                         packageName = packageName,
                         themeMode = themeMode,
                         language = language,
+                        floatingLogInGame = floatingLogInGame,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                         onThemeChanged = onThemeChanged,
                         onLanguageChanged = onLanguageChanged,
+                        onFloatingLogInGameChanged = { enabled ->
+                            AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
+                        },
                         onClearBepInEx = { onClearBepInEx(packageName) },
                         onClearDotnet = { onClearDotnet(packageName) },
                         onCopyGameResources = { onCopyGameResources(packageName) }
