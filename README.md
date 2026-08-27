@@ -17,6 +17,8 @@ Dedicated Android launcher and mod manager for PlantsVsZombiesRH.
 
 ## Build
 
+-- there a ci build in github action page btw
+
 Run from this directory:
 
 ```powershell
