@@ -29,12 +29,10 @@ fun SettingsScreen(
     packageName: String,
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
-    floatingLogInGame: Boolean,
     onNavigateBack: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
-    onFloatingLogInGameChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onCopyGameResources: () -> Unit
@@ -120,33 +118,6 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
-
-            // Floating Log in Game
-            item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_floating_log)) },
-                    supportingContent = { Text(stringResource(R.string.settings_floating_log_desc)) },
-                    leadingContent = {
-                        Icon(Icons.Outlined.Terminal, null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = floatingLogInGame,
-                            onCheckedChange = { enabled ->
-                                onFloatingLogInGameChanged(enabled)
-                                if (enabled && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M &&
-                                    !Settings.canDrawOverlays(context)) {
-                                    context.startActivity(Intent(
-                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                        Uri.parse("package:${context.packageName}")
-                                    ))
-                                }
-                            }
-                        )
-                    }
                 )
             }
 

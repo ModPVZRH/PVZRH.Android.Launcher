@@ -11,7 +11,6 @@ import android.os.Environment
 import android.os.Looper
 import android.widget.Toast
 import com.bepinex.android.fusion.*
-import com.bepinex.android.log.LogOverlayService
 import com.bepinex.android.settings.AppSettings
 import top.canyie.pine.Pine
 import top.canyie.pine.callback.MethodHook

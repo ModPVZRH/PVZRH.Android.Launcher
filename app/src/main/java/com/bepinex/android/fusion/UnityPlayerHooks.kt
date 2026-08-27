@@ -12,7 +12,6 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.bepinex.android.BepInExLog
-import com.bepinex.android.log.LogOverlayService
 import com.bepinex.android.settings.AppSettings
 import top.canyie.pine.Pine
 import top.canyie.pine.callback.MethodHook
@@ -115,18 +114,10 @@ object UnityPlayerHooks {
                     // Hide loading overlay
                     hideLoadingOverlay(act, loadingOverlay)
 
-                    if (AppSettings.isFloatingLogInGameEnabled(act)) {
-                        try {
-                            LogOverlayService.start(act, gameContext.packageName)
-                        } catch (_: Exception) {
-                        }
-                    }
-
                     // Set activity field on UnityPlayer instance
                     for (field in activityFields) {
                         try {
                             field.isAccessible = true
-                            // Double-check: can this field actually hold our Activity?
                             if (field.type == Activity::class.java) {
                                 field.set(callFrame.thisObject, act)
                                 BepInExLog.i("Set UnityPlayer.${field.name} = activity")
@@ -137,6 +128,16 @@ object UnityPlayerHooks {
                             BepInExLog.e("Failed to set UnityPlayer.${field.name}", e)
                         }
                     }
+
+                    // Launch log overlay after game is fully loaded
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        try {
+                            com.bepinex.android.log.GameLogOverlay.show(act, gameContext.packageName)
+                            BepInExLog.i("Log overlay attached to game window")
+                        } catch (e: Exception) {
+                            BepInExLog.e("Failed to launch log overlay", e)
+                        }
+                    }, 2000)
                 }
             })
         }
