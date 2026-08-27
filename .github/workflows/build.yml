@@ -21,17 +21,13 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK + NDK + CMake
         uses: android-actions/setup-android@v3
+        with:
+          packages: ndk;27.0.12077973 cmake;3.22.1
 
       - name: Accept SDK licenses
         run: yes | sdkmanager --licenses || true
-
-      - name: Install NDK
-        run: sdkmanager "ndk;27.0.12077973"
-
-      - name: Install CMake
-        run: sdkmanager "cmake;3.22.1"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew

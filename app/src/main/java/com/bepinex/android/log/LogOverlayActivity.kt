@@ -1,5 +1,10 @@
-package com.bepinex.android.ui.components
+package com.bepinex.android.log
 
+import android.app.Activity
+import android.os.Bundle
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
@@ -26,27 +31,78 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bepinex.android.log.BepInExLogReader
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import java.io.File
+import java.io.RandomAccessFile
 import kotlin.math.roundToInt
 
 /**
- * In-game log overlay: a small draggable FAB that snaps to screen edges.
- * Tap to expand a landscape semi-transparent log panel; tap again to collapse.
+ * Transparent overlay activity showing a draggable log FAB on top of the game.
+ * Reads BepInEx LogOutput.log directly from external storage.
  */
+class LogOverlayActivity : ComponentActivity() {
+
+    companion object {
+        var activePackageName: String? = null
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        )
+
+        val pkg = intent?.getStringExtra("packageName")
+            ?: activePackageName
+            ?: finish().let { return }
+        activePackageName = pkg
+
+        val logFile = File(
+            "/storage/emulated/0/PVZRH_Launcher/$pkg/BepInEx/LogOutput.log"
+        )
+
+        setContent {
+            LogOverlayContent(logFile = logFile, onClose = { finish() })
+        }
+    }
+}
+
 @Composable
-fun GameLogFAB(
-    logLines: List<BepInExLogReader.LogLine>,
-    modifier: Modifier = Modifier
-) {
+private fun LogOverlayContent(logFile: File, onClose: () -> Unit) {
+    val lines = remember { mutableStateListOf<String>() }
     var expanded by remember { mutableStateOf(false) }
-
-    // Draggable offset in pixels
     var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(800f) }
+    var lastSize by remember { mutableLongStateOf(0L) }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // Expanded log panel (landscape, semi-transparent, right side)
+    // Poll log file
+    LaunchedEffect(logFile) {
+        while (isActive) {
+            try {
+                if (logFile.exists() && logFile.length() > lastSize) {
+                    RandomAccessFile(logFile, "r").use { raf ->
+                        raf.seek(lastSize)
+                        val buf = ByteArray((raf.length() - lastSize).toInt())
+                        raf.readFully(buf)
+                        val newLines = String(buf, Charsets.UTF_8)
+                            .lines()
+                            .filter { it.isNotBlank() }
+                        lines.addAll(newLines)
+                        // Keep last 300 lines
+                        while (lines.size > 300) lines.removeFirstOrNull()
+                        lastSize = logFile.length()
+                    }
+                }
+            } catch (_: Exception) { }
+            delay(500)
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        // Expanded log panel (right side, landscape-ish)
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn() + slideInHorizontally { it / 3 },
@@ -74,14 +130,14 @@ fun GameLogFAB(
                         Spacer(Modifier.width(6.dp))
                         Text("BepInEx Log", color = Color.White, fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { expanded = false }, modifier = Modifier.size(28.dp)) {
+                        IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
                             Icon(Icons.Filled.Close, "Close", Modifier.size(16.dp),
                                 tint = Color(0xFFF38BA8))
                         }
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
 
-                    if (logLines.isEmpty()) {
+                    if (lines.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text("Waiting for logs...", color = Color.White.copy(alpha = 0.4f),
                                 fontSize = 12.sp)
@@ -89,9 +145,9 @@ fun GameLogFAB(
                     } else {
                         val listState = rememberLazyListState()
                         val scope = rememberCoroutineScope()
-                        LaunchedEffect(logLines.size) {
-                            if (logLines.isNotEmpty()) {
-                                scope.launch { listState.animateScrollToItem(logLines.size - 1) }
+                        LaunchedEffect(lines.size) {
+                            if (lines.isNotEmpty()) {
+                                scope.launch { listState.animateScrollToItem(lines.size - 1) }
                             }
                         }
                         LazyColumn(
@@ -99,18 +155,16 @@ fun GameLogFAB(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                             contentPadding = PaddingValues(vertical = 4.dp)
                         ) {
-                            items(logLines.takeLast(200).size) { idx ->
-                                val line = logLines.takeLast(200)[idx]
-                                val lineColor = when (line.level) {
-                                    BepInExLogReader.LogLevel.FATAL,
-                                    BepInExLogReader.LogLevel.ERROR -> Color(0xFFF38BA8)
-                                    BepInExLogReader.LogLevel.WARNING -> Color(0xFFFAB387)
-                                    BepInExLogReader.LogLevel.DEBUG -> Color(0xFF6C7086)
+                            items(lines.size) { idx ->
+                                val line = lines[idx]
+                                val color = when {
+                                    line.contains("[Error") || line.contains("[Fatal") -> Color(0xFFF38BA8)
+                                    line.contains("[Warning") -> Color(0xFFFAB387)
+                                    line.contains("[Debug") -> Color(0xFF6C7086)
                                     else -> Color(0xFFCDD6F4)
                                 }
                                 Text(
-                                    "[${line.level.label[0]}] ${line.source.ifEmpty { "" }} ${line.message}",
-                                    color = lineColor, fontSize = 10.sp,
+                                    line, color = color, fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace,
                                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(vertical = 1.dp)
@@ -122,7 +176,7 @@ fun GameLogFAB(
             }
         }
 
-        // Draggable FAB (tap = toggle panel, drag = move)
+        // Draggable FAB
         Box(
             modifier = Modifier
                 .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
@@ -142,8 +196,7 @@ fun GameLogFAB(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Filled.Terminal,
-                contentDescription = "Log",
+                Icons.Filled.Terminal, "Log",
                 tint = Color(0xFF89B4FA),
                 modifier = Modifier.size(24.dp)
             )
