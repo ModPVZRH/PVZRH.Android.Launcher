@@ -34,6 +34,12 @@ TestPlugin/obj/
 debug-pulled/
 tombstone_*
 
+# Android build artifacts and generated APKs
+*.apk
+*.aab
+app/release/
+app/debug/
+
 [Dd]ebug/x64/
 [Dd]ebugPublic/x64/
 [Rr]elease/x64/
