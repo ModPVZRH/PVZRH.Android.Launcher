@@ -23,6 +23,17 @@ mono_crash.*
 [Rr]elease/
 [Rr]eleases/
 
+# Gradle, Kotlin, Android, and native build output
+.gradle/
+.kotlin/
+build/
+app/.cxx/
+app/build/
+TestPlugin/bin/
+TestPlugin/obj/
+debug-pulled/
+tombstone_*
+
 [Dd]ebug/x64/
 [Dd]ebugPublic/x64/
 [Rr]elease/x64/
@@ -119,6 +130,7 @@ StyleCopReport.xml
 *.tmp_proj
 *_wpftmp.csproj
 *.log
+ci-version.txt
 *.tlog
 *.vspscc
 *.vssscc
