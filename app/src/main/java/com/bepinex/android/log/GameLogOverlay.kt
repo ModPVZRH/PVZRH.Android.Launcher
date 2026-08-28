@@ -4,7 +4,6 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -39,22 +38,39 @@ object GameLogOverlay {
         remove(decorView)
 
         val density = activity.resources.displayMetrics.density
-        val fabSize = (40 * density).toInt()
-        val panelWidth = (360 * density).toInt()
-        val panelHeight = (280 * density).toInt()
         val margin = (12 * density).toInt()
-
+        val fabSize = (40 * density).toInt()
+        val panelWidth = (320 * density).toInt().coerceAtMost(
+            (decorView.width - margin * 2).coerceAtLeast(fabSize)
+        )
+        val panelHeight = (240 * density).toInt().coerceAtMost(
+            (decorView.height - margin * 2).coerceAtLeast(fabSize)
+        )
         // --- FAB ---
         val fabBg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#CC1E1E2E"))
+            setColor(Color.TRANSPARENT)
         }
-        val fabIcon = TextView(activity).apply {
-            text = ">_"
-            setTextColor(Color.parseColor("#89B4FA"))
-            textSize = 14f
-            gravity = Gravity.CENTER
-            typeface = Typeface.MONOSPACE
+        val fabIcon = android.widget.ImageView(activity).apply {
+            val launcherResources = try {
+                activity.createPackageContext(
+                    "com.pvzrh.android.launcher",
+                    android.content.Context.CONTEXT_IGNORE_SECURITY
+                ).resources
+            } catch (_: Exception) {
+                activity.resources
+            }
+            val icon = android.graphics.BitmapFactory.decodeResource(
+                launcherResources,
+                com.bepinex.android.R.drawable.console_icon
+            )
+            setImageBitmap(icon)
+            visibility = View.VISIBLE
+            alpha = 1f
+            scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+            setPadding((5 * density).toInt(), (5 * density).toInt(),
+                (5 * density).toInt(), (5 * density).toInt())
+            contentDescription = "Open console log"
         }
         val fabView = FrameLayout(activity).apply {
             background = fabBg
@@ -96,32 +112,33 @@ object GameLogOverlay {
             typeface = Typeface.DEFAULT_BOLD
             setPadding((8 * density).toInt(), (6 * density).toInt(), 0, (4 * density).toInt())
         }
-        val shareBtn = TextView(activity).apply {
-            text = "\u2922"  // northeast and southeast arrow (share-like)
-            setTextColor(Color.parseColor("#A6E3A1"))
-            textSize = 14f
+        val minimizeBtn = TextView(activity).apply {
+            text = "−"
+            contentDescription = "Minimize log overlay"
+            setTextColor(Color.parseColor("#CDD6F4"))
+            textSize = 20f
             gravity = Gravity.CENTER
-            setPadding((8 * density).toInt(), (4 * density).toInt(),
-                (4 * density).toInt(), (4 * density).toInt())
+            includeFontPadding = false
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 8f * density
+                setColor(Color.parseColor("#331E1E2E"))
+            }
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                (32 * density).toInt(),
+                (32 * density).toInt()
+            ).apply {
+                marginStart = (3 * density).toInt()
+                marginEnd = (6 * density).toInt()
+            }
         }
-        val closeBtn = TextView(activity).apply {
-            text = "\u2715"
-            setTextColor(Color.parseColor("#F38BA8"))
-            textSize = 14f
-            gravity = Gravity.CENTER
-            setPadding((4 * density).toInt(), (4 * density).toInt(),
-                (8 * density).toInt(), (4 * density).toInt())
-        }
-
         val header = android.widget.LinearLayout(activity).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
             addView(headerText, android.widget.LinearLayout.LayoutParams(
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             ))
-            addView(shareBtn)
-            addView(closeBtn)
+            addView(minimizeBtn)
         }
-
         val panelLayout = android.widget.LinearLayout(activity).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             background = panelBg
@@ -156,6 +173,44 @@ object GameLogOverlay {
         var downFabX = 0f
         var downFabY = 0f
         var isDragging = false
+        var downPanelX = 0f
+        var downPanelY = 0f
+        var isPanelDragging = false
+
+        headerText.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    downPanelX = panelContainer.left.toFloat()
+                    downPanelY = panelContainer.top.toFloat()
+                    isPanelDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    if (!isPanelDragging && (dx * dx + dy * dy) > 25 * density * density) {
+                        isPanelDragging = true
+                    }
+                    if (isPanelDragging) {
+                        val maxLeft = (decorView.width - panelWidth).coerceAtLeast(0)
+                        val maxTop = (decorView.height - panelHeight).coerceAtLeast(0)
+                        val updatedParams = panelContainer.layoutParams as FrameLayout.LayoutParams
+                        updatedParams.gravity = Gravity.TOP or Gravity.START
+                        updatedParams.leftMargin = (downPanelX + dx).toInt().coerceIn(0, maxLeft)
+                        updatedParams.topMargin = (downPanelY + dy).toInt().coerceIn(0, maxTop)
+                        panelContainer.layoutParams = updatedParams
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isPanelDragging = false
+                    true
+                }
+                else -> false
+            }
+        }
 
         fabView.setOnTouchListener { _, event ->
             when (event.action) {
@@ -197,32 +252,13 @@ object GameLogOverlay {
             }
         }
 
-        closeBtn.setOnClickListener {
+        minimizeBtn.setOnClickListener {
             panelVisible = false
             panelContainer.visibility = View.GONE
         }
 
-        shareBtn.setOnClickListener {
-            if (!resolvedLogFile.exists()) return@setOnClickListener
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                activity,
-                "${activity.packageName}.provider",
-                resolvedLogFile
-            )
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "BepInEx Log - $packageName")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            activity.startActivity(Intent.createChooser(shareIntent, "Share Log"))
-        }
-
         // Add to DecorView
-        decorView.addView(panelContainer, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
+        decorView.addView(panelContainer, panelParams)
         if (showFab) {
             decorView.addView(fabView, fabParams)
             this.fab = fabView

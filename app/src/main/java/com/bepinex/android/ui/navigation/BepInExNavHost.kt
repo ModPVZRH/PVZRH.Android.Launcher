@@ -221,11 +221,14 @@ fun BepInExNavHost(
                         label = { Text(stringResource(R.string.nav_games)) }
                     )
                     NavigationBarItem(
-                        selected = currentRoute == "modpacks/{packageName}",
+                        selected = currentRoute == NavRoutes.MODPACKS,
                         onClick = {
-                            selectedGame?.let { game ->
-                                navController.navigate(NavRoutes.modpacks(game.packageName)) {
-                                    popUpTo(NavRoutes.GAMES)
+                            if (currentRoute != NavRoutes.MODPACKS) {
+                                selectedGame?.let { game ->
+                                    navController.navigate(NavRoutes.modpacks(game.packageName)) {
+                                        popUpTo(NavRoutes.GAMES)
+                                        launchSingleTop = true
+                                    }
                                 }
                             }
                         },
@@ -234,11 +237,14 @@ fun BepInExNavHost(
                         label = { Text(stringResource(R.string.nav_modpacks)) }
                     )
                     NavigationBarItem(
-                        selected = currentRoute == "settings/{packageName}",
+                        selected = currentRoute == NavRoutes.SETTINGS,
                         onClick = {
-                            selectedGame?.let { game ->
-                                navController.navigate(NavRoutes.settings(game.packageName)) {
-                                    popUpTo(NavRoutes.GAMES)
+                            if (currentRoute != NavRoutes.SETTINGS) {
+                                selectedGame?.let { game ->
+                                    navController.navigate(NavRoutes.settings(game.packageName)) {
+                                        popUpTo(NavRoutes.GAMES)
+                                        launchSingleTop = true
+                                    }
                                 }
                             }
                         },
@@ -411,6 +417,8 @@ fun BepInExNavHost(
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
                     enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+                    exitTransition = { slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)) },
+                    popEnterTransition = { slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) },
                     popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
@@ -439,6 +447,9 @@ fun BepInExNavHost(
                         onViewLog = {
                             navController.navigate(NavRoutes.logViewer(packageName, modpackName))
                         },
+                        onBrowseModFiles = {
+                            navController.navigate(NavRoutes.modFileBrowser(packageName, modpackName))
+                        },
                         onExportModpack = {
                             val outputFile = java.io.File(
                                 context.cacheDir,
@@ -465,6 +476,30 @@ fun BepInExNavHost(
                         }
                     )
 
+                }
+
+                // Modpack file browser
+                composable(
+                    route = NavRoutes.MOD_FILE_BROWSER,
+                    arguments = listOf(
+                        navArgument("packageName") { type = NavType.StringType },
+                        navArgument("modpackName") { type = NavType.StringType }
+                    ),
+                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+                    exitTransition = { slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)) },
+                    popEnterTransition = { slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) },
+                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                ) { backStackEntry ->
+                    val packageName = backStackEntry.arguments?.getString("packageName")
+                        ?: return@composable
+                    val modpackName = backStackEntry.arguments?.getString("modpackName")
+                        ?: return@composable
+                    val modpackDirectory = BepInExPaths.getModpackDir(packageName, modpackName)
+
+                    ModFileBrowserScreen(
+                        rootDirectory = modpackDirectory,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
 
                 // Settings
