@@ -49,14 +49,28 @@ object GameLogOverlay {
         // --- FAB ---
         val fabBg = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(Color.parseColor("#CC1E1E2E"))
+            setColor(Color.TRANSPARENT)
         }
-        val fabIcon = TextView(activity).apply {
-            text = ">_"
-            setTextColor(Color.parseColor("#89B4FA"))
-            textSize = 14f
-            gravity = Gravity.CENTER
-            typeface = Typeface.MONOSPACE
+        val fabIcon = android.widget.ImageView(activity).apply {
+            val launcherResources = try {
+                activity.createPackageContext(
+                    "com.pvzrh.android.launcher",
+                    android.content.Context.CONTEXT_IGNORE_SECURITY
+                ).resources
+            } catch (_: Exception) {
+                activity.resources
+            }
+            val icon = android.graphics.BitmapFactory.decodeResource(
+                launcherResources,
+                com.bepinex.android.R.drawable.console_icon
+            )
+            setImageBitmap(icon)
+            visibility = View.VISIBLE
+            alpha = 1f
+            scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+            setPadding((5 * density).toInt(), (5 * density).toInt(),
+                (5 * density).toInt(), (5 * density).toInt())
+            contentDescription = "Open console log"
         }
         val fabView = FrameLayout(activity).apply {
             background = fabBg
