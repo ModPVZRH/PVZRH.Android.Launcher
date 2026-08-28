@@ -6,9 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Environment
 import android.os.Looper
+import android.os.LocaleList
+import java.util.Locale
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -64,6 +67,19 @@ class BootstrapActivity : Activity() {
         }
     }
 
+    override fun attachBaseContext(newBase: Context?) {
+        val ctx = newBase ?: return super.attachBaseContext(newBase)
+        val lang = AppSettings.getLanguage(ctx)
+        val locale = when (lang) {
+            AppSettings.Language.ENGLISH -> Locale.forLanguageTag("en")
+            AppSettings.Language.CHINESE -> Locale.forLanguageTag("zh-CN")
+            AppSettings.Language.SYSTEM -> return super.attachBaseContext(newBase)
+        }
+        val config = Configuration(ctx.resources.configuration)
+        config.setLocales(LocaleList(locale))
+        super.attachBaseContext(ctx.createConfigurationContext(config))
+    }
+
     // Lifecycle
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -116,7 +132,8 @@ class BootstrapActivity : Activity() {
 
         // 3. Prepare Fusion state (paths, extract zips, copy data, detect version)
         val useOriginalLibUnity = intent.getBooleanExtra(EXTRA_USE_ORIGINAL_LIBUNITY, false)
-        preparedConfig = prepareFusionState(targetPackage, gameContext, useOriginalLibUnity)
+        val useUnstripped = AppSettings.isUseUnstrippedLibUnity(this)
+        preparedConfig = prepareFusionState(targetPackage, gameContext, useOriginalLibUnity, useUnstripped)
 
         // 4. Register game native libraries (match FusionCore: no exclusions)
         updateProgress(getString(R.string.bootstrap_status_registering_libraries), "", 60)
@@ -262,7 +279,8 @@ class BootstrapActivity : Activity() {
     private fun prepareFusionState(
         targetPackage: String,
         gameContext: Context,
-        useOriginalLibUnity: Boolean
+        useOriginalLibUnity: Boolean,
+        useUnstripped: Boolean = false
     ): FusionConfig {
         val gameLibDir = gameContext.applicationInfo.nativeLibraryDir
         val appLibDir = applicationInfo.nativeLibraryDir
@@ -332,6 +350,16 @@ class BootstrapActivity : Activity() {
                 BepInExLog.w("Failed to detect Unity version, using fallback: $BACKUP_UNITY_VERSION")
             }
         BepInExLog.i("Unity version: $unityVersion")
+
+        // Download unstripped libunity.so if setting is enabled
+        if (useUnstripped && !useOriginalLibUnity) {
+            updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 52)
+            BepInExLog.i("Downloading unstripped libunity.so...")
+            val appDataDir = BepInExPaths.getAppDataDir(filesDir, targetPackage)
+            LibUnityDownloader.ensureLibUnity(appDataDir) { detail ->
+                updateProgress(getString(R.string.bootstrap_status_downloading_libunity), detail, 52)
+            }
+        }
 
         // Download unity base libraries using Android's HTTP stack (not .NET's).
         // .NET's HttpClient crashes on Android 16 with SIGSEGV in

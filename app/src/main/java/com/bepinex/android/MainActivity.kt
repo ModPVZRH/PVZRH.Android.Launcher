@@ -121,7 +121,8 @@ class MainActivity : ComponentActivity() {
                         UpdateChecker.hasUpdate(currentVersion, info.version) -> {
                             showUpdate = true
                         }
-                        info.announcementDate.isNotEmpty() -> {
+                        info.announcementDate.isNotEmpty()
+                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
                             showAnnouncement = true
                         }
                     }
@@ -133,14 +134,16 @@ class MainActivity : ComponentActivity() {
 
     private fun onDismissAnnouncement() {
         showAnnouncement = false
+        updateInfo?.let { AppSettings.setLastSeenAnnouncementDate(this, it.announcementDate) }
         render()
     }
 
     private fun onDismissUpdate() {
         showUpdate = false
-        // Show announcement if available
+        // Show announcement if available and not yet seen
         updateInfo?.let {
-            if (it.announcementDate.isNotEmpty()) {
+            if (it.announcementDate.isNotEmpty()
+                && it.announcementDate != AppSettings.getLastSeenAnnouncementDate(this)) {
                 showAnnouncement = true
                 render()
             }
@@ -343,7 +346,7 @@ class MainActivity : ComponentActivity() {
         try {
             val intent = Intent(this, BootstrapActivity::class.java).apply {
                 putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, game.packageName)
-                putExtra(BootstrapActivity.EXTRA_USE_ORIGINAL_LIBUNITY, true)
+                putExtra(BootstrapActivity.EXTRA_USE_ORIGINAL_LIBUNITY, false)
                 modpackName?.let { putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, it) }
             }
             startActivity(intent)

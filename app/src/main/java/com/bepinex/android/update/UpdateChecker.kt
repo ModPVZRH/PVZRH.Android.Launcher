@@ -15,7 +15,7 @@ object UpdateChecker {
     private const val INFO_URL_GITHUB =
         "https://raw.githubusercontent.com/Modded-PVZRH/PVZRH.Launcher-release/refs/heads/main/info.json"
     private const val INFO_URL_GH_PROXY =
-        "https://gh-proxy.org/https://github.com/Modded-PVZRH/PVZRH.Launcher-release/raw/refs/heads/main/info.json"
+        "https://v6.gh-proxy.org/https://github.com/Modded-PVZRH/PVZRH.Launcher-release/raw/refs/heads/main/info.json"
 
     data class UpdateInfo(
         val version: String,
