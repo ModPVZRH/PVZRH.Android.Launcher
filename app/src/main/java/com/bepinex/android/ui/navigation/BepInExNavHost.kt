@@ -402,11 +402,15 @@ fun BepInExNavHost(
                     var floatingLogInGame by remember {
                         mutableStateOf(AppSettings.isFloatingLogInGameEnabled(settingsContext))
                     }
+                    var useUnstrippedLibUnity by remember {
+                        mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
+                    }
                     SettingsScreen(
                         packageName = packageName,
                         themeMode = themeMode,
                         language = language,
                         floatingLogInGame = floatingLogInGame,
+                        useUnstrippedLibUnity = useUnstrippedLibUnity,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                         onThemeChanged = onThemeChanged,
@@ -414,6 +418,10 @@ fun BepInExNavHost(
                         onFloatingLogInGameChanged = { enabled ->
                             AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
                             floatingLogInGame = enabled
+                        },
+                        onUseUnstrippedLibUnityChanged = { enabled ->
+                            AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)
+                            useUnstrippedLibUnity = enabled
                         },
                         onClearBepInEx = { onClearBepInEx(packageName) },
                         onClearDotnet = { onClearDotnet(packageName) },

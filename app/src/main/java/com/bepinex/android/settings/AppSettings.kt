@@ -16,6 +16,7 @@ object AppSettings {
     private const val KEY_LANGUAGE = "language"
     private const val KEY_FLOATING_LOG_IN_GAME = "floating_log_in_game"
     private const val KEY_ACTIVE_MODPACK_PREFIX = "active_modpack_"
+    private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
 
     enum class ThemeMode {
         SYSTEM, DARK, LIGHT;
@@ -88,6 +89,13 @@ object AppSettings {
 
     fun setActiveModpack(context: Context, packageName: String, modpackName: String?) {
         prefs(context).edit().putString(KEY_ACTIVE_MODPACK_PREFIX + packageName, modpackName ?: "").apply()
+    }
+
+    fun isUseUnstrippedLibUnity(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_USE_UNSTRIPPED_LIBUNITY, true)
+
+    fun setUseUnstrippedLibUnity(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_USE_UNSTRIPPED_LIBUNITY, enabled).apply()
     }
 
     // Initialize on startup

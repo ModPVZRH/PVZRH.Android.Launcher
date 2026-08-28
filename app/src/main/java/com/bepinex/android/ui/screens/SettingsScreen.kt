@@ -30,11 +30,13 @@ fun SettingsScreen(
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     floatingLogInGame: Boolean,
+    useUnstrippedLibUnity: Boolean,
     onNavigateBack: () -> Unit,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
+    onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onCopyGameResources: () -> Unit
@@ -136,6 +138,24 @@ fun SettingsScreen(
                         Switch(
                             checked = floatingLogInGame,
                             onCheckedChange = onFloatingLogInGameChanged
+                        )
+                    }
+                )
+            }
+
+            // Use unstripped libunity toggle
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_unstripped_libunity)) },
+                    supportingContent = { Text(stringResource(R.string.settings_unstripped_libunity_desc)) },
+                    leadingContent = {
+                        Icon(Icons.Outlined.Code, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = useUnstrippedLibUnity,
+                            onCheckedChange = onUseUnstrippedLibUnityChanged
                         )
                     }
                 )
