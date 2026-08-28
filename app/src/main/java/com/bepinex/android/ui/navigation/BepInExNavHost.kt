@@ -161,6 +161,8 @@ fun BepInExNavHost(
     val currentRoute = navBackStackEntry?.destination?.route
 
     val showBottomBar = currentRoute in listOf(NavRoutes.GAMES, "modpacks/{packageName}", "settings/{packageName}")
+    val showModpackFab = currentRoute == NavRoutes.MODPACKS
+    var showCreateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -208,6 +210,16 @@ fun BepInExNavHost(
                         icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
                         label = { Text(stringResource(R.string.nav_settings)) }
                     )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (showModpackFab) {
+                FloatingActionButton(
+                    onClick = { showCreateDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Filled.Add, stringResource(R.string.modpack_create))
                 }
             }
         }
@@ -304,7 +316,9 @@ fun BepInExNavHost(
                             outputFile.parentFile?.mkdirs()
                             modpackManager.exportModpack(packageName, name, outputFile)
                         },
-                        onImportModpack = { importModpackTrigger = true }
+                        onImportModpack = { importModpackTrigger = true },
+                        showCreateDialog = showCreateDialog,
+                        onDismissCreateDialog = { showCreateDialog = false }
                     )
                 }
 

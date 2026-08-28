@@ -36,9 +36,10 @@ fun ModpackListScreen(
     onSelectModpack: (String?) -> Unit,
     onOpenModpack: (String) -> Unit,
     onExportModpack: (String) -> Unit,
-    onImportModpack: () -> Unit
+    onImportModpack: () -> Unit,
+    showCreateDialog: Boolean = false,
+    onDismissCreateDialog: () -> Unit = {}
 ) {
-    var showCreateDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
     var showRenameDialog by remember { mutableStateOf<String?>(null) }
 
@@ -61,14 +62,6 @@ fun ModpackListScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Filled.Add, stringResource(R.string.modpack_create))
-            }
         }
     ) { padding ->
         LazyColumn(
@@ -205,10 +198,10 @@ fun ModpackListScreen(
     if (showCreateDialog) {
         CreateModpackDialog(
             targetGame = targetGameLabel,
-            onDismiss = { showCreateDialog = false },
+            onDismiss = onDismissCreateDialog,
             onCreate = { name ->
                 onCreateModpack(name)
-                showCreateDialog = false
+                onDismissCreateDialog()
             }
         )
     }
