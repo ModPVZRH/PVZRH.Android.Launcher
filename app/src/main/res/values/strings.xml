@@ -146,6 +146,7 @@
 
     <!-- Log -->
     <string name="log_title">BepInEx Log</string>
+    <string name="log_share">Share</string>
     <string name="log_copy">Copy</string>
     <string name="log_clear">Clear</string>
     <string name="log_empty">No log entries yet. Launch a game to see BepInEx logs.</string>

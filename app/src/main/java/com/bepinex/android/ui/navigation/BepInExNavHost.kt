@@ -341,7 +341,6 @@ fun BepInExNavHost(
                     val configFiles = remember(packageName, modpackName, modpackRefreshKey) {
                         modpackManager.listConfigs(packageName, modpackName)
                     }
-                    var editingConfig by remember { mutableStateOf<File?>(null) }
 
                     ModpackDetailScreen(
                         modpackName = modpackName,
@@ -354,13 +353,10 @@ fun BepInExNavHost(
                             mods = modpackManager.listMods(packageName, modpackName)
                         },
                         onOpenConfig = { configFile ->
-                            editingConfig = configFile
+                            navController.navigate(NavRoutes.configEditor(configFile.absolutePath))
                         },
                         onViewLog = {
-                            val activity = context as? android.app.Activity
-                            if (activity != null) {
-                                com.bepinex.android.log.GameLogOverlay.show(activity, packageName)
-                            }
+                            navController.navigate(NavRoutes.logViewer(packageName, modpackName))
                         },
                         onExportModpack = {
                             val outputFile = java.io.File(
@@ -372,17 +368,6 @@ fun BepInExNavHost(
                         }
                     )
 
-                    // Config editor
-                    editingConfig?.let { file ->
-                        ConfigEditorDialog(
-                            configFile = file,
-                            onDismiss = { editingConfig = null },
-                            onSave = { f, content ->
-                                f.writeText(content)
-                                editingConfig = null
-                            }
-                        )
-                    }
                 }
 
                 // Settings
@@ -413,6 +398,45 @@ fun BepInExNavHost(
                         onClearBepInEx = { onClearBepInEx(packageName) },
                         onClearDotnet = { onClearDotnet(packageName) },
                         onCopyGameResources = { onCopyGameResources(packageName) }
+                    )
+                }
+
+                // Log Viewer
+                composable(
+                    route = NavRoutes.LOG_VIEWER,
+                    arguments = listOf(
+                        navArgument("packageName") { type = NavType.StringType },
+                        navArgument("modpackName") { type = NavType.StringType }
+                    ),
+                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                ) { backStackEntry ->
+                    val pkg = backStackEntry.arguments?.getString("packageName") ?: return@composable
+                    val mpName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
+                    val logFile = com.bepinex.android.BepInExPaths.getModpackLogFile(pkg, mpName)
+                    LogViewerScreen(
+                        logFilePath = logFile.absolutePath,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+
+                // Config Editor
+                composable(
+                    route = NavRoutes.CONFIG_EDITOR,
+                    arguments = listOf(navArgument("filePath") { type = NavType.StringType }),
+                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                ) { backStackEntry ->
+                    val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
+                    val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")
+                    val file = java.io.File(filePath)
+                    ConfigEditorDialog(
+                        configFile = file,
+                        onDismiss = { navController.popBackStack() },
+                        onSave = { f, content ->
+                            f.writeText(content)
+                            navController.popBackStack()
+                        }
                     )
                 }
 

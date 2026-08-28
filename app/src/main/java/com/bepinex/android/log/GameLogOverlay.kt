@@ -30,7 +30,7 @@ object GameLogOverlay {
     private var panelVisible = false
     private var pollJob: Runnable? = null
 
-    fun show(activity: Activity, packageName: String) {
+    fun show(activity: Activity, packageName: String, showPanel: Boolean = false, showFab: Boolean = true) {
         val decorView = activity.window?.decorView as? ViewGroup ?: return
         val logFile = File("/storage/emulated/0/PVZRH_Launcher/$packageName/BepInEx/LogOutput.log")
 
@@ -95,26 +95,30 @@ object GameLogOverlay {
             typeface = Typeface.DEFAULT_BOLD
             setPadding((8 * density).toInt(), (6 * density).toInt(), 0, (4 * density).toInt())
         }
+        val shareBtn = TextView(activity).apply {
+            text = "\u2922"  // northeast and southeast arrow (share-like)
+            setTextColor(Color.parseColor("#A6E3A1"))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding((8 * density).toInt(), (4 * density).toInt(),
+                (4 * density).toInt(), (4 * density).toInt())
+        }
         val closeBtn = TextView(activity).apply {
             text = "\u2715"
             setTextColor(Color.parseColor("#F38BA8"))
             textSize = 14f
             gravity = Gravity.CENTER
-            setPadding((8 * density).toInt(), (4 * density).toInt(),
+            setPadding((4 * density).toInt(), (4 * density).toInt(),
                 (8 * density).toInt(), (4 * density).toInt())
         }
 
-        val header = FrameLayout(activity).apply {
-            addView(headerText, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.START or Gravity.CENTER_VERTICAL
+        val header = android.widget.LinearLayout(activity).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(headerText, android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
             ))
-            addView(closeBtn, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.END or Gravity.CENTER_VERTICAL
-            ))
+            addView(shareBtn)
+            addView(closeBtn)
         }
 
         val panelLayout = android.widget.LinearLayout(activity).apply {
@@ -197,15 +201,33 @@ object GameLogOverlay {
             panelContainer.visibility = View.GONE
         }
 
+        shareBtn.setOnClickListener {
+            val logContent = logTextView.text?.toString() ?: return@setOnClickListener
+            if (logContent.isBlank()) return@setOnClickListener
+            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_TEXT, logContent)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "BepInEx Log - $packageName")
+            }
+            activity.startActivity(android.content.Intent.createChooser(shareIntent, "Share Log"))
+        }
+
         // Add to DecorView
         decorView.addView(panelContainer, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         ))
-        decorView.addView(fabView, fabParams)
-
-        this.fab = fabView
+        if (showFab) {
+            decorView.addView(fabView, fabParams)
+            this.fab = fabView
+        }
         this.panel = panelContainer
+
+        // Show panel immediately if requested (e.g. from modpack log button)
+        if (showPanel) {
+            panelVisible = true
+            panelContainer.visibility = View.VISIBLE
+        }
 
         // Poll log
         var lastSize = 0L
