@@ -141,7 +141,7 @@ static bool stage_fusion_config(const FusionConfig &config)
     if (config.useOriginalLibUnity) {
         unityPath = config.gameLibraryDir + "/libunity.so";
     } else {
-        unityPath = config.appDataDir + "/libunity.so";
+        unityPath = config.appDataDir + "/libunity/unstripped/libunity.so";
     }
 
     /*

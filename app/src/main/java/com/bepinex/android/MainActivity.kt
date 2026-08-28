@@ -346,7 +346,7 @@ class MainActivity : ComponentActivity() {
         try {
             val intent = Intent(this, BootstrapActivity::class.java).apply {
                 putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, game.packageName)
-                putExtra(BootstrapActivity.EXTRA_USE_ORIGINAL_LIBUNITY, false)
+                putExtra(BootstrapActivity.EXTRA_USE_ORIGINAL_LIBUNITY, !AppSettings.isUseUnstrippedLibUnity(this@MainActivity))
                 modpackName?.let { putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, it) }
             }
             startActivity(intent)

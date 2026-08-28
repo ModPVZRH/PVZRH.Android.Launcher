@@ -7,10 +7,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Downloads unstripped libunity.so from GitHub and caches it in appDataDir.
+ * Downloads unstripped libunity.so from GitHub and caches it in the target directory.
  *
- * The native C++ layer (fusion.cpp) reads libunity.so from appDataDir/libunity.so
- * when useOriginalLibUnity=false.
+ * The native C++ layer (fusion.cpp) reads libunity.so from:
+ *   - appDataDir/libunity/unstripped/libunity.so (when useOriginalLibUnity=false)
+ *   - appDataDir/libunity/original/libunity.so  (when useOriginalLibUnity=true)
  */
 object LibUnityDownloader {
 
@@ -18,11 +19,11 @@ object LibUnityDownloader {
     private const val VERSION = "2022.3.62f1c1"
 
     fun ensureLibUnity(
-        appDataDir: File,
+        targetDir: File,
         onProgress: (String) -> Unit = {}
     ): File? {
-        appDataDir.mkdirs()
-        val destFile = File(appDataDir, "libunity.so")
+        targetDir.mkdirs()
+        val destFile = File(targetDir, "libunity.so")
 
         if (destFile.exists() && destFile.length() > 1024 * 1024) {
             BepInExLog.i("$TAG: Using cached libunity.so (${destFile.length()} bytes)")
@@ -33,7 +34,7 @@ object LibUnityDownloader {
         BepInExLog.i("$TAG: Downloading libunity.so from $url")
 
         return try {
-            val tempFile = File(appDataDir, "libunity.so.tmp")
+            val tempFile = File(targetDir, "libunity.so.tmp")
             downloadFile(url, tempFile, onProgress)
 
             if (tempFile.length() < 1024 * 1024) {

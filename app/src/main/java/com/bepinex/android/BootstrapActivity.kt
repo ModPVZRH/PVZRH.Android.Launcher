@@ -355,8 +355,8 @@ class BootstrapActivity : Activity() {
         if (useUnstripped && !useOriginalLibUnity) {
             updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 52)
             BepInExLog.i("Downloading unstripped libunity.so...")
-            val appDataDir = BepInExPaths.getAppDataDir(filesDir, targetPackage)
-            LibUnityDownloader.ensureLibUnity(appDataDir) { detail ->
+            val unstrippedDir = File(File(appDataDir, "libunity"), "unstripped")
+            LibUnityDownloader.ensureLibUnity(unstrippedDir) { detail ->
                 updateProgress(getString(R.string.bootstrap_status_downloading_libunity), detail, 52)
             }
         }
