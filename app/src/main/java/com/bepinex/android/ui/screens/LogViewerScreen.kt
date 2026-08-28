@@ -1,7 +1,6 @@
 package com.bepinex.android.ui.screens
 
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import com.bepinex.android.R
 import java.io.File
 
@@ -47,12 +47,21 @@ fun LogViewerScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, logContent)
-                            putExtra(Intent.EXTRA_SUBJECT, "BepInEx Log")
+                        val file = File(logFilePath)
+                        if (file.exists()) {
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                file
+                            )
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, "BepInEx Log")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Log"))
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share Log"))
                     }) {
                         Icon(Icons.Filled.Share, stringResource(R.string.log_share))
                     }

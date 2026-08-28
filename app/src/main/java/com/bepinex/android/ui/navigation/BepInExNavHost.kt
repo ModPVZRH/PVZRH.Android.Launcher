@@ -98,8 +98,12 @@ fun BepInExNavHost(
             val game = selectedGame
             if (game != null) {
                 kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
-                    // Must use Activity context, not applicationContext — URI permission is on the Activity
-                    modpackManager.importModpack(game.packageName, uri, context)
+                    val cursor = context.contentResolver.query(uri, null, null, null, null)
+                    val displayName = cursor?.use {
+                        if (it.moveToFirst()) it.getString(it.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME)) else null
+                    }
+                    val zipName = displayName?.removeSuffix(".zip")?.removeSuffix(".ZIP")
+                    modpackManager.importModpack(game.packageName, uri, context, zipName)
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         modpackRefreshKey++
                     }
@@ -360,11 +364,27 @@ fun BepInExNavHost(
                         },
                         onExportModpack = {
                             val outputFile = java.io.File(
-                                android.os.Environment.getExternalStorageDirectory(),
-                        "PVZRH_Launcher/export/${modpackName}.zip"
+                                context.cacheDir,
+                                "${modpackName}.zip"
                             )
                             outputFile.parentFile?.mkdirs()
-                            modpackManager.exportModpack(packageName, modpackName, outputFile)
+                            val success = modpackManager.exportModpack(packageName, modpackName, outputFile)
+                            if (success) {
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.provider",
+                                    outputFile
+                                )
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "application/zip"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    putExtra(android.content.Intent.EXTRA_SUBJECT, modpackName)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Modpack"))
+                            } else {
+                                android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
 

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
@@ -30,9 +31,9 @@ object GameLogOverlay {
     private var panelVisible = false
     private var pollJob: Runnable? = null
 
-    fun show(activity: Activity, packageName: String, showPanel: Boolean = false, showFab: Boolean = true) {
+    fun show(activity: Activity, packageName: String, logFile: File? = null, showPanel: Boolean = false, showFab: Boolean = true) {
         val decorView = activity.window?.decorView as? ViewGroup ?: return
-        val logFile = File("/storage/emulated/0/PVZRH_Launcher/$packageName/BepInEx/LogOutput.log")
+        val resolvedLogFile = logFile ?: File("/storage/emulated/0/PVZRH_Launcher/$packageName/BepInEx/LogOutput.log")
 
         // Remove old if any
         remove(decorView)
@@ -202,14 +203,19 @@ object GameLogOverlay {
         }
 
         shareBtn.setOnClickListener {
-            val logContent = logTextView.text?.toString() ?: return@setOnClickListener
-            if (logContent.isBlank()) return@setOnClickListener
-            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            if (!resolvedLogFile.exists()) return@setOnClickListener
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                activity,
+                "${activity.packageName}.provider",
+                resolvedLogFile
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(android.content.Intent.EXTRA_TEXT, logContent)
-                putExtra(android.content.Intent.EXTRA_SUBJECT, "BepInEx Log - $packageName")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "BepInEx Log - $packageName")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            activity.startActivity(android.content.Intent.createChooser(shareIntent, "Share Log"))
+            activity.startActivity(Intent.createChooser(shareIntent, "Share Log"))
         }
 
         // Add to DecorView
@@ -234,8 +240,8 @@ object GameLogOverlay {
         pollJob = object : Runnable {
             override fun run() {
                 try {
-                    if (logFile.exists() && logFile.length() > lastSize) {
-                        RandomAccessFile(logFile, "r").use { raf ->
+                    if (resolvedLogFile.exists() && resolvedLogFile.length() > lastSize) {
+                        RandomAccessFile(resolvedLogFile, "r").use { raf ->
                             raf.seek(lastSize)
                             val buf = ByteArray((raf.length() - lastSize).toInt())
                             raf.readFully(buf)
@@ -255,7 +261,7 @@ object GameLogOverlay {
                                     logTextView.text = full
                                 }
                             }
-                            lastSize = logFile.length()
+                            lastSize = resolvedLogFile.length()
                         }
                     }
                 } catch (_: Exception) { }
