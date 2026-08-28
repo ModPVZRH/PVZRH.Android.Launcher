@@ -227,10 +227,11 @@ fun BepInExNavHost(
                 }
             }
         }
-    ) {
+    ) { innerPadding ->
         NavHost(
                 navController = navController,
-                startDestination = NavRoutes.GAMES
+                startDestination = NavRoutes.GAMES,
+                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 // Main game screen
                 composable(
