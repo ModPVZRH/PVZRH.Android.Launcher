@@ -18,6 +18,11 @@ import com.bepinex.android.log.BepInExLogReader
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.navigation.BepInExNavHost
 import com.bepinex.android.ui.theme.BepInExTheme
+import com.bepinex.android.update.UpdateChecker
+import com.bepinex.android.update.AnnouncementDialog
+import com.bepinex.android.update.UpdateDialog
+import com.bepinex.android.update.BlockedDialog
+import com.bepinex.android.update.openUpdateUrl
 import kotlinx.coroutines.*
 import java.io.File
 
@@ -44,6 +49,13 @@ class MainActivity : ComponentActivity() {
     // Settings state
     private var themeMode = AppSettings.ThemeMode.SYSTEM
     private var language = AppSettings.Language.SYSTEM
+
+    // Update check state
+    private var updateInfo: UpdateChecker.UpdateInfo? = null
+    private var showAnnouncement = false
+    private var showUpdate = false
+    private var showBlocked = false
+    private var isCheckingUpdate = true
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -88,9 +100,56 @@ class MainActivity : ComponentActivity() {
 
         checkStoragePermission()
         handleSharedText(intent)
+        checkForUpdates()
     }
 
     // Storage permission
+
+    private fun checkForUpdates() {
+        scope.launch(Dispatchers.IO) {
+            val info = UpdateChecker.fetchInfo(this@MainActivity)
+            withContext(Dispatchers.Main) {
+                updateInfo = info
+                isCheckingUpdate = false
+                if (info != null) {
+                    val currentVersion = try {
+                        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+                    } catch (_: Exception) { "" }
+
+                    when {
+                        !info.allowStart -> showBlocked = true
+                        UpdateChecker.hasUpdate(currentVersion, info.version) -> {
+                            showUpdate = true
+                        }
+                        info.announcementDate.isNotEmpty() -> {
+                            showAnnouncement = true
+                        }
+                    }
+                }
+                render()
+            }
+        }
+    }
+
+    private fun onDismissAnnouncement() {
+        showAnnouncement = false
+        render()
+    }
+
+    private fun onDismissUpdate() {
+        showUpdate = false
+        // Show announcement if available
+        updateInfo?.let {
+            if (it.announcementDate.isNotEmpty()) {
+                showAnnouncement = true
+                render()
+            }
+        }
+    }
+
+    private fun onUpdateNow() {
+        updateInfo?.let { openUpdateUrl(this, it.urlApk) }
+    }
 
     private fun checkStoragePermission() {
         storagePermissionGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -382,6 +441,43 @@ class MainActivity : ComponentActivity() {
                     onClearDotnet = { onClearDotnet(it) },
                     onCopyGameResources = { onCopyGameResources(it) }
                 )
+
+                // Update / Announcement dialogs
+                if (showBlocked) {
+                    BlockedDialog()
+                }
+
+                if (showUpdate) {
+                    updateInfo?.let { info ->
+                        val isZh = resources.configuration.locales[0]?.language == "zh"
+                        val announcement = if (isZh) info.announcementZh else info.announcementEn
+                        val currentVersion = try {
+                            packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+                        } catch (_: Exception) { "" }
+
+                        UpdateDialog(
+                            currentVersion = currentVersion,
+                            remoteVersion = info.version,
+                            updateMessage = announcement,
+                            onUpdate = { onUpdateNow() },
+                            onSkip = { onDismissUpdate() }
+                        )
+                    }
+                }
+
+                if (showAnnouncement) {
+                    updateInfo?.let { info ->
+                        val isZh = resources.configuration.locales[0]?.language == "zh"
+                        val announcement = if (isZh) info.announcementZh else info.announcementEn
+                        if (announcement.isNotEmpty()) {
+                            AnnouncementDialog(
+                                date = info.announcementDate,
+                                message = announcement,
+                                onDismiss = { onDismissAnnouncement() }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -180,6 +180,15 @@
     <string name="done">Done</string>
     <string name="share_saved">Message saved, switch back to game</string>
 
+    <!-- Update -->
+    <string name="update_announcement">Announcement</string>
+    <string name="update_available">Update Available</string>
+    <string name="update_version_info">Current: %1$s → New: %2$s</string>
+    <string name="update_now">Update</string>
+    <string name="update_skip">Skip</string>
+    <string name="update_blocked_title">Update Required</string>
+    <string name="update_blocked_message">A newer version is required to continue. Please update to the latest version.</string>
+
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">Launching selected game</string>
     <string name="bootstrap_status_preparing">Preparing target package…</string>
