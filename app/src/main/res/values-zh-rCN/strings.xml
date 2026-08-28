@@ -128,6 +128,8 @@
     <string name="about_project_dobby_desc">ARM64 原生 Hook 框架。用于 libfusion 中的 il2cpp_init hook。</string>
     <string name="about_project_cpp2il_name">Cpp2IL</string>
     <string name="about_project_cpp2il_desc">IL2CPP 逆向工程工具。用于 interop 程序集生成。</string>
+    <string name="about_project_bepinexandroid_name">BepInEx.Android.Launcher</string>
+    <string name="about_project_bepinexandroid_desc">通用 BepInEx Android 启动器 — 支持多游戏整合包管理。</string>
     <string name="about_dev_section">主要开发者</string>
     <string name="about_dev_names">HayashiUme</string>
     <string name="about_footer">©2026 NextBep</string>
