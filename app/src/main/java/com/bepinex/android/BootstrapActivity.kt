@@ -266,10 +266,36 @@ class BootstrapActivity : Activity() {
             NativeLibraryManager.addDataLibrary("unity")
             NativeLibraryManager.setupLibraryHooks(config)
 
+            // Hook UnityPlayer.kill() to prevent integrity check self-kill
+            hookUnityPlayerKill()
+
             val stagedFile = FusionConfigStore.write(this, config)
             BepInExLog.i("Fusion config staged: ${stagedFile.absolutePath}")
         } catch (t: Throwable) {
             BepInExLog.e("Failed to initialize Fusion", t)
+        }
+    }
+
+    /**
+     * Hook UnityPlayer.kill() to prevent integrity check self-kill.
+     * Unity's nativeRender() calls UnityPlayer.kill() when it detects
+     * a non-matching libunity.so. This hook makes kill() a no-op.
+     */
+    private fun hookUnityPlayerKill() {
+        try {
+            val killMethod = Class.forName("com.unity3d.player.UnityPlayer")
+                .getDeclaredMethod("kill")
+            killMethod.isAccessible = true
+
+            Pine.hook(killMethod, object : top.canyie.pine.callback.MethodHook() {
+                override fun beforeCall(callFrame: top.canyie.pine.Pine.CallFrame) {
+                    BepInExLog.i("UnityPlayer.kill() intercepted — blocking self-kill")
+                    callFrame.result = null
+                }
+            })
+            BepInExLog.i("Hooked UnityPlayer.kill()")
+        } catch (t: Throwable) {
+            BepInExLog.e("Failed to hook UnityPlayer.kill()", t)
         }
     }
 
