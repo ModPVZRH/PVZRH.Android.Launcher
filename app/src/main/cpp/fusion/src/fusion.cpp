@@ -173,9 +173,16 @@ static bool stage_fusion_config(const FusionConfig &config)
     LOGI("  unityPath:  %s", unityPath.c_str());
     LOGI("  il2cppPath: %s", il2cppPath.c_str());
 
-    /* Tell libmain where to find the libraries.
-     * Do NOT dlopen/hook libunity here — UnityPlayer is still constructing
-     * and loading libunity too early crashes some games (PVZ). */
+    /* FusionCore pattern: hook libunity BEFORE libmain loads it.
+     * Must use RTLD_GLOBAL so libmain's internal_load gets the same handle. */
+    if (!config.useOriginalLibUnity) {
+        if (!try_hook_libunity(unityPath.c_str(), (config.gameLibraryDir + "/libunity.so").c_str())) {
+            LOGW("try_hook_libunity failed — continuing anyway");
+        }
+    } else {
+        LOGI("Skipping libunity hook (useOriginalLibUnity=true)");
+    }
+
     libmain_set_override_unity_path(unityPath.c_str());
     libmain_set_override_il2cpp_path(il2cppPath.c_str());
 
@@ -286,10 +293,6 @@ bool fusion_bootstrap_from_libmain(JNIEnv *env)
     const char *il2cppPath = libmain_get_override_il2cpp_path();
     LOGI("unity path: %s", unityPath);
     LOGI("il2cpp path: %s", il2cppPath);
-
-    if (!try_hook_libunity(unityPath, unityPath)) {
-        LOGW("try_hook_libunity failed 鈥?continuing anyway");
-    }
 
     /* 2. Initialize IL2CPP 鈥?dlopen libil2cpp.so with RTLD_GLOBAL */
 
