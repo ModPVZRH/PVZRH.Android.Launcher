@@ -121,7 +121,8 @@ class MainActivity : ComponentActivity() {
                         UpdateChecker.hasUpdate(currentVersion, info.version) -> {
                             showUpdate = true
                         }
-                        info.announcementDate.isNotEmpty() -> {
+                        info.announcementDate.isNotEmpty()
+                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
                             showAnnouncement = true
                         }
                     }
@@ -133,14 +134,16 @@ class MainActivity : ComponentActivity() {
 
     private fun onDismissAnnouncement() {
         showAnnouncement = false
+        updateInfo?.let { AppSettings.setLastSeenAnnouncementDate(this, it.announcementDate) }
         render()
     }
 
     private fun onDismissUpdate() {
         showUpdate = false
-        // Show announcement if available
+        // Show announcement if available and not yet seen
         updateInfo?.let {
-            if (it.announcementDate.isNotEmpty()) {
+            if (it.announcementDate.isNotEmpty()
+                && it.announcementDate != AppSettings.getLastSeenAnnouncementDate(this)) {
                 showAnnouncement = true
                 render()
             }
