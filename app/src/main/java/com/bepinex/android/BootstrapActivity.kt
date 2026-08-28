@@ -336,7 +336,7 @@ class BootstrapActivity : Activity() {
         // Download unity base libraries using Android's HTTP stack (not .NET's).
         // .NET's HttpClient crashes on Android 16 with SIGSEGV in
         // AndroidCryptoNative_SSLStreamCreate. FusionCore mirrors this pattern
-        // in LibUnityDownloader.java for libunity.so.
+        // Hook redirection is handled by the native C++ layer.
         updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 50)
         val unityLibsDir = File(bepInExDir, "unity-libs")
         BepInExLog.i("Ensuring unity base libraries for Unity $unityVersion...")
