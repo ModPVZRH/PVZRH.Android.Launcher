@@ -158,7 +158,7 @@ class BootstrapActivity : Activity() {
             throw IllegalStateException("Failed to install base hooks", e)
         }
 
-        // 5. Hook game launcher's onCreate (optional — some launchers inherit it)
+        // 5. Hook game launcher's onCreate (optional -- some launchers inherit it)
         updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 85)
         val launcherClassName = launcher.className
         installLauncherOnCreateHook(gameContext, gameContext.classLoader, launcherClassName)
@@ -269,6 +269,9 @@ class BootstrapActivity : Activity() {
             // Hook UnityPlayer.kill() to prevent integrity check self-kill
             hookUnityPlayerKill()
 
+            // Hook game onDestroy to copy logs to modpack folder on exit
+            hookOnDestroyForLogCopy(launcherActivity)
+
             val stagedFile = FusionConfigStore.write(this, config)
             BepInExLog.i("Fusion config staged: ${stagedFile.absolutePath}")
         } catch (t: Throwable) {
@@ -289,13 +292,47 @@ class BootstrapActivity : Activity() {
 
             Pine.hook(killMethod, object : top.canyie.pine.callback.MethodHook() {
                 override fun beforeCall(callFrame: top.canyie.pine.Pine.CallFrame) {
-                    BepInExLog.i("UnityPlayer.kill() intercepted — blocking self-kill")
+                    BepInExLog.i("UnityPlayer.kill() intercepted -- blocking self-kill")
                     callFrame.result = null
                 }
             })
             BepInExLog.i("Hooked UnityPlayer.kill()")
         } catch (t: Throwable) {
             BepInExLog.e("Failed to hook UnityPlayer.kill()", t)
+        }
+    }
+
+    /**
+     * Hook game Activity.onDestroy() to copy BepInEx logs to modpack folder
+     * when the game exits.
+     */
+    private fun hookOnDestroyForLogCopy(activity: Activity?) {
+        try {
+            if (activity == null) return
+            val pkg = targetPackage ?: return
+            val activeModpack = intent.getStringExtra(EXTRA_ACTIVE_MODPACK)
+            if (activeModpack.isNullOrEmpty()) return
+
+            val onDestroyMethod = activity.javaClass.declaredMethods.firstOrNull { method ->
+                method.name == "onDestroy" && method.parameterTypes.isEmpty()
+            } ?: return
+
+            onDestroyMethod.isAccessible = true
+            Pine.hook(onDestroyMethod, object : top.canyie.pine.callback.MethodHook() {
+                override fun afterCall(callFrame: top.canyie.pine.Pine.CallFrame) {
+                    BepInExLog.i("Game onDestroy - copying logs to modpack folder")
+                    try {
+                        com.bepinex.android.modpack.ModpackManager()
+                            .persistRuntimeState(pkg, activeModpack)
+                        BepInExLog.i("Logs copied to modpack: $activeModpack")
+                    } catch (t: Throwable) {
+                        BepInExLog.e("Failed to persist logs on destroy", t)
+                    }
+                }
+            })
+            BepInExLog.i("Hooked onDestroy for log copy to modpack: $activeModpack")
+        } catch (t: Throwable) {
+            BepInExLog.e("Failed to hook onDestroy for log copy", t)
         }
     }
 
