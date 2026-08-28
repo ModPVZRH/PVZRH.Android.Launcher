@@ -131,8 +131,8 @@
     <string name="about_project_bepinexandroid_name">BepInEx.Android.Launcher</string>
     <string name="about_project_bepinexandroid_desc">通用 BepInEx Android 启动器 — 支持多游戏整合包管理。</string>
     <string name="about_dev_section">主要开发者</string>
-    <string name="about_dev_names">HayashiUme</string>
-    <string name="about_footer">©2026 NextBep</string>
+    <string name="about_dev_names">HayashiUme · Gaoshu · NextBep</string>
+    <string name="about_footer">©2026 Modded-PVZRH</string>
 
     <!-- Log -->
     <string name="log_title">BepInEx 日志</string>
