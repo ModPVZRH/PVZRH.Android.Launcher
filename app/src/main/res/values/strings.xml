@@ -108,7 +108,7 @@
 
     <!-- About -->
     <string name="about_title">PVZRH Launcher</string>
-    <string name="about_description">A BepInEx loader supporting Android</string>
+    <string name="about_description">A BepInEx loader supporting Android for PVZRH</string>
     <string name="about_version">Version %1$s (Build %2$d)</string>
     <string name="about_disclaimer">⚠ PVZRH Launcher is not officially supported by the BepInEx project.</string>
     <string name="about_projects_section">Projects Used &amp; Referenced</string>
@@ -133,7 +133,7 @@
 
     <string name="about_url_bepinex">https://github.com/BepInEx/BepInEx</string>
     <string name="about_url_fusioncore">https://github.com/All-Of-Us-Mods/FusionCore</string>
-    <string name="about_url_nextbep">https://github.com/HayashiUme/PVZRH.Android.Launcher</string>
+    <string name="about_url_nextbep">https://github.com/Modded-PVZRH/PVZRH.Launcher-release</string>
     <string name="about_url_bepinexandroid">https://github.com/NextBep/BepInEx.Android.Launcher</string>
     <string name="about_url_dotnet">https://github.com/dotnet/runtime</string>
     <string name="about_url_openssl">https://github.com/openssl/openssl</string>
@@ -141,8 +141,8 @@
     <string name="about_url_dobby">https://github.com/jmpews/Dobby</string>
     <string name="about_url_cpp2il">https://github.com/SamboyCoding/Cpp2IL</string>
     <string name="about_dev_section">Lead Developers</string>
-    <string name="about_dev_names">HayashiUme</string>
-    <string name="about_footer">©2026 NextBep</string>
+    <string name="about_dev_names">HayashiUme · Gaoshu · NextBep</string>
+    <string name="about_footer">©2026 Modded-PVZRH/</string>
 
     <!-- Log -->
     <string name="log_title">BepInEx Log</string>
