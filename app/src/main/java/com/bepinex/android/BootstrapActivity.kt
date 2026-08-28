@@ -302,10 +302,11 @@ class BootstrapActivity : Activity() {
         val copiedData = BepInExPaths.getCopiedDataDir(filesDir, targetPackage)
         val dataUnity3d = File(copiedData, "data.unity3d")
         if (!copiedData.exists() || copiedData.list()?.isEmpty() != false || !dataUnity3d.exists()) {
-            updateProgress("Copying game data...", "First launch may take a while", 35)
             BepInExLog.i("Copying game assets/bin/Data  -> ${copiedData.absolutePath}")
             try {
-                copyGameDataAssets(gameContext, copiedData)
+                copyGameDataAssets(gameContext, copiedData) { step, detail ->
+                    updateProgress(step, detail, 35)
+                }
             } catch (e: Exception) {
                 BepInExLog.e("Failed to copy Data assets (non-fatal)", e)
             }
@@ -338,7 +339,9 @@ class BootstrapActivity : Activity() {
         updateProgress("Downloading Unity libraries...", "", 50)
         val unityLibsDir = File(bepInExDir, "unity-libs")
         BepInExLog.i("Ensuring unity base libraries for Unity $unityVersion...")
-        val unityLibsReady = UnityLibsDownloader.ensureLibraries(unityLibsDir, unityVersion)
+        val unityLibsReady = UnityLibsDownloader.ensureLibraries(unityLibsDir, unityVersion) { detail ->
+            updateProgress("Downloading Unity libraries...", detail, 50)
+        }
         if (!unityLibsReady) {
             BepInExLog.w("Failed to download unity base libraries  -- disabling auto-download in BepInEx.cfg")
             // Prevent BepInEx from attempting to download via .NET HttpClient (which crashes)
@@ -426,21 +429,42 @@ class BootstrapActivity : Activity() {
 
     // Asset copying
 
-    private fun copyGameDataAssets(gameContext: Context, destDir: File) {
+    private fun copyGameDataAssets(gameContext: Context, destDir: File, onProgress: (String, String) -> Unit = { _, _ -> }) {
         destDir.mkdirs()
         try {
-            copyAssetsRecursive(gameContext.assets, "bin/Data", destDir)
-            val fileCount = destDir.walkTopDown().count { it.isFile }
-            BepInExLog.i("Copied $fileCount Data files (recursive)")
+            // Count files first for progress
+            val totalCount = countAssets(gameContext.assets, "bin/Data")
+            var copiedCount = 0
+            onProgress("Copying game data...", "0 / $totalCount files")
+            copyAssetsRecursive(gameContext.assets, "bin/Data", destDir) {
+                copiedCount++
+                onProgress("Copying game data...", "$copiedCount / $totalCount files")
+            }
+            BepInExLog.i("Copied $copiedCount Data files (recursive)")
         } catch (e: Exception) {
             BepInExLog.w("Game has no bin/Data assets: ${e.message}")
         }
     }
 
+    private fun countAssets(am: android.content.res.AssetManager, assetPath: String): Int {
+        val entries = try { am.list(assetPath) } catch (e: Exception) { null } ?: return 0
+        var count = 0
+        for (entry in entries) {
+            val childPath = "$assetPath/$entry"
+            try {
+                am.open(childPath).use { count++ }
+            } catch (e: java.io.FileNotFoundException) {
+                count += countAssets(am, childPath)
+            }
+        }
+        return count
+    }
+
     private fun copyAssetsRecursive(
         am: android.content.res.AssetManager,
         assetPath: String,
-        destDir: File
+        destDir: File,
+        onFileCopied: () -> Unit = {}
     ) {
         destDir.mkdirs()
         val entries = try { am.list(assetPath) } catch (e: Exception) { null } ?: return
@@ -452,9 +476,10 @@ class BootstrapActivity : Activity() {
                     val outFile = File(destDir, entry)
                     outFile.parentFile?.mkdirs()
                     outFile.outputStream().use { output -> input.copyTo(output) }
+                    onFileCopied()
                 }
             } catch (e: java.io.FileNotFoundException) {
-                copyAssetsRecursive(am, childPath, File(destDir, entry))
+                copyAssetsRecursive(am, childPath, File(destDir, entry), onFileCopied)
             } catch (e: Exception) {
                 BepInExLog.w("Copy asset $childPath: ${e.message}")
             }
