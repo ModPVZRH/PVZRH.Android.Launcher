@@ -390,6 +390,20 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, getString(R.string.done), Toast.LENGTH_SHORT).show()
     }
 
+    private fun onClearLibUnity(packageName: String) {
+        val appDataDir = BepInExPaths.getAppDataDir(filesDir, packageName)
+        val libunityDir = java.io.File(appDataDir, "libunity")
+        val resId = if (libunityDir.exists()) {
+            libunityDir.deleteRecursively()
+            BepInExLog.i("Cleared libunity cache: ${libunityDir.absolutePath}")
+            R.string.clear_libunity_done
+        } else {
+            BepInExLog.i("Clear libunity: nothing to clear at ${libunityDir.absolutePath}")
+            R.string.clear_libunity_none
+        }
+        Toast.makeText(this, getString(resId), Toast.LENGTH_SHORT).show()
+    }
+
     private fun onCopyGameResources(packageName: String) {
         scope.launch(Dispatchers.IO) {
             try {
@@ -441,6 +455,7 @@ class MainActivity : ComponentActivity() {
                     onLanguageChanged = { onLanguageChanged(it) },
                     onClearBepInEx = { onClearBepInEx(it) },
                     onClearDotnet = { onClearDotnet(it) },
+                    onClearLibUnity = { onClearLibUnity(it) },
                     onCopyGameResources = { onCopyGameResources(it) }
                 )
 

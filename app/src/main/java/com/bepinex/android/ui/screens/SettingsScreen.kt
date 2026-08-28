@@ -39,6 +39,7 @@ fun SettingsScreen(
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
+    onClearLibUnity: () -> Unit,
     onCopyGameResources: () -> Unit
 ) {
     var showThemeMenu by remember { mutableStateOf(false) }
@@ -192,6 +193,18 @@ fun SettingsScreen(
 
             item {
                 ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_clear_libunity)) },
+                    supportingContent = { Text(stringResource(R.string.settings_clear_libunity_desc)) },
+                    leadingContent = {
+                        Icon(Icons.Outlined.Delete, null,
+                            tint = MaterialTheme.colorScheme.error)
+                    },
+                    modifier = Modifier.clickable { confirmAction = "libunity" }
+                )
+            }
+
+            item {
+                ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_copy_resources)) },
                     supportingContent = { Text(stringResource(R.string.settings_copy_resources_desc)) },
                     leadingContent = {
@@ -280,6 +293,11 @@ fun SettingsScreen(
                 stringResource(R.string.confirm_clear_dotnet_title),
                 stringResource(R.string.confirm_clear_dotnet_msg),
                 { onClearDotnet(); confirmAction = null }
+            )
+            "libunity" -> Triple(
+                stringResource(R.string.confirm_clear_libunity_title),
+                stringResource(R.string.confirm_clear_libunity_msg),
+                { onClearLibUnity(); confirmAction = null }
             )
             "copy" -> Triple(
                 stringResource(R.string.confirm_copy_resources_title),

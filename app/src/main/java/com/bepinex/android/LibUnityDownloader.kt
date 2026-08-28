@@ -16,8 +16,14 @@ object LibUnityDownloader {
 
     private const val TAG = "LibUnityDownloader"
     private const val VERSION = "2022.3.62f1c1"
-    private const val BASE_URL =
+    private const val BASE_URL_RAW =
         "https://raw.githubusercontent.com/Modded-PVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
+    private const val BASE_URL_GH_PROXY =
+        "https://gh-proxy.org/https://raw.githubusercontent.com/Modded-PVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
+
+    // Try gh-proxy mirror first (China-reachable), then fall back to raw.githubusercontent.com
+    private fun getFileUrls(fileName: String): List<String> =
+        listOf("$BASE_URL_GH_PROXY/$fileName", "$BASE_URL_RAW/$fileName")
 
     fun ensureLibUnity(
         targetDir: File,
@@ -25,32 +31,36 @@ object LibUnityDownloader {
     ): File? {
         targetDir.mkdirs()
 
-        // Download libunity.so
+        // Download libunity.so (try gh-proxy first, fallback to github)
         val destLib = File(targetDir, "libunity.so")
         if (!(destLib.exists() && destLib.length() > 1024 * 1024)) {
-            onProgress("Downloading libunity.so...")
-            val url = "$BASE_URL/libunity.so"
-            BepInExLog.i("$TAG: Downloading libunity.so from $url")
-            val result = downloadAndVerify(url, destLib, onProgress)
+            var result: File? = null
+            for (url in getFileUrls("libunity.so")) {
+                onProgress("Downloading libunity.so...")
+                BepInExLog.i("$TAG: Downloading libunity.so from $url")
+                result = downloadAndVerify(url, destLib, onProgress)
+                if (result != null) break
+                BepInExLog.w("$TAG: Failed from $url, trying next mirror...")
+            }
             if (result == null) {
-                BepInExLog.e("$TAG: Failed to download libunity.so")
+                BepInExLog.e("$TAG: Failed to download libunity.so from all mirrors")
                 return null
             }
         } else {
             BepInExLog.i("$TAG: Using cached libunity.so (${destLib.length()} bytes)")
         }
 
-        // Download libunity.sym.so
+        // Download libunity.sym.so (optional)
         val destSym = File(targetDir, "libunity.sym.so")
         if (!(destSym.exists() && destSym.length() > 1024)) {
-            onProgress("Downloading libunity.sym.so...")
-            val url = "$BASE_URL/libunity.sym.so"
-            BepInExLog.i("$TAG: Downloading libunity.sym.so from $url")
-            val result = downloadAndVerify(url, destSym, onProgress, minSize = 1024)
-            if (result == null) {
-                BepInExLog.e("$TAG: Failed to download libunity.sym.so")
-                // sym.so is optional — continue without it, hook will fail gracefully
+            for (url in getFileUrls("libunity.sym.so")) {
+                onProgress("Downloading libunity.sym.so...")
+                BepInExLog.i("$TAG: Downloading libunity.sym.so from $url")
+                val result = downloadAndVerify(url, destSym, onProgress, minSize = 1024)
+                if (result != null) break
+                BepInExLog.w("$TAG: Failed sym from $url, trying next...")
             }
+            // sym.so is optional — continue without it, hook will fail gracefully
         } else {
             BepInExLog.i("$TAG: Using cached libunity.sym.so (${destSym.length()} bytes)")
         }

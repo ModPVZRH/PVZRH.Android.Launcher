@@ -78,6 +78,8 @@
     <string name="settings_clear_bepinex_desc">Delete all BepInEx files and interop assemblies. Required for re-extraction on next launch.</string>
     <string name="settings_clear_dotnet">Clear .NET Data</string>
     <string name="settings_clear_dotnet_desc">Delete the .NET runtime and copied game data. Files will be re-extracted on next launch.</string>
+    <string name="settings_clear_libunity">Clear libunity Cache</string>
+    <string name="settings_clear_libunity_desc">Delete the downloaded unstripped libunity.so files. Will be re-downloaded on next launch.</string>
     <string name="settings_copy_resources">Copy Game Resources</string>
     <string name="settings_copy_resources_desc">Copy the game\'s asset data to local storage for interop generation.</string>
     <string name="settings_theme">Theme</string>
@@ -89,6 +91,10 @@
     <string name="confirm_clear_bepinex_msg">This will delete all BepInEx files and interop assemblies for this game. You will need to re-extract on next launch.</string>
     <string name="confirm_clear_dotnet_title">Clear .NET Data?</string>
     <string name="confirm_clear_dotnet_msg">This will delete the .NET runtime and copied game data for this game. Files will be re-extracted on next launch.</string>
+    <string name="confirm_clear_libunity_title">Clear libunity Cache?</string>
+    <string name="confirm_clear_libunity_msg">This will delete the downloaded unstripped libunity.so files. They will be re-downloaded on next launch.</string>
+    <string name="clear_libunity_done">libunity cache cleared</string>
+    <string name="clear_libunity_none">No libunity cache to clear</string>
     <string name="confirm_copy_resources_title">Copy Game Resources?</string>
     <string name="confirm_copy_resources_msg">This will copy the game\'s asset data from the APK to local storage.</string>
     <string name="confirm_yes">Yes</string>

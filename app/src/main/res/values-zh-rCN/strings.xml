@@ -78,6 +78,8 @@
     <string name="settings_clear_bepinex_desc">删除所有 BepInEx 文件和 interop 程序集。下次启动需要重新解压。</string>
     <string name="settings_clear_dotnet">清空 .NET 数据</string>
     <string name="settings_clear_dotnet_desc">删除 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
+    <string name="settings_clear_libunity">清除 libunity 缓存</string>
+    <string name="settings_clear_libunity_desc">删除已下载的未裁剪 libunity.so 文件。下次启动将重新下载。</string>
     <string name="settings_copy_resources">复制游戏资源库</string>
     <string name="settings_copy_resources_desc">将游戏的资源数据从 APK 复制到本地存储，用于 interop 生成。</string>
     <string name="settings_theme">主题</string>
@@ -89,6 +91,10 @@
     <string name="confirm_clear_bepinex_msg">这将删除此游戏的所有 BepInEx 文件和 interop 程序集。下次启动需要重新解压。</string>
     <string name="confirm_clear_dotnet_title">清空 .NET 数据？</string>
     <string name="confirm_clear_dotnet_msg">这将删除此游戏的 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
+    <string name="confirm_clear_libunity_title">清除 libunity 缓存？</string>
+    <string name="confirm_clear_libunity_msg">这将删除已下载的未裁剪 libunity.so 文件。下次启动将重新下载。</string>
+    <string name="clear_libunity_done">libunity 缓存已清除</string>
+    <string name="clear_libunity_none">没有可清除的 libunity 缓存</string>
     <string name="confirm_copy_resources_title">复制游戏资源？</string>
     <string name="confirm_copy_resources_msg">将游戏 APK 中的资源数据复制到本地存储。</string>
     <string name="confirm_yes">确定</string>

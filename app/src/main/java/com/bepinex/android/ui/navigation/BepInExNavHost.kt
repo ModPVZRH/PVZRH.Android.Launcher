@@ -92,6 +92,7 @@ fun BepInExNavHost(
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onClearBepInEx: (String) -> Unit,
     onClearDotnet: (String) -> Unit,
+    onClearLibUnity: (String) -> Unit,
     onCopyGameResources: (String) -> Unit
 ) {
     val navController = rememberNavController()
@@ -523,6 +524,7 @@ fun BepInExNavHost(
                         },
                         onClearBepInEx = { onClearBepInEx(packageName) },
                         onClearDotnet = { onClearDotnet(packageName) },
+                        onClearLibUnity = { onClearLibUnity(packageName) },
                         onCopyGameResources = { onCopyGameResources(packageName) }
                     )
                 }
