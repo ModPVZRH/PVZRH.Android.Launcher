@@ -444,7 +444,11 @@ class MainActivity : ComponentActivity() {
 
                 // Update / Announcement dialogs
                 if (showBlocked) {
-                    BlockedDialog()
+                    val isZh = resources.configuration.locales[0]?.language == "zh"
+                    val blockedMsg = updateInfo?.let {
+                        if (isZh) it.announcementZh else it.announcementEn
+                    } ?: ""
+                    BlockedDialog(message = blockedMsg)
                 }
 
                 if (showUpdate) {

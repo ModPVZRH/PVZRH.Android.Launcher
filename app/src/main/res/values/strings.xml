@@ -186,8 +186,8 @@
     <string name="update_version_info">Current: %1$s → New: %2$s</string>
     <string name="update_now">Update</string>
     <string name="update_skip">Skip</string>
-    <string name="update_blocked_title">Update Required</string>
-    <string name="update_blocked_message">A newer version is required to continue. Please update to the latest version.</string>
+    <string name="update_blocked_title">Service Discontinued</string>
+    <string name="update_blocked_message">This application has been discontinued and is no longer available.</string>
 
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">Launching selected game</string>

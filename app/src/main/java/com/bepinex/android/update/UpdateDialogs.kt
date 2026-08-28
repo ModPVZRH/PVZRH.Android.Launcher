@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -13,12 +14,72 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bepinex.android.R
+
+/**
+ * Render text with [text](url) markdown links as clickable annotated text.
+ */
+@Composable
+fun MarkdownText(text: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val linkColor = MaterialTheme.colorScheme.primary
+    val parts = text.split(Regex("""(\[[^\]]+\]\([^)]+\))"""))
+
+    val annotated = buildAnnotatedString {
+        var i = 0
+        while (i < parts.size) {
+            val part = parts[i]
+            if (part.isNotEmpty()) {
+                append(part)
+            }
+            i++
+            if (i < parts.size) {
+                val linkMatch = Regex("""\[([^\]]+)\]\(([^)]+)\)""").find(parts[i - 1])
+                    ?: Regex("""\[([^\]]+)\]\(([^)]+)\)""").find(parts[i])
+                // Actually check current part
+                i--
+                val currentPart = parts[i]
+                val m = Regex("""\[([^\]]+)\]\(([^)]+)\)""").find(currentPart)
+                if (m != null) {
+                    val linkText = m.groupValues[1]
+                    val url = m.groupValues[2]
+                    val start = length
+                    append(linkText)
+                    addStyle(
+                        SpanStyle(
+                            color = linkColor,
+                            textDecoration = TextDecoration.Underline
+                        ),
+                        start,
+                        length
+                    )
+                    addStringAnnotation("URL", url, start, length)
+                }
+                i++
+            }
+        }
+    }
+
+    ClickableText(
+        text = annotated,
+        modifier = modifier,
+        onClick = { offset ->
+            annotated.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it.item)))
+                } catch (_: Exception) { }
+            }
+        }
+    )
+}
 
 @Composable
 fun AnnouncementDialog(
@@ -106,10 +167,8 @@ fun UpdateDialog(
                 )
 
                 if (updateMessage.isNotEmpty()) {
-                    Text(
+                    MarkdownText(
                         text = updateMessage,
-                        style = MaterialTheme.typography.bodyLarge,
-                        lineHeight = 24.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                 }
@@ -132,7 +191,7 @@ fun UpdateDialog(
 }
 
 @Composable
-fun BlockedDialog() {
+fun BlockedDialog(message: String) {
     Dialog(
         onDismissRequest = { },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
@@ -154,11 +213,18 @@ fun BlockedDialog() {
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                Text(
-                    text = stringResource(R.string.update_blocked_message),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                if (message.isNotEmpty()) {
+                    MarkdownText(
+                        text = message,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.update_blocked_message),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
             }
         }
     }

@@ -27,6 +27,12 @@ object UpdateChecker {
         val urlLib: String
     )
 
+    /** Parse [text](url) markdown links into pairs */
+    fun parseLinks(text: String): List<Pair<String, String>> {
+        val regex = Regex("""\[([^\]]+)\]\(([^)]+)\)""")
+        return regex.findAll(text).map { it.groupValues[1] to it.groupValues[2] }.toList()
+    }
+
     private fun isChinese(context: Context): Boolean {
         val lang = context.resources.configuration.locales[0]?.language
         return lang == "zh"
