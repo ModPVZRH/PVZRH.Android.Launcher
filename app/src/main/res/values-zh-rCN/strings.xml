@@ -56,6 +56,8 @@
     <string name="modpack_imported">已导入: %s</string>
     <string name="modpack_no_mods">此整合包中暂无模组</string>
     <string name="modpack_add_mod">添加模组</string>
+    <string name="modpack_browse_mod_files">浏览模组文件</string>
+    <string name="modpack_browse_mod_files_desc">查看此整合包中的所有文件和目录</string>
     <string name="modpack_target_game">目标游戏：%s</string>
     <string name="modpack_mod_count">%d 个模组</string>
     <string name="modpack_active">已激活</string>
@@ -67,6 +69,12 @@
     <string name="config_editor_discard_title">放弃更改？</string>
     <string name="config_editor_discard_msg">您有未保存的更改，确定要放弃吗？</string>
     <string name="config_editor_no_configs">无配置文件</string>
+
+    <!-- Mod File Browser -->
+    <string name="mod_file_browser_title">模组文件</string>
+    <string name="mod_file_browser_empty">此目录为空</string>
+    <string name="mod_file_browser_missing">plugins 目录不存在</string>
+    <string name="mod_file_browser_directory">目录</string>
 
     <!-- Settings sections -->
     <string name="settings_title">设置</string>

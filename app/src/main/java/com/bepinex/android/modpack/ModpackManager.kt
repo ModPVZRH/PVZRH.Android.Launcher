@@ -143,7 +143,13 @@ class ModpackManager {
 
     fun listMods(packageName: String, modpackName: String): List<File> {
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        return pluginsDir.listFiles()?.filter { it.isFile && it.extension == "dll" } ?: emptyList()
+        return if (pluginsDir.isDirectory) {
+            pluginsDir.walkTopDown()
+                .filter { it.isFile && it.extension == "dll" }
+                .toList()
+        } else {
+            emptyList()
+        }
     }
 
     fun listConfigs(packageName: String, modpackName: String): List<File> {
@@ -190,9 +196,10 @@ class ModpackManager {
     fun removeMod(file: File): Boolean {
         return file.delete().also {
             if (it) {
-                // Infer packageName and modpackName from path
+                // Infer packageName and modpackName from path at any plugin depth.
                 // Path: .../modpacks/{modpackName}/plugins/{file}
-                val pluginsDir = file.parentFile
+                val pluginsDir = generateSequence(file.parentFile) { it.parentFile }
+                    .firstOrNull { it.name == "plugins" }
                 val modpackDir = pluginsDir?.parentFile
                 val modpacksDir = modpackDir?.parentFile
                 val gameRootDir = modpacksDir?.parentFile

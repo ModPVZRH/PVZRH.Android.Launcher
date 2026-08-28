@@ -31,7 +31,8 @@ fun ModpackDetailScreen(
     onDeleteMod: (File) -> Unit,
     onOpenConfig: (File) -> Unit,
     onViewLog: () -> Unit,
-    onExportModpack: () -> Unit
+    onExportModpack: () -> Unit,
+    onBrowseModFiles: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -131,6 +132,46 @@ fun ModpackDetailScreen(
                 }
             }
 
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    onClick = onBrowseModFiles
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.FolderOpen,
+                            null,
+                            Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.modpack_browse_mod_files),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                stringResource(R.string.modpack_browse_mod_files_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
             // Config files section
             if (configFiles.isNotEmpty()) {
                 item {

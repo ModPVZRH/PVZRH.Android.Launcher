@@ -56,6 +56,8 @@
     <string name="modpack_imported">Imported: %s</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Add Mod</string>
+    <string name="modpack_browse_mod_files">Browse Mod Files</string>
+    <string name="modpack_browse_mod_files_desc">View all files and directories in this modpack</string>
     <string name="modpack_target_game">For: %s</string>
     <string name="modpack_mod_count">%d mod(s)</string>
     <string name="modpack_active">Active</string>
@@ -67,6 +69,12 @@
     <string name="config_editor_discard_title">Discard Changes?</string>
     <string name="config_editor_discard_msg">You have unsaved changes. Discard them?</string>
     <string name="config_editor_no_configs">No config files</string>
+
+    <!-- Mod File Browser -->
+    <string name="mod_file_browser_title">Mod Files</string>
+    <string name="mod_file_browser_empty">This directory is empty</string>
+    <string name="mod_file_browser_missing">The plugins directory does not exist</string>
+    <string name="mod_file_browser_directory">Directory</string>
 
     <!-- Settings sections -->
     <string name="settings_title">Settings</string>
