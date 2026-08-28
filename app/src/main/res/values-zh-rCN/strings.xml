@@ -108,9 +108,9 @@
 
     <!-- About -->
     <string name="about_title">PVZRH Launcher</string>
-    <string name="about_description">一个支持 Android 的 BepInEx 加载器</string>
+    <string name="about_description">第一个针对 PVZ 融合版的 BepInEx 启动器</string>
     <string name="about_version">版本 %1$s (Build %2$d)</string>
-    <string name="about_disclaimer">⚠ BepInEx Launcher 未获得 BepInEx 项目的官方支持。</string>
+    <string name="about_disclaimer">⚠ PVZRH Launcher 未获得 BepInEx 项目的官方支持。</string>
     <string name="about_projects_section">本项目使用 / 借鉴的项目</string>
     <string name="about_project_bepinex_name">BepInEx</string>
     <string name="about_project_bepinex_desc">Unity IL2CPP 模组框架 — 核心插件加载器。BepInEx 6.0.0-pre.2，由 BepInEx 团队开发。</string>

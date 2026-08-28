@@ -133,7 +133,7 @@
 
     <string name="about_url_bepinex">https://github.com/BepInEx/BepInEx</string>
     <string name="about_url_fusioncore">https://github.com/All-Of-Us-Mods/FusionCore</string>
-    <string name="about_url_nextbep">https://github.com/Modded-PVZRH/PVZRH.Launcher-release</string>
+    <string name="about_url_nextbep">https://github.com/NextBep/BepInEx.Android</string>
     <string name="about_url_bepinexandroid">https://github.com/NextBep/BepInEx.Android.Launcher</string>
     <string name="about_url_dotnet">https://github.com/dotnet/runtime</string>
     <string name="about_url_openssl">https://github.com/openssl/openssl</string>
