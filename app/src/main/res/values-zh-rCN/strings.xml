@@ -187,6 +187,7 @@
     <string name="bootstrap_status_copy_assets">正在复制 Unity 数据…</string>
     <string name="bootstrap_status_detecting_version">正在检测 Unity 版本…</string>
     <string name="bootstrap_status_downloading_libunity">正在下载未裁剪的 libunity…</string>
+    <string name="bootstrap_status_preparing_unity_libraries">正在准备 Unity 基础库…</string>
     <string name="bootstrap_status_extracting_runtime">正在解压运行时文件…</string>
     <string name="bootstrap_status_registering_libraries">正在注册原生库…</string>
     <string name="bootstrap_status_installing_hooks">正在安装 Hook…</string>

@@ -37,6 +37,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private fun bottomTabIndex(route: String?): Int? = when (route) {
+    NavRoutes.GAMES -> 0
+    NavRoutes.MODPACKS -> 1
+    NavRoutes.SETTINGS -> 2
+    else -> null
+}
+
+private fun bottomTabEnterTransition(
+    initialRoute: String?,
+    targetRoute: String?
+): EnterTransition? {
+    val initialIndex = bottomTabIndex(initialRoute) ?: return null
+    val targetIndex = bottomTabIndex(targetRoute) ?: return null
+    if (initialIndex == targetIndex) return null
+
+    val offset = if (targetIndex > initialIndex) 1 else -1
+    return slideInHorizontally(tween(300)) { width -> width * offset } + fadeIn(tween(300))
+}
+
+private fun bottomTabExitTransition(
+    initialRoute: String?,
+    targetRoute: String?
+): ExitTransition? {
+    val initialIndex = bottomTabIndex(initialRoute) ?: return null
+    val targetIndex = bottomTabIndex(targetRoute) ?: return null
+    if (initialIndex == targetIndex) return null
+
+    val offset = if (targetIndex > initialIndex) -1 else 1
+    return slideOutHorizontally(tween(300)) { width -> width * offset } + fadeOut(tween(300))
+}
+
 /**
  * Root navigation host with bottom navigation bar.
  */
@@ -236,8 +267,30 @@ fun BepInExNavHost(
                 // Main game screen
                 composable(
                     route = NavRoutes.GAMES,
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    exitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                    },
+                    exitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                    },
+                    popEnterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popExitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    }
                 ) {
                     GameScreen(
                         detectedGames = detectedGames,
@@ -269,8 +322,30 @@ fun BepInExNavHost(
                 composable(
                     route = NavRoutes.MODPACKS,
                     arguments = listOf(navArgument("packageName") { type = NavType.StringType }),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                    },
+                    exitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popEnterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popExitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                    }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     // Refresh modpacks
@@ -395,8 +470,30 @@ fun BepInExNavHost(
                 composable(
                     route = NavRoutes.SETTINGS,
                     arguments = listOf(navArgument("packageName") { type = NavType.StringType }),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                    },
+                    exitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popEnterTransition = {
+                        bottomTabEnterTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        )
+                    },
+                    popExitTransition = {
+                        bottomTabExitTransition(
+                            initialState.destination.route,
+                            targetState.destination.route
+                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                    }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val settingsContext = LocalContext.current

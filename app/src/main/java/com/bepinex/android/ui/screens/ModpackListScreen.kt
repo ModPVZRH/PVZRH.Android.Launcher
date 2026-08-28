@@ -48,11 +48,6 @@ fun ModpackListScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.modpack_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
-                    }
-                },
                 actions = {
                     IconButton(onClick = onImportModpack) {
                         Icon(Icons.Filled.FileOpen, stringResource(R.string.modpack_import))

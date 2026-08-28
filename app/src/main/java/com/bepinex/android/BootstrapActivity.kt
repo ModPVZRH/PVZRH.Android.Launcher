@@ -32,7 +32,6 @@ class BootstrapActivity : Activity() {
 
     companion object {
         const val EXTRA_TARGET_PACKAGE = "target_package"
-        const val EXTRA_USE_ORIGINAL_LIBUNITY = "og_libunity"
         const val EXTRA_ACTIVE_MODPACK = "active_modpack" // null/empty = vanilla
 
         private const val BACKUP_UNITY_VERSION = "2017.0.0"
@@ -131,9 +130,9 @@ class BootstrapActivity : Activity() {
         BepInExLog.i("Game context: ${gameContext.packageCodePath}")
 
         // 3. Prepare Fusion state (paths, extract zips, copy data, detect version)
-        val useOriginalLibUnity = intent.getBooleanExtra(EXTRA_USE_ORIGINAL_LIBUNITY, false)
         val useUnstripped = AppSettings.isUseUnstrippedLibUnity(this)
-        preparedConfig = prepareFusionState(targetPackage, gameContext, useOriginalLibUnity, useUnstripped)
+        BepInExLog.i("Use unstripped libunity: $useUnstripped")
+        preparedConfig = prepareFusionState(targetPackage, gameContext, useUnstripped)
 
         // 4. Register game native libraries (match FusionCore: no exclusions)
         updateProgress(getString(R.string.bootstrap_status_registering_libraries), "", 60)
@@ -279,7 +278,6 @@ class BootstrapActivity : Activity() {
     private fun prepareFusionState(
         targetPackage: String,
         gameContext: Context,
-        useOriginalLibUnity: Boolean,
         useUnstripped: Boolean = false
     ): FusionConfig {
         val gameLibDir = gameContext.applicationInfo.nativeLibraryDir
@@ -351,25 +349,35 @@ class BootstrapActivity : Activity() {
             }
         BepInExLog.i("Unity version: $unityVersion")
 
-        // Download unstripped libunity.so if setting is enabled
-        if (useUnstripped && !useOriginalLibUnity) {
+        // Download unstripped libunity.so only when explicitly enabled.
+        // Fall back to the game's original library if the download fails.
+        val useOriginalLibUnity = if (useUnstripped) {
             updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 52)
             BepInExLog.i("Downloading unstripped libunity.so...")
             val unstrippedDir = File(File(appDataDir, "libunity"), "unstripped")
-            LibUnityDownloader.ensureLibUnity(unstrippedDir) { detail ->
+            val downloadedLibUnity = LibUnityDownloader.ensureLibUnity(unstrippedDir) { detail ->
                 updateProgress(getString(R.string.bootstrap_status_downloading_libunity), detail, 52)
             }
+            if (downloadedLibUnity == null) {
+                BepInExLog.w("Unstripped libunity unavailable; using the game's original libunity.so")
+                true
+            } else {
+                false
+            }
+        } else {
+            BepInExLog.i("Unstripped libunity disabled; using the game's original libunity.so")
+            true
         }
 
         // Download unity base libraries using Android's HTTP stack (not .NET's).
         // .NET's HttpClient crashes on Android 16 with SIGSEGV in
         // AndroidCryptoNative_SSLStreamCreate. FusionCore mirrors this pattern
         // Hook redirection is handled by the native C++ layer.
-        updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 50)
+        updateProgress(getString(R.string.bootstrap_status_preparing_unity_libraries), "", 50)
         val unityLibsDir = File(bepInExDir, "unity-libs")
         BepInExLog.i("Ensuring unity base libraries for Unity $unityVersion...")
         val unityLibsReady = UnityLibsDownloader.ensureLibraries(unityLibsDir, unityVersion) { detail ->
-            updateProgress(getString(R.string.bootstrap_status_downloading_libunity), detail, 50)
+            updateProgress(getString(R.string.bootstrap_status_preparing_unity_libraries), detail, 50)
         }
         if (!unityLibsReady) {
             BepInExLog.w("Failed to download unity base libraries  -- disabling auto-download in BepInEx.cfg")
