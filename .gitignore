@@ -75,7 +75,6 @@ bld/
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
-.ideal/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
@@ -428,6 +427,7 @@ FodyWeavers.xsd
 
 # IDE
 .idea/
+.android/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
