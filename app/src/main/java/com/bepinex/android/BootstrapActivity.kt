@@ -36,11 +36,6 @@ class BootstrapActivity : Activity() {
         private const val BACKUP_UNITY_VERSION = "2017.0.0"
         private const val GLOBAL_METADATA_FILE = "global-metadata.dat"
 
-        // 硬编码5s覆盖完整性检查kill（~331ms）。
-        // 更高级做法：基于 il2cpp_init 完成后放行。
-        private const val KILL_BLOCK_WINDOW_MS = 5_000L
-        private var killInitTimestamp = 0L
-
         // Unity version pattern: X.Y.Z[abcfp]N... optionally with suffix
         private val UNITY_VERSION_PATTERN =
             Pattern.compile("^\\d+\\.\\d+\\.\\d+(?:[abcfp]\\d+.*|rc\\d+.*)?$")
@@ -262,35 +257,6 @@ class BootstrapActivity : Activity() {
 
     // Initialize Fusion
 
-    /**
-     * Hook UnityPlayer.kill() to prevent integrity check self-kill.
-     * Blocks the call during the first [KILL_BLOCK_WINDOW_MS] after init,
-     * then allows normal kill() through so Unity can exit cleanly.
-     */
-    private fun hookUnityPlayerKill() {
-        killInitTimestamp = System.currentTimeMillis()
-        try {
-            val killMethod = Class.forName("com.unity3d.player.UnityPlayer")
-                .getDeclaredMethod("kill")
-            killMethod.isAccessible = true
-
-            Pine.hook(killMethod, object : top.canyie.pine.callback.MethodHook() {
-                override fun beforeCall(callFrame: top.canyie.pine.Pine.CallFrame) {
-                    val elapsed = System.currentTimeMillis() - killInitTimestamp
-                    if (elapsed < KILL_BLOCK_WINDOW_MS) {
-                        BepInExLog.i("UnityPlayer.kill() intercepted (${elapsed}ms) -- blocking integrity-check kill")
-                        callFrame.result = null
-                    } else {
-                        BepInExLog.i("UnityPlayer.kill() allowed after ${elapsed}ms -- letting process exit")
-                    }
-                }
-            })
-            BepInExLog.i("Hooked UnityPlayer.kill() (block window: ${KILL_BLOCK_WINDOW_MS}ms)")
-        } catch (t: Throwable) {
-            BepInExLog.e("Failed to hook UnityPlayer.kill()", t)
-        }
-    }
-
     private fun initializeFusion(launcherActivity: Activity?, bundle: Bundle?) {
         if (!fusionInitialized.compareAndSet(false, true)) return
 
@@ -306,9 +272,6 @@ class BootstrapActivity : Activity() {
             NativeLibraryManager.addDataLibrary("il2cpp")
             NativeLibraryManager.addDataLibrary("unity")
             NativeLibraryManager.setupLibraryHooks(config)
-
-            // Hook UnityPlayer.kill() to prevent integrity check self-kill
-            hookUnityPlayerKill()
 
             // Hook game onDestroy to copy logs to modpack folder on exit
             hookOnDestroyForLogCopy(launcherActivity)

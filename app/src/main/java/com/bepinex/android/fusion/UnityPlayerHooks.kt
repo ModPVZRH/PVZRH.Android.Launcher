@@ -18,6 +18,7 @@ import top.canyie.pine.callback.MethodHook
 import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Pine hooks on UnityPlayer constructor(s).
@@ -30,6 +31,11 @@ import java.util.concurrent.CountDownLatch
 object UnityPlayerHooks {
 
     private const val TAG = "UnityPlayerHooks"
+    private const val KILL_BLOCK_WINDOW_MS = 5_000L
+
+    private val killHookInstalled = AtomicBoolean(false)
+    @Volatile
+    private var killInitTimestamp = 0L
 
     private val unityPlayerClassNames = arrayOf(
         "com.unity3d.player.UnityPlayer",
@@ -76,6 +82,7 @@ object UnityPlayerHooks {
 
         BepInExLog.i("Found ${constructors.size} UnityPlayer constructor(s) to hook")
 
+        installKillHook(unityPlayerClass)
         installActivityContextHook(classLoader, gameContext, fusionApplication)
 
         // Find activity field on UnityPlayer (usually m_Activity)
@@ -144,6 +151,63 @@ object UnityPlayerHooks {
                     }, 2000)
                 }
             })
+        }
+    }
+
+    /**
+     * Installs the kill() hook using the UnityPlayer class resolved from the
+     * game ClassLoader. This must not use Class.forName(), which would resolve
+     * against the launcher's ClassLoader in release builds.
+     */
+    private fun installKillHook(unityPlayerClass: Class<*>) {
+        if (!killHookInstalled.compareAndSet(false, true)) {
+            BepInExLog.i("UnityPlayer.kill() hook already installed")
+            return
+        }
+
+        try {
+            val killMethod = generateSequence(unityPlayerClass) { it.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredMethods.firstOrNull { method ->
+                        method.name == "kill" && method.parameterCount == 0
+                    }
+                }
+                .firstOrNull()
+                ?: throw NoSuchMethodException(
+                    "kill() not found in ${unityPlayerClass.name} hierarchy"
+                )
+
+            killMethod.isAccessible = true
+            killInitTimestamp = System.currentTimeMillis()
+
+            Pine.hook(killMethod, object : MethodHook() {
+                override fun beforeCall(callFrame: Pine.CallFrame) {
+                    val elapsed = System.currentTimeMillis() - killInitTimestamp
+                    if (elapsed < KILL_BLOCK_WINDOW_MS) {
+                        BepInExLog.i(
+                            "UnityPlayer.kill() intercepted (${elapsed}ms) -- " +
+                                "blocking integrity-check kill"
+                        )
+                        callFrame.result = null
+                    } else {
+                        BepInExLog.i(
+                            "UnityPlayer.kill() allowed after ${elapsed}ms -- " +
+                                "letting process exit"
+                        )
+                    }
+                }
+            })
+
+            BepInExLog.i(
+                "Hooked ${killMethod.declaringClass.name}.kill() " +
+                    "using game ClassLoader (block window: ${KILL_BLOCK_WINDOW_MS}ms)"
+            )
+        } catch (t: Throwable) {
+            killHookInstalled.set(false)
+            throw IllegalStateException(
+                "Failed to hook ${unityPlayerClass.name}.kill()",
+                t
+            )
         }
     }
 
