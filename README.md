@@ -1,6 +1,8 @@
 # PVZRH Android Launcher
 
-Dedicated Android launcher and mod manager for PlantsVsZombiesRH.
+[English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Português (BR)](README.pt-BR.md) | [Русский](README.ru.md) | [日本語](README.ja.md)
+
+Dedicated Android launcher and mod manager for Plants Vs Zombies Fusion.
 
 ## Target
 
@@ -11,13 +13,14 @@ Dedicated Android launcher and mod manager for PlantsVsZombiesRH.
 - Launcher package: `com.pvzrh.android.launcher`
 
 ## Credits
+
 - [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
 - [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
 - [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
 
 ## Build
 
--- there a ci build in github action page btw
+There is a CI build in the GitHub Actions page.
 
 Run from this directory:
 
