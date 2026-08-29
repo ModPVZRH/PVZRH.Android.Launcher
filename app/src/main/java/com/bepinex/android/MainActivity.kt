@@ -639,7 +639,10 @@ class MainActivity : ComponentActivity() {
                     onClearDotnet = { onClearDotnet(it) },
                     onClearLibUnity = { onClearLibUnity(it) },
                     onCopyGameResources = { onCopyGameResources(it) },
-                    onExportLogs = { onExportLogs() }
+                    onExportLogs = { onExportLogs() },
+                    onShowAnnouncement = {
+                        if (updateInfo != null) showAnnouncement = true
+                    }
                     )
                 } else {
                     StoragePermissionContent(onGrant = { requestStoragePermission() })

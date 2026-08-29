@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.outlined.Announcement
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.Button
@@ -83,7 +84,8 @@ fun GameScreen(
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
     onRescan: () -> Unit,
     onLaunch: () -> Unit,
-    onExportLogs: () -> Unit
+    onExportLogs: () -> Unit,
+    onShowAnnouncement: () -> Unit = {}
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -109,6 +111,12 @@ fun GameScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
+                    IconButton(onClick = onShowAnnouncement) {
+                        Icon(
+                            imageVector = Icons.Outlined.Announcement,
+                            contentDescription = stringResource(R.string.update_announcement)
+                        )
+                    }
                     IconButton(
                         onClick = onRescan,
                         enabled = !isScanning
