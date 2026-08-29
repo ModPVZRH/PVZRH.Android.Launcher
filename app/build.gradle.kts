@@ -4,17 +4,22 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Increment once for an assemble/build invocation, not for help or clean-only
-// commands, and persist the CI number beside the project.
+// CI version: auto-increment locally, or use -PciVersion from GitHub Actions
 val ciVersionFile = rootProject.file("ci-version.txt")
 val isBuildInvocation = gradle.startParameter.taskNames.any {
     it.contains("assemble", ignoreCase = true) || it.contains("build", ignoreCase = true)
 }
-val storedCiBuildNumber = ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181
-val ciBuildNumber = if (isBuildInvocation) {
-    (storedCiBuildNumber + 1).also { ciVersionFile.writeText(it.toString()) }
+val ciBuildNumber: Int = if (project.hasProperty("ciVersion")) {
+    // CI: use provided version, do NOT write back
+    project.property("ciVersion").toString().toInt()
 } else {
-    storedCiBuildNumber
+    // Local: auto-increment
+    val stored = ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181
+    if (isBuildInvocation) {
+        (stored + 1).also { ciVersionFile.writeText(it.toString()) }
+    } else {
+        stored
+    }
 }
 
 android {
