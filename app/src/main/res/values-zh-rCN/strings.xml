@@ -158,6 +158,18 @@
     <string name="about_dev_section">主要开发者</string>
     <string name="about_dev_names">HayashiUme · Gaoshu · NextBep</string>
     <string name="about_footer">©2026 Modded-PVZRH</string>
+    <string name="about_sponsor">赞助</string>
+    <string name="about_sponsor_desc">支持开发</string>
+    <string name="about_sponsor_code_desc">赞助二维码</string>
+    <string name="about_sponsor_note">赞助为自愿行为，您不会在启动器内得到任何奖励与特权</string>
+    <string name="about_credits">致谢</string>
+    <string name="about_credits_desc">项目与开发者</string>
+    <string name="about_contact">联系我们</string>
+    <string name="about_contact_desc">获取帮助或反馈</string>
+    <string name="about_privacy_policy">隐私政策</string>
+    <string name="about_privacy_policy_desc">我们如何处理您的数据</string>
+    <string name="about_official_docs">官方文档</string>
+    <string name="about_official_docs_desc">使用指南与故障排查</string>
 
     <!-- Log -->
     <string name="log_title">BepInEx 日志</string>
