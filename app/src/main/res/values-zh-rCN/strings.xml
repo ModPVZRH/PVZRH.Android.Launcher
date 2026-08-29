@@ -66,6 +66,7 @@
     <!-- Config Editor -->
     <string name="config_editor_title">配置编辑器</string>
     <string name="config_editor_save">保存</string>
+    <string name="config_editor_save_failed">文件保存失败</string>
     <string name="config_editor_unsaved">有未保存的更改</string>
     <string name="config_editor_discard_title">放弃更改？</string>
     <string name="config_editor_discard_msg">您有未保存的更改，确定要放弃吗？</string>
@@ -74,8 +75,17 @@
     <!-- Mod File Browser -->
     <string name="mod_file_browser_title">模组文件</string>
     <string name="mod_file_browser_empty">此目录为空</string>
-    <string name="mod_file_browser_missing">plugins 目录不存在</string>
+    <string name="mod_file_browser_missing">整合包目录不存在</string>
     <string name="mod_file_browser_directory">目录</string>
+    <string name="mod_file_browser_editable_file">%1$s · 点击查看或编辑</string>
+    <string name="mod_file_browser_unsupported_file">%1$s · 暂不支持预览</string>
+    <string name="mod_file_browser_edit_file">查看或编辑文件</string>
+    <string name="mod_file_browser_delete_file">删除文件</string>
+    <string name="mod_file_browser_delete_title">删除文件？</string>
+    <string name="mod_file_browser_delete_message">确定要删除“%1$s”吗？此操作不可撤销。</string>
+    <string name="mod_file_browser_delete_failed">文件删除失败</string>
+    <string name="mod_file_browser_protected">受保护文件</string>
+    <string name="mod_file_browser_protected_file">受保护的整合包元数据 · 不允许编辑或删除</string>
 
     <!-- Settings sections -->
     <string name="settings_title">设置</string>

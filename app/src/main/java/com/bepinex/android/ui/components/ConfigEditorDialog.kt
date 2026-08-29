@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -15,14 +16,14 @@ import com.bepinex.android.R
 import java.io.File
 
 /**
- * Full-screen dialog for editing BepInEx .cfg config files.
+ * Full-screen editor for supported text files in a modpack.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigEditorDialog(
     configFile: File,
     onDismiss: () -> Unit,
-    onSave: (File, String) -> Unit
+    onSave: (File, String) -> Boolean
 ) {
     val initialContent = remember(configFile) {
         runCatching { configFile.readText() }.getOrDefault("")
@@ -30,6 +31,30 @@ fun ConfigEditorDialog(
     var content by remember { mutableStateOf(initialContent) }
     var hasChanges by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
+
+    val highlightColors = SyntaxHighlightColors(
+        property = MaterialTheme.colorScheme.primary,
+        string = MaterialTheme.colorScheme.tertiary,
+        number = MaterialTheme.colorScheme.secondary,
+        boolean = MaterialTheme.colorScheme.error,
+        nullLiteral = MaterialTheme.colorScheme.onSurfaceVariant,
+        keyword = MaterialTheme.colorScheme.primary,
+        function = lerp(
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.primary,
+            0.35f
+        ),
+        builtin = lerp(
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.error,
+            0.2f
+        ),
+        comment = MaterialTheme.colorScheme.outline.copy(alpha = 0.9f)
+    )
+    val syntaxHighlighting = remember(configFile.extension, highlightColors) {
+        SyntaxHighlightVisualTransformation(configFile.extension, highlightColors)
+    }
 
     Scaffold(
         topBar = {
@@ -51,7 +76,13 @@ fun ConfigEditorDialog(
                 },
                 actions = {
                     IconButton(
-                        onClick = { onSave(configFile, content); hasChanges = false },
+                        onClick = {
+                            if (onSave(configFile, content)) {
+                                hasChanges = false
+                            } else {
+                                saveFailed = true
+                            }
+                        },
                         enabled = hasChanges
                     ) {
                         Icon(Icons.Filled.Save, stringResource(R.string.config_editor_save),
@@ -75,13 +106,24 @@ fun ConfigEditorDialog(
                 )
             }
 
+            if (saveFailed) {
+                Text(
+                    stringResource(R.string.config_editor_save_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
             OutlinedTextField(
                 value = content,
                 onValueChange = {
                     content = it
                     hasChanges = it != initialContent
+                    saveFailed = false
                 },
                 modifier = Modifier.fillMaxSize(),
+                visualTransformation = syntaxHighlighting,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp,
