@@ -223,3 +223,90 @@ fun openUpdateUrl(context: Context, url: String) {
         context.startActivity(intent)
     } catch (_: Exception) { }
 }
+
+@Composable
+fun CrashDialog(
+    gameName: String,
+    signal: String?,
+    crashLog: String,
+    onDismiss: () -> Unit,
+    onExportLogs: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = stringResource(R.string.crash_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = stringResource(R.string.crash_game_info, gameName),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+
+                if (signal != null) {
+                    Text(
+                        text = stringResource(R.string.crash_signal, signal),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                if (crashLog.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.crash_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                    ) {
+                        Text(
+                            text = crashLog,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp
+                            ),
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.close))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = onExportLogs) {
+                        Text(stringResource(R.string.crash_export_logs))
+                    }
+                }
+            }
+        }
+    }
+}

@@ -22,6 +22,7 @@ import com.bepinex.android.update.UpdateChecker
 import com.bepinex.android.update.AnnouncementDialog
 import com.bepinex.android.update.UpdateDialog
 import com.bepinex.android.update.BlockedDialog
+import com.bepinex.android.update.CrashDialog
 import com.bepinex.android.update.openUpdateUrl
 import kotlinx.coroutines.*
 import java.io.File
@@ -53,6 +54,12 @@ class MainActivity : ComponentActivity() {
     private var showUpdate = false
     private var showBlocked = false
     private var isCheckingUpdate = true
+
+    // Crash detection state
+    private var crashMonitorJob: Job? = null
+    private var gameProcessAlive = false
+    private var showCrashDialog = false
+    private var crashInfo: CrashInfo? = null
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -346,10 +353,73 @@ class MainActivity : ComponentActivity() {
                 modpackName?.let { putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, it) }
             }
             startActivity(intent)
+            startCrashMonitor(game.packageName)
         } catch (e: Exception) {
             BepInExLog.e("Launch failed", e)
             Toast.makeText(this, getString(R.string.launch_failed), Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun startCrashMonitor(packageName: String) {
+        crashMonitorJob?.cancel()
+        gameProcessAlive = true
+        crashMonitorJob = scope.launch(Dispatchers.IO) {
+            delay(3000L)
+            while (isActive && gameProcessAlive) {
+                if (!isGameProcessRunning(packageName)) {
+                    gameProcessAlive = false
+                    val info = captureCrashInfo()
+                    if (info != null) {
+                        withContext(Dispatchers.Main) {
+                            crashInfo = info
+                            showCrashDialog = true
+                            render()
+                        }
+                    }
+                    break
+                }
+                delay(2000L)
+            }
+        }
+    }
+
+    private fun isGameProcessRunning(packageName: String): Boolean {
+        return try {
+            val processName = "$packageName:game"
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val procs = am.runningAppProcesses ?: return true
+            procs.any { it.processName == processName }
+        } catch (_: Exception) { true }
+    }
+
+    private fun captureCrashInfo(): CrashInfo? {
+        return try {
+            val timestamp = android.os.SystemClock.elapsedRealtime()
+            val logcat = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime", "-t", "100"))
+                .inputStream.bufferedReader().use { it.readText() }
+
+            val fatalLine = logcat.lines().firstOrNull { it.contains("FATAL EXCEPTION") }
+            val signalLine = logcat.lines().firstOrNull { line ->
+                line.contains("signal") && (line.contains("SIGSEGV") || line.contains("SIGABRT")
+                    || line.contains("SIGBUS") || line.contains("SIGFPE"))
+            }
+
+            if (fatalLine == null && signalLine == null) return null
+
+            val signal = signalLine?.let { sig ->
+                Regex("signal\\s+(\\d+)\\s+\\((\\w+)\\)").find(sig)?.let {
+                    "${it.groupValues[2]} (${it.groupValues[1]})"
+                }
+            }
+
+            val crashLog = logcat.lines().filter { line ->
+                line.contains("FATAL EXCEPTION") || line.contains("AndroidRuntime")
+                    || line.contains("signal") || line.contains("backtrace")
+                    || line.contains("#0") || line.contains("#1") || line.contains("#2")
+            }.take(25).joinToString("\n")
+
+            CrashInfo(signal = signal, log = crashLog)
+        } catch (_: Exception) { null }
     }
 
     // Settings actions
@@ -488,6 +558,14 @@ class MainActivity : ComponentActivity() {
 
     // UI render
 
+    private data class CrashInfo(val signal: String? = null, val log: String = "")
+
+    private fun dismissCrashDialog() {
+        showCrashDialog = false
+        crashInfo = null
+        render()
+    }
+
     private fun render() {
         setContent {
             BepInExTheme(themeMode = themeMode) {
@@ -556,6 +634,22 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { onDismissAnnouncement() }
                             )
                         }
+                    }
+                }
+
+                if (showCrashDialog) {
+                    crashInfo?.let { info ->
+                        val gameLabel = selectedGame?.label ?: getString(R.string.app_name)
+                        CrashDialog(
+                            gameName = gameLabel,
+                            signal = info.signal,
+                            crashLog = info.log,
+                            onDismiss = { dismissCrashDialog() },
+                            onExportLogs = {
+                                dismissCrashDialog()
+                                onExportLogs()
+                            }
+                        )
                     }
                 }
             }
