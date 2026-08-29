@@ -1,17 +1,55 @@
 package com.bepinex.android.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
@@ -34,25 +72,45 @@ fun ModpackDetailScreen(
     onExportModpack: () -> Unit,
     onBrowseModFiles: () -> Unit = {}
 ) {
+    var modPendingDelete by remember { mutableStateOf<File?>(null) }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(modpackName) },
+                title = {
+                    Text(
+                        text = modpackName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
+                        Icon(
+                            imageVector = Icons.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back)
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = onViewLog) {
-                        Icon(Icons.Filled.Terminal, stringResource(R.string.log_title))
+                        Icon(
+                            imageVector = Icons.Filled.Terminal,
+                            contentDescription = stringResource(R.string.log_title)
+                        )
                     }
                     IconButton(onClick = onExportModpack) {
-                        Icon(Icons.Filled.Share, stringResource(R.string.modpack_export))
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = stringResource(R.string.modpack_export)
+                        )
                     }
                     IconButton(onClick = onAddMod) {
-                        Icon(Icons.Filled.Add, stringResource(R.string.modpack_add_mod))
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = stringResource(R.string.modpack_add_mod)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -62,70 +120,124 @@ fun ModpackDetailScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
-            // Mods section
             item {
                 Text(
-                    stringResource(R.string.installed_mods),
-                    style = MaterialTheme.typography.titleMedium
+                    text = stringResource(R.string.installed_mods),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
 
             if (mods.isEmpty()) {
                 item {
                     Card(
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
                         Column(
-                            Modifier.fillMaxWidth().padding(32.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 28.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Outlined.FolderOpen, null, Modifier.size(36.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(8.dp))
-                            Text(stringResource(R.string.modpack_no_mods),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(
+                                imageVector = Icons.Filled.Extension,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.modpack_no_mods),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = onAddMod) {
+                                Icon(
+                                    imageVector = Icons.Filled.Add,
+                                    contentDescription = null
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.modpack_add_mod))
+                            }
                         }
                     }
                 }
             } else {
-                items(mods, key = { it.absolutePath }) { mod ->
+                items(
+                    items = mods,
+                    key = { it.absolutePath },
+                    contentType = { "mod" }
+                ) { mod ->
                     Card(
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Surface(
-                                Modifier.size(38.dp), shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.size(40.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Extension, null, Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Extension,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(mod.name, style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(formatFileSize(mod.length()),
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = mod.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = formatFileSize(mod.length()),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
-                            IconButton(onClick = { onDeleteMod(mod) }) {
-                                Icon(Icons.Outlined.Delete, stringResource(R.string.delete),
-                                    tint = MaterialTheme.colorScheme.error)
+                            IconButton(
+                                onClick = { modPendingDelete = mod }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.delete
+                                    ) + ": " + mod.name,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
@@ -135,77 +247,132 @@ fun ModpackDetailScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     ),
                     onClick = onBrowseModFiles
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Filled.FolderOpen,
-                            null,
-                            Modifier.size(24.dp),
+                            imageVector = Icons.Filled.FolderOpen,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
-                                stringResource(R.string.modpack_browse_mod_files),
+                                text = stringResource(R.string.modpack_browse_mod_files),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                            Spacer(Modifier.height(2.dp))
                             Text(
-                                stringResource(R.string.modpack_browse_mod_files_desc),
+                                text = stringResource(R.string.modpack_browse_mod_files_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                         }
                         Icon(
-                            Icons.Filled.ChevronRight,
-                            null,
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
             }
-            // Config files section
+
             if (configFiles.isNotEmpty()) {
                 item {
-                    Spacer(Modifier.height(8.dp))
                     Text(
-                        stringResource(R.string.settings_section_config),
-                        style = MaterialTheme.typography.titleMedium
+                        text = stringResource(R.string.settings_section_config),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .semantics { heading() }
                     )
                 }
-                items(configFiles, key = { it.absolutePath }) { cfg ->
+                items(
+                    items = configFiles,
+                    key = { it.absolutePath },
+                    contentType = { "config" }
+                ) { cfg ->
                     Card(
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
                         onClick = { onOpenConfig(cfg) }
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Settings, null, Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                             Spacer(Modifier.width(12.dp))
-                            Text(cfg.name, style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f))
-                            Icon(Icons.Filled.ChevronRight, null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = cfg.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
             }
-
-            item { Spacer(Modifier.height(16.dp)) }
         }
+    }
+
+    modPendingDelete?.let { mod ->
+        AlertDialog(
+            onDismissRequest = { modPendingDelete = null },
+            title = { Text(stringResource(R.string.mod_file_browser_delete_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.mod_file_browser_delete_message,
+                        mod.name
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteMod(mod)
+                        modPendingDelete = null
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.confirm_delete),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { modPendingDelete = null }) {
+                    Text(stringResource(R.string.confirm_cancel))
+                }
+            }
+        )
     }
 }

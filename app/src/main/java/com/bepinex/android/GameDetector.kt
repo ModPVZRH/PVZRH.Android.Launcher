@@ -18,7 +18,13 @@ import java.util.zip.ZipFile
 object GameDetector {
 
     private const val TAG = "GameDetector"
-    const val PVZ_PACKAGE = "com.LanPiaoPiao.PlantsVsZombiesRH"
+
+    /** Only packages in this list are shown as supported games. */
+    private val SUPPORTED_PACKAGES = setOf(
+        "com.LanPiaoPiao.PlantsVsZombiesRH",
+        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
+    )
+
     const val PVZ_LAUNCHER_ACTIVITY = "com.unity3d.player.UnityPlayerActivity"
 
     /** ABI directories to scan for libil2cpp.so */
@@ -59,11 +65,7 @@ object GameDetector {
         for (resolveInfo in activities) {
             val packageName = resolveInfo.activityInfo.packageName
 
-            if (packageName != PVZ_PACKAGE) continue
-
-            if (packageName != PVZ_PACKAGE) continue
-
-            // PVZRH is the only supported target in this launcher.
+            if (packageName !in SUPPORTED_PACKAGES) continue
 
             // Skip our own package
             if (packageName == context.packageName) continue

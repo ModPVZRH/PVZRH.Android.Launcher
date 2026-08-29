@@ -1,14 +1,20 @@
 package com.bepinex.android.ui.screens
 
+import android.content.ClipData
 import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -17,7 +23,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.bepinex.android.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+
+private const val LOG_REFRESH_INTERVAL_MS = 1_000L
+private const val LOG_SCROLL_BOTTOM_THRESHOLD = 48
+
+private data class LogReadResult(
+    val content: String,
+    val exists: Boolean,
+    val error: String? = null
+)
+
+private suspend fun readLogFile(path: String): LogReadResult = withContext(Dispatchers.IO) {
+    runCatching {
+        val file = File(path)
+        if (!file.exists()) {
+            LogReadResult(content = "", exists = false)
+        } else {
+            LogReadResult(content = file.readText(), exists = true)
+        }
+    }.getOrElse { error ->
+        LogReadResult(
+            content = "",
+            exists = true,
+            error = error.message ?: error.javaClass.simpleName
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,12 +62,66 @@ fun LogViewerScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val logContent = remember(logFilePath) {
-        try {
-            val file = File(logFilePath)
-            if (file.exists()) file.readText() else "Log file not found:\n$logFilePath"
-        } catch (e: Exception) {
-            "Failed to read log: ${e.message}"
+    val refreshScope = rememberCoroutineScope()
+    val verticalScrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
+    var readResult by remember(logFilePath) {
+        mutableStateOf(LogReadResult(content = "", exists = false))
+    }
+    var autoScroll by remember(logFilePath) { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
+    suspend fun refreshLog() {
+        if (isRefreshing) return
+        isRefreshing = true
+        val previousContent = readResult.content
+        val wasAtBottom = verticalScrollState.maxValue == 0 ||
+            verticalScrollState.value >= verticalScrollState.maxValue - LOG_SCROLL_BOTTOM_THRESHOLD
+        val result = readLogFile(logFilePath)
+        readResult = result
+        isRefreshing = false
+
+        if (autoScroll && wasAtBottom && result.content != previousContent) {
+            withFrameNanos { }
+            verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
+        }
+    }
+
+    LaunchedEffect(logFilePath) {
+        while (true) {
+            refreshLog()
+            delay(LOG_REFRESH_INTERVAL_MS)
+        }
+    }
+
+    val shareLog: () -> Unit = {
+        val file = File(logFilePath)
+        if (!file.exists()) {
+            Toast.makeText(context, context.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
+        } else {
+            runCatching {
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.provider",
+                    file
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.log_title))
+                    clipData = ClipData.newRawUri(context.getString(R.string.log_title), uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(
+                    Intent.createChooser(shareIntent, context.getString(R.string.log_share))
+                )
+            }.onFailure { error ->
+                Toast.makeText(
+                    context,
+                    "${context.getString(R.string.error)}: ${error.message ?: error.javaClass.simpleName}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
@@ -46,23 +136,16 @@ fun LogViewerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        val file = File(logFilePath)
-                        if (file.exists()) {
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.provider",
-                                file
-                            )
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                putExtra(Intent.EXTRA_SUBJECT, "BepInEx Log")
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Log"))
-                        }
-                    }) {
+                    IconButton(
+                        onClick = { if (!isRefreshing) refreshScope.launch { refreshLog() } },
+                        enabled = !isRefreshing
+                    ) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh)
+                        )
+                    }
+                    IconButton(onClick = shareLog) {
                         Icon(Icons.Filled.Share, stringResource(R.string.log_share))
                     }
                 },
@@ -72,24 +155,75 @@ fun LogViewerScreen(
             )
         }
     ) { padding ->
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = logContent,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(12.dp),
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = stringResource(R.string.log_auto_scroll),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = autoScroll,
+                    onCheckedChange = { autoScroll = it },
+                    modifier = Modifier.height(32.dp)
+                )
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                when {
+                    readResult.error != null -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "${stringResource(R.string.error)}: ${readResult.error}",
+                                modifier = Modifier.padding(24.dp),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                    !readResult.exists || readResult.content.isBlank() -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.log_empty),
+                                modifier = Modifier.padding(24.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                    else -> {
+                        SelectionContainer {
+                            Text(
+                                text = readResult.content,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .horizontalScroll(horizontalScrollState)
+                                    .verticalScroll(verticalScrollState)
+                                    .padding(12.dp),
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

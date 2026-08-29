@@ -46,8 +46,21 @@ private fun resolveModpackFile(modpackDirectory: File, target: File): File? = ru
     canonicalTarget.takeIf { isInsideModpack && it.isFile }
 }.getOrNull()
 
-private fun isProtectedModpackFile(file: File): Boolean =
-    file.name.equals("modpack.json", ignoreCase = true)
+private fun isProtectedModpackFile(modpackDirectory: File, target: File): Boolean {
+    val canonicalRoot = runCatching { modpackDirectory.canonicalFile }.getOrNull() ?: return false
+    val canonicalTarget = resolveModpackFile(canonicalRoot, target) ?: return false
+    return canonicalTarget.name.equals("modpack.json", ignoreCase = true) &&
+        canonicalTarget.parentFile?.canonicalFile == canonicalRoot
+}
+
+private val editableTextExtensions = setOf(
+    "cfg", "conf", "config", "ini", "json", "json5", "log", "lua", "txt",
+    "xml", "yaml", "yml", "toml", "properties", "md", "csv", "cs", "js",
+    "ts", "sh", "bat", "ps1"
+)
+
+private fun isEditableTextFile(file: File): Boolean =
+    file.isFile && file.extension.lowercase() in editableTextExtensions
 
 private fun isPluginsDll(modpackDirectory: File, target: File): Boolean {
     val canonicalRoot = runCatching { modpackDirectory.canonicalFile }.getOrNull() ?: return false
@@ -62,7 +75,7 @@ private fun isPluginsDll(modpackDirectory: File, target: File): Boolean {
 
 private fun deleteModpackFile(modpackDirectory: File, target: File): Boolean {
     val safeTarget = resolveModpackFile(modpackDirectory, target) ?: return false
-    if (isProtectedModpackFile(safeTarget)) return false
+    if (isProtectedModpackFile(modpackDirectory, safeTarget)) return false
     return runCatching { safeTarget.delete() }.getOrDefault(false)
 }
 
@@ -226,9 +239,21 @@ fun BepInExNavHost(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf(NavRoutes.GAMES, "modpacks/{packageName}", "settings/{packageName}")
-    val showModpackFab = currentRoute == NavRoutes.MODPACKS
-    var showCreateDialog by remember { mutableStateOf(false) }
+    val showBottomBar = currentRoute in listOf(
+        NavRoutes.GAMES,
+        NavRoutes.MODPACKS,
+        NavRoutes.SETTINGS
+    )
+    fun navigateToBottomTab(route: String) {
+        navController.navigate(route) {
+            // Keep one entry per top-level tab while retaining each tab's saved state.
+            popUpTo(navController.graph.startDestinationId) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -242,9 +267,7 @@ fun BepInExNavHost(
                         selected = currentRoute == NavRoutes.GAMES,
                         onClick = {
                             if (currentRoute != NavRoutes.GAMES) {
-                                navController.navigate(NavRoutes.GAMES) {
-                                    popUpTo(NavRoutes.GAMES) { inclusive = true }
-                                }
+                                navigateToBottomTab(NavRoutes.GAMES)
                             }
                         },
                         icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
@@ -255,10 +278,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.MODPACKS) {
                                 selectedGame?.let { game ->
-                                    navController.navigate(NavRoutes.modpacks(game.packageName)) {
-                                        popUpTo(NavRoutes.GAMES)
-                                        launchSingleTop = true
-                                    }
+                                    navigateToBottomTab(NavRoutes.modpacks(game.packageName))
                                 }
                             }
                         },
@@ -271,10 +291,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.SETTINGS) {
                                 selectedGame?.let { game ->
-                                    navController.navigate(NavRoutes.settings(game.packageName)) {
-                                        popUpTo(NavRoutes.GAMES)
-                                        launchSingleTop = true
-                                    }
+                                    navigateToBottomTab(NavRoutes.settings(game.packageName))
                                 }
                             }
                         },
@@ -284,23 +301,13 @@ fun BepInExNavHost(
                     )
                 }
             }
-        },
-        floatingActionButton = {
-            if (showModpackFab) {
-                FloatingActionButton(
-                    onClick = { showCreateDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Filled.Add, stringResource(R.string.modpack_create))
-                }
-            }
         }
     ) { innerPadding ->
         NavHost(
-                navController = navController,
-                startDestination = NavRoutes.GAMES,
-                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
-            ) {
+            navController = navController,
+            startDestination = NavRoutes.GAMES,
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
                 // Main game screen
                 composable(
                     route = NavRoutes.GAMES,
@@ -342,16 +349,6 @@ fun BepInExNavHost(
                         onSelectGame = onSelectGame,
                         onRescan = onRescan,
                         onLaunch = { onLaunch(activeModpackName) },
-                        onNavigateToSettings = {
-                            selectedGame?.let {
-                                navController.navigate(NavRoutes.settings(it.packageName))
-                            }
-                        },
-                        onNavigateToModpacks = {
-                            selectedGame?.let {
-                                navController.navigate(NavRoutes.modpacks(it.packageName))
-                            }
-                        },
                         onExportLogs = onExportLogs
                     )
                 }
@@ -395,7 +392,6 @@ fun BepInExNavHost(
                         targetGameLabel = selectedGame?.label ?: packageName,
                         modpacks = modpacks,
                         activeModpackName = activeModpackName,
-                        onNavigateBack = { navController.popBackStack() },
                         onCreateModpack = { name ->
                             modpackManager.createModpack(packageName, name)
                             modpacks = modpackManager.listModpacks(packageName)
@@ -443,9 +439,7 @@ fun BepInExNavHost(
                             outputFile.parentFile?.mkdirs()
                             modpackManager.exportModpack(packageName, name, outputFile)
                         },
-                        onImportModpack = { importModpackTrigger = true },
-                        showCreateDialog = showCreateDialog,
-                        onDismissCreateDialog = { showCreateDialog = false }
+                        onImportModpack = { importModpackTrigger = true }
                     )
                 }
 
@@ -541,8 +535,13 @@ fun BepInExNavHost(
                         onNavigateBack = { navController.popBackStack() },
                         onFileClick = { file ->
                             val safeFile = resolveModpackFile(modpackDirectory, file)
-                            if (safeFile != null && !isProtectedModpackFile(safeFile)) {
-                                navController.navigate(NavRoutes.configEditor(safeFile.absolutePath))
+                            if (safeFile != null &&
+                                !isProtectedModpackFile(modpackDirectory, safeFile) &&
+                                isEditableTextFile(safeFile)
+                            ) {
+                                navController.navigate(NavRoutes.configEditor(safeFile.absolutePath)) {
+                                    launchSingleTop = true
+                                }
                             }
                         },
                         onDeleteFile = { file ->
@@ -599,7 +598,6 @@ fun BepInExNavHost(
                         language = language,
                         floatingLogInGame = floatingLogInGame,
                         useUnstrippedLibUnity = useUnstrippedLibUnity,
-                        onNavigateBack = { navController.popBackStack() },
                         onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                         onThemeChanged = onThemeChanged,
                         onLanguageChanged = onLanguageChanged,
@@ -651,7 +649,7 @@ fun BepInExNavHost(
                         configFile = file,
                         onDismiss = { navController.popBackStack() },
                         onSave = { f, content ->
-                            val success = !isProtectedModpackFile(f) && runCatching {
+                            val success = runCatching {
                                 f.writeText(content)
                             }.isSuccess
                             success.also {

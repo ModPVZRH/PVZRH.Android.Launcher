@@ -11,6 +11,22 @@ import android.provider.Settings
 import android.widget.Toast
 import java.util.Locale
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,34 +52,34 @@ class MainActivity : ComponentActivity() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // Per-game state
-    private var detectedGames = listOf<GameDetector.DetectedGame>()
-    private var selectedGame: GameDetector.DetectedGame? = null
-    private var isScanning = true
-    private var isExtracting = false
-    private var extractionStatus = ""
-    private var storagePermissionGranted = false
+    private var detectedGames by mutableStateOf(listOf<GameDetector.DetectedGame>())
+    private var selectedGame by mutableStateOf<GameDetector.DetectedGame?>(null)
+    private var isScanning by mutableStateOf(true)
+    private var isExtracting by mutableStateOf(false)
+    private var extractionStatus by mutableStateOf("")
+    private var storagePermissionGranted by mutableStateOf(false)
     private var hasPaused = false
 
     // Settings state
-    private var themeMode = AppSettings.ThemeMode.SYSTEM
-    private var language = AppSettings.Language.SYSTEM
+    private var themeMode by mutableStateOf(AppSettings.ThemeMode.SYSTEM)
+    private var language by mutableStateOf(AppSettings.Language.SYSTEM)
 
     // Update check state
-    private var updateInfo: UpdateChecker.UpdateInfo? = null
-    private var showAnnouncement = false
-    private var showUpdate = false
-    private var showBlocked = false
-    private var isCheckingUpdate = true
+    private var updateInfo by mutableStateOf<UpdateChecker.UpdateInfo?>(null)
+    private var showAnnouncement by mutableStateOf(false)
+    private var showUpdate by mutableStateOf(false)
+    private var showBlocked by mutableStateOf(false)
+    private var isCheckingUpdate by mutableStateOf(true)
 
     // Crash detection state
     private var crashMonitorJob: Job? = null
-    private var gameProcessAlive = false
-    private var showCrashDialog = false
-    private var crashInfo: CrashInfo? = null
+    private var gameProcessAlive by mutableStateOf(false)
+    private var showCrashDialog by mutableStateOf(false)
+    private var crashInfo by mutableStateOf<CrashInfo?>(null)
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { checkStoragePermission() }
+    ) { checkStoragePermission(requestIfMissing = false) }
 
     companion object {
         /** Saved across activity recreations (e.g. language switch) */
@@ -102,7 +118,9 @@ class MainActivity : ComponentActivity() {
 
         fileExtractor = FileExtractor(this)
 
-        checkStoragePermission()
+        // Compose is installed once; subsequent updates are driven by observable state.
+        setupContent()
+        checkStoragePermission(requestIfMissing = true)
         handleSharedText(intent)
         checkForUpdates()
     }
@@ -131,7 +149,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                render()
             }
         }
     }
@@ -139,17 +156,16 @@ class MainActivity : ComponentActivity() {
     private fun onDismissAnnouncement() {
         showAnnouncement = false
         updateInfo?.let { AppSettings.setLastSeenAnnouncementDate(this, it.announcementDate) }
-        render()
     }
 
     private fun onDismissUpdate() {
         showUpdate = false
-        // Show announcement if available and not yet seen
+        // Show announcement if available and not yet seen. Compose observes both
+        // state changes, so dismissing the update always removes it immediately.
         updateInfo?.let {
             if (it.announcementDate.isNotEmpty()
                 && it.announcementDate != AppSettings.getLastSeenAnnouncementDate(this)) {
                 showAnnouncement = true
-                render()
             }
         }
     }
@@ -158,7 +174,7 @@ class MainActivity : ComponentActivity() {
         updateInfo?.let { openUpdateUrl(this, it.urlApk) }
     }
 
-    private fun checkStoragePermission() {
+    private fun checkStoragePermission(requestIfMissing: Boolean) {
         storagePermissionGranted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
         } else {
@@ -168,12 +184,11 @@ class MainActivity : ComponentActivity() {
         if (!storagePermissionGranted) {
             BepInExLog.w("MANAGE_EXTERNAL_STORAGE not granted  -- showing permission dialog")
             Toast.makeText(this, "Need storage permission to extract BepInEx files", Toast.LENGTH_LONG).show()
-            requestStoragePermission()
+            if (requestIfMissing) requestStoragePermission()
         } else {
             BepInExLog.i("Storage permission granted")
             startGameDetection()
             // Initial render
-            render()
         }
     }
 
@@ -271,28 +286,30 @@ class MainActivity : ComponentActivity() {
     private fun startGameDetection() {
         scope.launch {
             isScanning = true
-            render()
 
             try {
                 detectedGames = GameDetector.detectGames(this@MainActivity)
                 BepInExLog.i("Detected ${detectedGames.size} Unity IL2CPP game(s)")
 
-                if (selectedGame == null && detectedGames.isNotEmpty()) {
-                    selectGame(detectedGames.first())
+                // Keep the selection by package name across rescans. If the
+                // previously selected game disappeared, clear it and select the
+                // first currently detected game when one is available.
+                val preferredPackage = savedPackageName ?: selectedGame?.packageName
+                val refreshedSelection = preferredPackage?.let { packageName ->
+                    detectedGames.firstOrNull { it.packageName == packageName }
+                }
+
+                savedPackageName = null
+                when {
+                    refreshedSelection != null -> selectedGame = refreshedSelection
+                    detectedGames.isNotEmpty() -> selectGame(detectedGames.first())
+                    else -> selectedGame = null
                 }
             } catch (e: Exception) {
                 BepInExLog.e("Game detection failed", e)
             }
 
             isScanning = false
-            render()
-
-            // Restore selected game after activity recreation (e.g. language switch)
-            val saved = savedPackageName
-            if (saved != null) {
-                savedPackageName = null
-                detectedGames.find { it.packageName == saved }?.let { selectGame(it) }
-            }
         }
     }
 
@@ -303,8 +320,6 @@ class MainActivity : ComponentActivity() {
         if (!fileExtractor.isFrameworkReady(game.packageName)) {
             startExtraction(game.packageName)
         }
-
-        render()
     }
 
     // Framework extraction
@@ -312,15 +327,14 @@ class MainActivity : ComponentActivity() {
     private fun startExtraction(packageName: String) {
         isExtracting = true
         extractionStatus = getString(R.string.extracting)
-        render()
 
         scope.launch(Dispatchers.IO) {
             try {
                 fileExtractor.extractBepInExIfNeeded(packageName) { status ->
-                    extractionStatus = status
+                    scope.launch(Dispatchers.Main.immediate) { extractionStatus = status }
                 }
                 fileExtractor.extractDotnetIfNeeded(packageName) { status ->
-                    extractionStatus = status
+                    scope.launch(Dispatchers.Main.immediate) { extractionStatus = status }
                 }
                 BepInExLog.i("Framework extraction complete for $packageName")
             } catch (e: Exception) {
@@ -329,7 +343,6 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 isExtracting = false
                 extractionStatus = ""
-                render()
             }
         }
     }
@@ -373,7 +386,6 @@ class MainActivity : ComponentActivity() {
                         withContext(Dispatchers.Main) {
                             crashInfo = info
                             showCrashDialog = true
-                            render()
                         }
                     }
                     break
@@ -427,8 +439,7 @@ class MainActivity : ComponentActivity() {
     private fun onThemeChanged(mode: AppSettings.ThemeMode) {
         themeMode = mode
         AppSettings.setThemeMode(this, mode)
-        // Re-render with new theme
-        runOnUiThread { render() }
+        // Compose observes themeMode and updates the theme without recreating navigation.
     }
 
     private fun onLanguageChanged(lang: AppSettings.Language) {
@@ -445,7 +456,6 @@ class MainActivity : ComponentActivity() {
             BepInExLog.i("Cleared BepInEx: ${dir.absolutePath}")
             Toast.makeText(this, getString(R.string.done), Toast.LENGTH_SHORT).show()
         }
-        render()
     }
 
     private fun onClearDotnet(packageName: String) {
@@ -563,13 +573,43 @@ class MainActivity : ComponentActivity() {
     private fun dismissCrashDialog() {
         showCrashDialog = false
         crashInfo = null
-        render()
     }
 
-    private fun render() {
+    @Composable
+    private fun StoragePermissionContent(onGrant: () -> Unit) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = getString(R.string.storage_permission_title),
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Text(
+                        text = getString(R.string.storage_permission_message),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Button(onClick = onGrant) {
+                        Text(text = getString(R.string.storage_permission_grant))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setupContent() {
         setContent {
             BepInExTheme(themeMode = themeMode) {
-                BepInExNavHost(
+                if (storagePermissionGranted) {
+                    BepInExNavHost(
                     scope = scope,
                     detectedGames = detectedGames,
                     selectedGame = selectedGame,
@@ -594,7 +634,10 @@ class MainActivity : ComponentActivity() {
                     onClearLibUnity = { onClearLibUnity(it) },
                     onCopyGameResources = { onCopyGameResources(it) },
                     onExportLogs = { onExportLogs() }
-                )
+                    )
+                } else {
+                    StoragePermissionContent(onGrant = { requestStoragePermission() })
+                }
 
                 // Update / Announcement dialogs
                 if (showBlocked) {
