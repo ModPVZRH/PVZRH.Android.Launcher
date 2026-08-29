@@ -38,12 +38,13 @@ object BepInExLog {
         val logcatFile = File(context.getExternalFilesDir(null), "logcat.txt")
         logcatThread = Thread({
             try {
+                val pid = android.os.Process.myPid()
                 val process = Runtime.getRuntime().exec(
-                    arrayOf("logcat", "-v", "threadtime", "-t", "0")
+                    arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid")
                 )
-                logcatFile.outputStream().use { out ->
-                    process.inputStream.copyTo(out)
-                }
+                val output = process.inputStream.bufferedReader().readText()
+                process.waitFor()
+                logcatFile.writeText(output)
             } catch (_: Exception) { }
         }, "logcat-capture").apply {
             isDaemon = true

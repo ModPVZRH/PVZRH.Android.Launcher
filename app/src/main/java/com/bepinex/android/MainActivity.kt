@@ -428,6 +428,67 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Log export
+
+    private fun onExportLogs() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                val extDir = getExternalFilesDir(null) ?: filesDir
+                val launcherLog = File(extDir, "bepinex_launcher.log")
+
+                // Capture current process logcat
+                val logcatFile = File(extDir, "logcat.txt")
+                try {
+                    val pid = android.os.Process.myPid()
+                    val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid"))
+                    val output = process.inputStream.bufferedReader().readText()
+                    process.waitFor()
+                    logcatFile.writeText(output)
+                } catch (e: Exception) {
+                    logcatFile.writeText("Failed to capture logcat: ${e.message}")
+                }
+
+                // Zip both logs
+                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                    .format(java.util.Date())
+                val zipFile = File(cacheDir, "pvzrh_logs_$timestamp.zip")
+                java.util.zip.ZipOutputStream(zipFile.outputStream().buffered()).use { zos ->
+                    if (launcherLog.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("bepinex_launcher.log"))
+                        launcherLog.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (logcatFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("logcat.txt"))
+                        logcatFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                }
+
+                // Share via system intent
+                withContext(Dispatchers.Main) {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "${packageName}.provider",
+                        zipFile
+                    )
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/zip"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_SUBJECT, "PVZRH Launcher Logs")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(shareIntent, "Share Logs"))
+                }
+            } catch (e: Exception) {
+                BepInExLog.e("Failed to export logs", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // UI render
 
     private fun render() {
@@ -456,7 +517,8 @@ class MainActivity : ComponentActivity() {
                     onClearBepInEx = { onClearBepInEx(it) },
                     onClearDotnet = { onClearDotnet(it) },
                     onClearLibUnity = { onClearLibUnity(it) },
-                    onCopyGameResources = { onCopyGameResources(it) }
+                    onCopyGameResources = { onCopyGameResources(it) },
+                    onExportLogs = { onExportLogs() }
                 )
 
                 // Update / Announcement dialogs

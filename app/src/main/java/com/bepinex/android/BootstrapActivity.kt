@@ -37,6 +37,11 @@ class BootstrapActivity : Activity() {
         private const val BACKUP_UNITY_VERSION = "2017.0.0"
         private const val GLOBAL_METADATA_FILE = "global-metadata.dat"
 
+        // 硬编码5s覆盖完整性检查kill（~331ms）。
+        // 更高级做法：基于 il2cpp_init 完成后放行。
+        private const val KILL_BLOCK_WINDOW_MS = 5_000L
+        private var killInitTimestamp = 0L
+
         // Unity version pattern: X.Y.Z[abcfp]N... optionally with suffix
         private val UNITY_VERSION_PATTERN =
             Pattern.compile("^\\d+\\.\\d+\\.\\d+(?:[abcfp]\\d+.*|rc\\d+.*)?$")
@@ -47,10 +52,15 @@ class BootstrapActivity : Activity() {
             "data.unity3d" to intArrayOf(0x12),
             "mainData" to intArrayOf(0x14)
         )
+
+        /** Per-process: guard against re-installing Pine hooks on 2nd launch */
+        private val hookInstalled = AtomicBoolean(false)
+        /** Per-process: guard against re-running initializeFusion on 2nd launch */
+        private val fusionInitialized = AtomicBoolean(false)
+        /** Per-process: guard against re-installing base hooks on 2nd launch */
+        private val baseHooksInstalled = AtomicBoolean(false)
     }
 
-    private val hookInstalled = AtomicBoolean(false)
-    private val fusionInitialized = AtomicBoolean(false)
     private var preparedConfig: FusionConfig? = null
     private var targetPackage: String? = null
 
@@ -146,16 +156,21 @@ class BootstrapActivity : Activity() {
         }
 
         // 5. Install base Pine hooks
-        updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 70)
-        BepInExLog.i("Installing Pine hooks...")
-        try {
-            ClassLoaderHooks.installHooks(gameContext.classLoader)
-            PackageManagerHooks.installHooks(packageManager)
-            InstrumentationHooks.install()
-            UnityPlayerHooks.installHooks(gameContext, applicationContext)
-            BepInExLog.i("Base hooks installed")
-        } catch (e: Exception) {
-            throw IllegalStateException("Failed to install base hooks", e)
+        if (baseHooksInstalled.compareAndSet(false, true)) {
+            updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 70)
+            BepInExLog.i("Installing Pine hooks...")
+            try {
+                ClassLoaderHooks.installHooks(gameContext.classLoader)
+                PackageManagerHooks.installHooks(packageManager)
+                InstrumentationHooks.install()
+                UnityPlayerHooks.installHooks(gameContext, applicationContext)
+                BepInExLog.i("Base hooks installed")
+            } catch (e: Exception) {
+                baseHooksInstalled.set(false)
+                throw IllegalStateException("Failed to install base hooks", e)
+            }
+        } else {
+            BepInExLog.i("Base hooks already installed, skipping")
         }
 
         // 5. Hook game launcher's onCreate (optional -- some launchers inherit it)
@@ -250,6 +265,41 @@ class BootstrapActivity : Activity() {
 
     // Initialize Fusion
 
+    /**
+     * Hook UnityPlayer.kill() to prevent integrity check self-kill.
+     * Unity's nativeRender() calls UnityPlayer.kill() when it detects
+     * a non-matching libunity.so.
+     *
+     * During the first [KILL_BLOCK_WINDOW_MS] after init, the call is blocked
+     * (integrity-check kill). After that window the original kill() is allowed
+     * through so Unity can call Process.killProcess() and exit cleanly.
+     * With BootstrapActivity launchMode=standard, the killed :game task is NOT
+     * restored on the next launch — a fresh BootstrapActivity runs instead.
+     */
+    private fun hookUnityPlayerKill() {
+        killInitTimestamp = System.currentTimeMillis()
+        try {
+            val killMethod = Class.forName("com.unity3d.player.UnityPlayer")
+                .getDeclaredMethod("kill")
+            killMethod.isAccessible = true
+
+            Pine.hook(killMethod, object : top.canyie.pine.callback.MethodHook() {
+                override fun beforeCall(callFrame: top.canyie.pine.Pine.CallFrame) {
+                    val elapsed = System.currentTimeMillis() - killInitTimestamp
+                    if (elapsed < KILL_BLOCK_WINDOW_MS) {
+                        BepInExLog.i("UnityPlayer.kill() intercepted (${elapsed}ms) -- blocking integrity-check kill")
+                        callFrame.result = null
+                    } else {
+                        BepInExLog.i("UnityPlayer.kill() allowed after ${elapsed}ms -- letting process exit")
+                    }
+                }
+            })
+            BepInExLog.i("Hooked UnityPlayer.kill() (block window: ${KILL_BLOCK_WINDOW_MS}ms)")
+        } catch (t: Throwable) {
+            BepInExLog.e("Failed to hook UnityPlayer.kill()", t)
+        }
+    }
+
     private fun initializeFusion(launcherActivity: Activity?, bundle: Bundle?) {
         if (!fusionInitialized.compareAndSet(false, true)) return
 
@@ -280,29 +330,6 @@ class BootstrapActivity : Activity() {
     }
 
     /**
-     * Hook UnityPlayer.kill() to prevent integrity check self-kill.
-     * Unity's nativeRender() calls UnityPlayer.kill() when it detects
-     * a non-matching libunity.so. This hook makes kill() a no-op.
-     */
-    private fun hookUnityPlayerKill() {
-        try {
-            val killMethod = Class.forName("com.unity3d.player.UnityPlayer")
-                .getDeclaredMethod("kill")
-            killMethod.isAccessible = true
-
-            Pine.hook(killMethod, object : top.canyie.pine.callback.MethodHook() {
-                override fun beforeCall(callFrame: top.canyie.pine.Pine.CallFrame) {
-                    BepInExLog.i("UnityPlayer.kill() intercepted -- blocking self-kill")
-                    callFrame.result = null
-                }
-            })
-            BepInExLog.i("Hooked UnityPlayer.kill()")
-        } catch (t: Throwable) {
-            BepInExLog.e("Failed to hook UnityPlayer.kill()", t)
-        }
-    }
-
-    /**
      * Hook game Activity.onDestroy() to copy BepInEx logs to modpack folder
      * when the game exits.
      */
@@ -328,6 +355,12 @@ class BootstrapActivity : Activity() {
                     } catch (t: Throwable) {
                         BepInExLog.e("Failed to persist logs on destroy", t)
                     }
+                    // Do NOT call Process.killProcess() here.
+                    // Unity's UnityPlayer.kill() (allowed after the block window)
+                    // or the normal activity finish path will terminate the process.
+                    // Hard-killing here causes Android to restore StubActivity from the
+                    // killed task stack on next launch instead of BootstrapActivity,
+                    // resulting in a black screen (no hooks, no native loading).
                 }
             })
             BepInExLog.i("Hooked onDestroy for log copy to modpack: $activeModpack")
@@ -343,7 +376,15 @@ class BootstrapActivity : Activity() {
         gameContext: Context,
         useUnstripped: Boolean = false
     ): FusionConfig {
-        val gameLibDir = gameContext.applicationInfo.nativeLibraryDir
+        var gameLibDir = gameContext.applicationInfo.nativeLibraryDir
+        if (gameLibDir.isNullOrEmpty()) {
+            // createPackageContext sometimes yields an ApplicationInfo with an
+            // empty nativeLibraryDir (observed on 2nd launch). Fall back to the
+            // authoritative PackageManager lookup.
+            val info = packageManager.getApplicationInfo(targetPackage, 0)
+            gameLibDir = info.nativeLibraryDir
+            BepInExLog.i("gameLibDir was empty, resolved from PackageManager: $gameLibDir")
+        }
         val appLibDir = applicationInfo.nativeLibraryDir
 
         // Per-game internal data dir

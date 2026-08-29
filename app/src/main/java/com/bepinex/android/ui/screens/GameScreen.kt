@@ -50,7 +50,8 @@ fun GameScreen(
     onRescan: () -> Unit,
     onLaunch: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToModpacks: () -> Unit
+    onNavigateToModpacks: () -> Unit,
+    onExportLogs: () -> Unit
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -71,18 +72,12 @@ fun GameScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
-                    if (selectedGame != null) {
-                        IconButton(onClick = onNavigateToModpacks) {
-                            Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
                     IconButton(onClick = onRescan) {
                         Icon(Icons.Filled.Refresh, stringResource(R.string.rescan),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings),
+                    IconButton(onClick = onExportLogs) {
+                        Icon(Icons.Filled.Share, "Export logs",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

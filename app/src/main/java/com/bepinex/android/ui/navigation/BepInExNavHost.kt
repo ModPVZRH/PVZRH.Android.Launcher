@@ -93,7 +93,8 @@ fun BepInExNavHost(
     onClearBepInEx: (String) -> Unit,
     onClearDotnet: (String) -> Unit,
     onClearLibUnity: (String) -> Unit,
-    onCopyGameResources: (String) -> Unit
+    onCopyGameResources: (String) -> Unit,
+    onExportLogs: () -> Unit
 ) {
     val navController = rememberNavController()
     val modpackManager = remember { ModpackManager() }
@@ -321,7 +322,8 @@ fun BepInExNavHost(
                             selectedGame?.let {
                                 navController.navigate(NavRoutes.modpacks(it.packageName))
                             }
-                        }
+                        },
+                        onExportLogs = onExportLogs
                     )
                 }
 

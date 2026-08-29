@@ -48,11 +48,14 @@
 
         <meta-data android:name="com.google.android.gms.version" android:value="12451000" />
 
-        <!-- Bootstrap activity (FusionCore injection entry point) -->
+        <!-- Bootstrap activity (FusionCore injection entry point).
+             Runs in :game so the game's native runtime (Unity/il2cpp) gets a
+             fresh process every launch; exiting the game kills only :game. -->
         <activity
             android:name="com.bepinex.android.BootstrapActivity"
             android:exported="false"
-            android:launchMode="singleTop"
+            android:process=":game"
+            android:launchMode="standard"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Main launcher activity (Compose UI) -->
@@ -80,7 +83,8 @@
             android:name="com.bepinex.android.StubActivity"
             android:theme="@style/UnityThemeSelector"
             android:screenOrientation="landscape"
-            android:launchMode="singleTask"
+            android:process=":game"
+            android:launchMode="standard"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
             android:hardwareAccelerated="true"
             android:exported="false" />

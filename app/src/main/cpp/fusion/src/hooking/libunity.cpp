@@ -38,6 +38,20 @@ static void* scripting_method_invoke_hook(void* method, void* obj,
     return g_original_scripting_method_invoke(method, obj, args, exc, something);
 }
 
+// Path check hook (sub_69A808)
+// Original: checks if libunity.so path contains "/data/data", "/data/user", "/storage", "/sdcard"
+//           If match → triggers UnityPlayer.kill() → SIGKILL 9
+// Hooked: always returns false (0) - no path match
+
+using path_check_fn = bool (*)(const char* path);
+static path_check_fn g_original_path_check = nullptr;
+
+static bool path_check_hook(const char* path)
+{
+    LOGI("path_check_hook called with: %s — returning false", path ? path : "(null)");
+    return false;
+}
+
 // Utility: get module base address via dlsym + dladdr
 
 static uintptr_t get_module_base(const char* lib_name, const char* known_export_symbol) {
@@ -124,6 +138,27 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
     }
 
     LOGI("scripting_method_invoke hook installed");
+
+    // 6. Hook path check function (sub_69A808 @ RVA 0x69A808)
+    //    This function checks if libunity.so path contains "/data/data", "/data/user", "/storage", "/sdcard"
+    //    If match → triggers UnityPlayer.kill() → SIGKILL 9
+    //    Hook it to always return false (0) - no path match
+    constexpr uintptr_t path_check_rva = 0x69A808;
+    void *path_check_target = reinterpret_cast<void *>(base + path_check_rva);
+
+    LOGI("path_check @ %p (base=%p, rva=0x%zx)", path_check_target, (void*)base, path_check_rva);
+
+    int ret2 = DobbyHook(
+        path_check_target,
+        reinterpret_cast<void *>(path_check_hook),
+        reinterpret_cast<void **>(&g_original_path_check));
+
+    if (ret2 != 0) {
+        LOGE("DobbyHook path_check failed: %d", ret2);
+    } else {
+        LOGI("path_check hook installed");
+    }
+
     return true;
 }
 
