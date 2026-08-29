@@ -43,6 +43,7 @@
     <string name="modpack_create">Create Modpack</string>
     <string name="modpack_delete">Delete Modpack</string>
     <string name="modpack_rename">Rename</string>
+    <string name="modpack_rename_failed">The name is invalid or already exists</string>
     <string name="modpack_export">Export</string>
     <string name="modpack_import">Import Modpack</string>
     <string name="modpack_select_active">Activate</string>

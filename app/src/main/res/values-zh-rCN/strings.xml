@@ -43,6 +43,7 @@
     <string name="modpack_create">创建整合包</string>
     <string name="modpack_delete">删除整合包</string>
     <string name="modpack_rename">重命名</string>
+    <string name="modpack_rename_failed">名称无效或已存在</string>
     <string name="modpack_export">导出</string>
     <string name="modpack_import">导入整合包</string>
     <string name="modpack_select_active">激活</string>

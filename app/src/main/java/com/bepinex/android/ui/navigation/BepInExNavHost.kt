@@ -375,8 +375,17 @@ fun BepInExNavHost(
                             modpacks = modpackManager.listModpacks(packageName)
                         },
                         onRenameModpack = { oldName, newName ->
-                            modpackManager.renameModpack(packageName, oldName, newName)
-                            modpacks = modpackManager.listModpacks(packageName)
+                            val normalizedName = modpackManager.normalizeModpackName(newName)
+                            val success = modpackManager.renameModpack(packageName, oldName, newName)
+                            if (success) {
+                                if (activeModpackName == oldName) {
+                                    activeModpackName = normalizedName
+                                    AppSettings.setActiveModpack(context, packageName, normalizedName)
+                                }
+                                modpacks = modpackManager.listModpacks(packageName)
+                                modpackRefreshKey++
+                            }
+                            success
                         },
                         onSelectModpack = { name ->
                             val previous = activeModpackName

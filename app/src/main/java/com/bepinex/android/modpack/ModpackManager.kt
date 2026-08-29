@@ -36,6 +36,9 @@ data class ModpackMeta(
  */
 class ModpackManager {
 
+    fun normalizeModpackName(name: String): String =
+        name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
+
     private fun getModpacksDir(packageName: String): File =
         File(BepInExPaths.getGameRootDir(packageName), "modpacks")
 
@@ -68,7 +71,7 @@ class ModpackManager {
     }
 
     fun createModpack(packageName: String, name: String): ModpackMeta? {
-        val safeName = name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
+        val safeName = normalizeModpackName(name)
         if (safeName.isEmpty()) return null
 
         val modpackDir = getModpackDir(packageName, safeName)
@@ -100,22 +103,29 @@ class ModpackManager {
     }
 
     fun renameModpack(packageName: String, oldName: String, newName: String): Boolean {
-        val safeNewName = newName.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
+        val safeNewName = normalizeModpackName(newName)
         if (safeNewName.isEmpty()) return false
+        if (safeNewName == oldName) return true
 
         val oldDir = getModpackDir(packageName, oldName)
         val newDir = getModpackDir(packageName, safeNewName)
         if (!oldDir.exists() || newDir.exists()) return false
 
-        return oldDir.renameTo(newDir).also { success ->
-            if (success) {
-                // Update metadata
-                readMeta(packageName, safeNewName)?.let {
-                    writeMeta(it.copy(name = safeNewName))
-                }
-                BepInExLog.i("Renamed modpack: $oldName  -> $safeNewName")
-            }
+        if (!oldDir.renameTo(newDir)) return false
+
+        // The directory rename is the actual operation. Metadata is repaired on
+        // a best-effort basis so a write error cannot report a successful rename
+        // as failed and leave the active-pack setting pointing at the old name.
+        try {
+            val meta = readMeta(packageName, safeNewName)
+                ?: ModpackMeta(name = safeNewName, packageName = packageName)
+            writeMeta(meta.copy(name = safeNewName, packageName = packageName))
+        } catch (e: Exception) {
+            BepInExLog.e("Renamed modpack but failed to update metadata: $safeNewName", e)
         }
+
+        BepInExLog.i("Renamed modpack: $oldName -> $safeNewName")
+        return true
     }
 
     // Mod management
@@ -145,7 +155,9 @@ class ModpackManager {
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
         return if (pluginsDir.isDirectory) {
             pluginsDir.walkTopDown()
-                .filter { it.isFile && it.extension == "dll" }
+                // Android paths are case-sensitive and File.extension preserves
+                // the original case. Treat .dll/.DLL/.Dll as the same mod type.
+                .filter { it.isFile && it.extension.equals("dll", ignoreCase = true) }
                 .toList()
         } else {
             emptyList()
@@ -219,8 +231,11 @@ class ModpackManager {
     // Activate / Apply
 
     /**
-     * Copy the modpack's plugins, configs, and logs to the active BepInEx directory.
-     * Runtime writes stay in BepInEx/; persistRuntimeState() copies them back later.
+     * Apply the modpack contents to the active BepInEx directory.
+     *
+     * A modpack may contain any BepInEx-root entry, not only plugins/config/logs
+     * (for example patchers, monomod, or other runtime folders). Runtime writes
+     * stay in BepInEx/; persistRuntimeState() copies them back later.
      */
     fun applyModpack(packageName: String, modpackName: String): Boolean {
         return try {
@@ -249,20 +264,27 @@ class ModpackManager {
 
     fun restoreRuntimeState(packageName: String, modpackName: String?) {
         val srcRoot = stateRoot(packageName, modpackName)
+        val bepInExDir = BepInExPaths.getBepInExDir(packageName)
         val pluginsDir = BepInExPaths.getPluginsDir(packageName)
         val configDir = BepInExPaths.getConfigDir(packageName)
         val logsDir = BepInExPaths.getLogsDir(packageName)
         val logFile = BepInExPaths.getLogFile(packageName)
 
-        replaceDir(pluginsDir)
-        replaceDir(configDir)
         replaceDir(logsDir)
         if (logFile.exists()) logFile.delete()
 
         if (!modpackName.isNullOrEmpty()) {
-            copyDirContents(getModpackPluginsDir(packageName, modpackName), pluginsDir)
+            // plugins/config/logs use their dedicated runtime-state handling.
+            // Synchronize instead of deleting everything on every launch. Files
+            // that are already identical are kept, while changed/new files are
+            // copied and stale files from the previous state are removed.
+            syncDirContents(getModpackPluginsDir(packageName, modpackName), pluginsDir)
+            copyModpackRootContents(srcRoot, bepInExDir)
+        } else {
+            // Vanilla state never owns plugins, so make sure no active mod is left.
+            replaceDir(pluginsDir)
         }
-        copyDirContents(File(srcRoot, "config"), configDir)
+        syncDirContents(File(srcRoot, "config"), configDir)
         // Do NOT restore LogOutput.log from modpack — let each session start fresh.
         // persistRuntimeState() will save the latest logs when the session ends.
         BepInExLog.i("Restored runtime cfg from ${srcRoot.absolutePath}")
@@ -301,6 +323,80 @@ class ModpackManager {
         }
     }
 
+    /**
+     * Mirror [source] into [dest] without rewriting files that already have the
+     * same content. Unlike a simple "target exists" check, this still applies an
+     * updated mod/config that keeps the same file name.
+     */
+    private fun syncDirContents(source: File, dest: File) {
+        if (!source.isDirectory) {
+            replaceDir(dest)
+            return
+        }
+
+        if (dest.exists() && !dest.isDirectory) dest.delete()
+        dest.mkdirs()
+
+        val sourceChildren = source.listFiles()?.associateBy { it.name }.orEmpty()
+        dest.listFiles()
+            ?.filter { it.name !in sourceChildren }
+            ?.forEach { it.deleteRecursively() }
+
+        sourceChildren.values.forEach { child ->
+            syncEntry(child, File(dest, child.name))
+        }
+    }
+
+    private fun syncEntry(source: File, target: File) {
+        if (source.isDirectory) {
+            syncDirContents(source, target)
+            return
+        }
+
+        if (target.isFile && filesHaveSameContent(source, target)) return
+        if (target.exists()) target.deleteRecursively()
+        target.parentFile?.mkdirs()
+        source.copyTo(target, overwrite = true)
+    }
+
+    private fun filesHaveSameContent(first: File, second: File): Boolean {
+        if (first.length() != second.length()) return false
+
+        first.inputStream().buffered().use { firstInput ->
+            second.inputStream().buffered().use { secondInput ->
+                val firstBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                val secondBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val firstRead = firstInput.read(firstBuffer)
+                    val secondRead = secondInput.read(secondBuffer)
+                    if (firstRead != secondRead) return false
+                    if (firstRead == -1) return true
+                    for (index in 0 until firstRead) {
+                        if (firstBuffer[index] != secondBuffer[index]) return false
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Copy a modpack's BepInEx-root contents while excluding launcher metadata
+     * and runtime-owned directories. Existing identical files are retained;
+     * changed/new files are copied and stale children are removed.
+     */
+    private fun copyModpackRootContents(source: File, bepInExDir: File) {
+        if (!source.isDirectory) return
+
+        val runtimeOwned = setOf("modpack.json", "plugins", "config", "logs")
+        source.listFiles()
+            ?.filter { it.name !in runtimeOwned }
+            ?.forEach { child ->
+                val target = File(bepInExDir, child.name)
+                syncEntry(child, target)
+                BepInExLog.i("Restored modpack entry: ${child.name} -> ${target.absolutePath}")
+            }
+    }
+
     // Export / Import
 
     fun exportModpack(packageName: String, modpackName: String, outputFile: File): Boolean {
@@ -309,7 +405,11 @@ class ModpackManager {
 
         return try {
             ZipOutputStream(FileOutputStream(outputFile)).use { zos ->
-                modpackDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                modpackDir.walkTopDown().filter { file ->
+                    if (!file.isFile) return@filter false
+                    val relativePath = file.relativeTo(modpackDir).path.replace('\\', '/')
+                    !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
+                }.forEach { file ->
                     val entryName = "$modpackName/${file.relativeTo(modpackDir).path.replace('\\', '/')}"
                     zos.putNextEntry(ZipEntry(entryName))
                     file.inputStream().use { it.copyTo(zos) }
@@ -377,25 +477,38 @@ class ModpackManager {
 
     private fun readMeta(packageName: String, name: String): ModpackMeta? {
         val file = getMetaFile(packageName, name)
+        // modCount in modpack.json is only a cache. Files can also be copied into
+        // the modpack directory outside the launcher, so always derive the count
+        // from the current plugins directory when displaying the pack.
+        val actualModCount = getModCount(packageName, name)
         if (!file.exists()) {
             // Infer from directory
             return ModpackMeta(
                 name = name,
                 packageName = packageName,
-                modCount = getModCount(packageName, name)
+                modCount = actualModCount
             )
         }
         return try {
             val json = JSONObject(file.readText())
-            ModpackMeta(
-                name = json.optString("name", name),
-                packageName = json.optString("packageName", packageName),
+            // The directory being read is the source of truth for identity.
+            // This also keeps metadata writes inside the renamed directory when
+            // an older modpack.json still contains the previous name.
+            val meta = ModpackMeta(
+                name = name,
+                packageName = packageName,
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
-                modCount = json.optInt("modCount", getModCount(packageName, name))
+                modCount = actualModCount
             )
+            // Repair stale metadata so exports and later reads also contain the
+            // current value rather than the old cached count.
+            if (json.optInt("modCount", -1) != actualModCount) {
+                writeMeta(meta)
+            }
+            meta
         } catch (e: Exception) {
             ModpackMeta(name = name, packageName = packageName,
-                modCount = getModCount(packageName, name))
+                modCount = actualModCount)
         }
     }
 
