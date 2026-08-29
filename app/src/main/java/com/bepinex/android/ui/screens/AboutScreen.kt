@@ -147,7 +147,7 @@ fun AboutScreen(
                     val url = if (isZh) {
                         "https://qm.qq.com/q/Ig1yGGlkek"
                     } else {
-                        "https://github.com/ModPVZRH/PVZRH.Launcher-release/discussions"
+                        "https://github.com/ModPVZRH/PVZRH.Android.Launcher/discussions"
                     }
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
