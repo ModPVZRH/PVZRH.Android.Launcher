@@ -202,7 +202,7 @@
     <string name="settings_floating_log">Floating Log in Game</string>
     <string name="settings_floating_log_desc">Show a floating log button on top of the game. Tap to view real-time BepInEx logs.</string>
     <string name="settings_unstripped_libunity">Use Unstripped libunity</string>
-    <string name="settings_unstripped_libunity_desc">Download and use unstripped libunity.so with full icalls (e.g. AssetBundle)</string>
+    <string name="settings_unstripped_libunity_desc">Download and use unstripped libunity.so with full icalls.</string>
 
     <!-- Launch -->
     <string name="launch_failed">Launch failed</string>
