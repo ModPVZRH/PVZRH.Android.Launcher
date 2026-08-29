@@ -37,6 +37,35 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private fun resolveModpackFile(modpackDirectory: File, target: File): File? = runCatching {
+    val canonicalRoot = modpackDirectory.canonicalFile
+    val canonicalTarget = target.canonicalFile
+    val isInsideModpack = canonicalTarget != canonicalRoot &&
+        canonicalTarget.toPath().startsWith(canonicalRoot.toPath())
+
+    canonicalTarget.takeIf { isInsideModpack && it.isFile }
+}.getOrNull()
+
+private fun isProtectedModpackFile(file: File): Boolean =
+    file.name.equals("modpack.json", ignoreCase = true)
+
+private fun isPluginsDll(modpackDirectory: File, target: File): Boolean {
+    val canonicalRoot = runCatching { modpackDirectory.canonicalFile }.getOrNull() ?: return false
+    val canonicalTarget = resolveModpackFile(canonicalRoot, target) ?: return false
+    val relativeSegments = canonicalTarget.relativeTo(canonicalRoot)
+        .invariantSeparatorsPath
+        .split('/')
+
+    return relativeSegments.firstOrNull()?.equals("plugins", ignoreCase = true) == true &&
+        canonicalTarget.extension.equals("dll", ignoreCase = true)
+}
+
+private fun deleteModpackFile(modpackDirectory: File, target: File): Boolean {
+    val safeTarget = resolveModpackFile(modpackDirectory, target) ?: return false
+    if (isProtectedModpackFile(safeTarget)) return false
+    return runCatching { safeTarget.delete() }.getOrDefault(false)
+}
+
 private fun bottomTabIndex(route: String?): Int? = when (route) {
     NavRoutes.GAMES -> 0
     NavRoutes.MODPACKS -> 1
@@ -377,8 +406,17 @@ fun BepInExNavHost(
                             modpacks = modpackManager.listModpacks(packageName)
                         },
                         onRenameModpack = { oldName, newName ->
-                            modpackManager.renameModpack(packageName, oldName, newName)
-                            modpacks = modpackManager.listModpacks(packageName)
+                            val normalizedName = modpackManager.normalizeModpackName(newName)
+                            val success = modpackManager.renameModpack(packageName, oldName, newName)
+                            if (success) {
+                                if (activeModpackName == oldName) {
+                                    activeModpackName = normalizedName
+                                    AppSettings.setActiveModpack(context, packageName, normalizedName)
+                                }
+                                modpacks = modpackManager.listModpacks(packageName)
+                                modpackRefreshKey++
+                            }
+                            success
                         },
                         onSelectModpack = { name ->
                             val previous = activeModpackName
@@ -500,7 +538,21 @@ fun BepInExNavHost(
 
                     ModFileBrowserScreen(
                         rootDirectory = modpackDirectory,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onFileClick = { file ->
+                            val safeFile = resolveModpackFile(modpackDirectory, file)
+                            if (safeFile != null && !isProtectedModpackFile(safeFile)) {
+                                navController.navigate(NavRoutes.configEditor(safeFile.absolutePath))
+                            }
+                        },
+                        onDeleteFile = { file ->
+                            val deletedPluginDll = isPluginsDll(modpackDirectory, file)
+                            deleteModpackFile(modpackDirectory, file).also { deleted ->
+                                if (deleted && deletedPluginDll) {
+                                    modpackRefreshKey++
+                                }
+                            }
+                        }
                     )
                 }
 
@@ -599,8 +651,12 @@ fun BepInExNavHost(
                         configFile = file,
                         onDismiss = { navController.popBackStack() },
                         onSave = { f, content ->
-                            f.writeText(content)
-                            navController.popBackStack()
+                            val success = !isProtectedModpackFile(f) && runCatching {
+                                f.writeText(content)
+                            }.isSuccess
+                            success.also {
+                                if (success) navController.popBackStack()
+                            }
                         }
                     )
                 }

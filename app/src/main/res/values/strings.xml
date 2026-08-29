@@ -43,6 +43,7 @@
     <string name="modpack_create">Create Modpack</string>
     <string name="modpack_delete">Delete Modpack</string>
     <string name="modpack_rename">Rename</string>
+    <string name="modpack_rename_failed">The name is invalid or already exists</string>
     <string name="modpack_export">Export</string>
     <string name="modpack_import">Import Modpack</string>
     <string name="modpack_select_active">Activate</string>
@@ -65,6 +66,7 @@
     <!-- Config Editor -->
     <string name="config_editor_title">Config Editor</string>
     <string name="config_editor_save">Save</string>
+    <string name="config_editor_save_failed">Failed to save the file</string>
     <string name="config_editor_unsaved">Unsaved changes</string>
     <string name="config_editor_discard_title">Discard Changes?</string>
     <string name="config_editor_discard_msg">You have unsaved changes. Discard them?</string>
@@ -73,8 +75,17 @@
     <!-- Mod File Browser -->
     <string name="mod_file_browser_title">Mod Files</string>
     <string name="mod_file_browser_empty">This directory is empty</string>
-    <string name="mod_file_browser_missing">The plugins directory does not exist</string>
+    <string name="mod_file_browser_missing">The modpack directory does not exist</string>
     <string name="mod_file_browser_directory">Directory</string>
+    <string name="mod_file_browser_editable_file">%1$s · Tap to view or edit</string>
+    <string name="mod_file_browser_unsupported_file">%1$s · Preview not supported</string>
+    <string name="mod_file_browser_edit_file">View or edit file</string>
+    <string name="mod_file_browser_delete_file">Delete file</string>
+    <string name="mod_file_browser_delete_title">Delete file?</string>
+    <string name="mod_file_browser_delete_message">Delete "%1$s"? This cannot be undone.</string>
+    <string name="mod_file_browser_delete_failed">Failed to delete the file</string>
+    <string name="mod_file_browser_protected">Protected file</string>
+    <string name="mod_file_browser_protected_file">Protected modpack metadata · Cannot edit or delete</string>
 
     <!-- Settings sections -->
     <string name="settings_title">Settings</string>

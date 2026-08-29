@@ -32,7 +32,7 @@ fun ModpackListScreen(
     onNavigateBack: () -> Unit,
     onCreateModpack: (String) -> Unit,
     onDeleteModpack: (String) -> Unit,
-    onRenameModpack: (String, String) -> Unit,
+    onRenameModpack: (String, String) -> Boolean,
     onSelectModpack: (String?) -> Unit,
     onOpenModpack: (String) -> Unit,
     onExportModpack: (String) -> Unit,
@@ -177,6 +177,13 @@ fun ModpackListScreen(
                                 selected = isActive,
                                 onClick = { onSelectModpack(modpack.name) }
                             )
+                            IconButton(onClick = { showRenameDialog = modpack.name }) {
+                                Icon(
+                                    Icons.Outlined.Edit,
+                                    stringResource(R.string.modpack_rename),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                             IconButton(onClick = { showDeleteDialog = modpack.name }) {
                                 Icon(Icons.Outlined.Delete, stringResource(R.string.delete),
                                     tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
@@ -197,6 +204,55 @@ fun ModpackListScreen(
             onCreate = { name ->
                 onCreateModpack(name)
                 onDismissCreateDialog()
+            }
+        )
+    }
+
+    // Rename dialog
+    showRenameDialog?.let { oldName ->
+        var newName by remember(oldName) { mutableStateOf(oldName) }
+        var renameFailed by remember(oldName) { mutableStateOf(false) }
+        val trimmedName = newName.trim()
+
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = null },
+            title = { Text(stringResource(R.string.modpack_rename)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = {
+                        newName = it
+                        renameFailed = false
+                    },
+                    label = { Text(stringResource(R.string.modpack_name_hint)) },
+                    singleLine = true,
+                    isError = renameFailed,
+                    supportingText = if (renameFailed) {
+                        { Text(stringResource(R.string.modpack_rename_failed)) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (onRenameModpack(oldName, trimmedName)) {
+                            showRenameDialog = null
+                        } else {
+                            renameFailed = true
+                        }
+                    },
+                    enabled = trimmedName.isNotEmpty() && trimmedName != oldName
+                ) {
+                    Text(stringResource(R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = null }) {
+                    Text(stringResource(R.string.confirm_cancel))
+                }
             }
         )
     }
