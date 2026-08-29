@@ -34,10 +34,10 @@ import com.bepinex.android.R
 @Composable
 fun AboutScreen(
     versionName: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToCredits: () -> Unit = {}
 ) {
     var showSponsorDialog by remember { mutableStateOf(false) }
-    var showCreditsDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -137,7 +137,7 @@ fun AboutScreen(
             AboutActionButton(
                 title = stringResource(R.string.about_credits),
                 subtitle = stringResource(R.string.about_credits_desc),
-                onClick = { showCreditsDialog = true }
+                onClick = onNavigateToCredits
             )
             AboutActionButton(
                 title = stringResource(R.string.about_contact),
@@ -188,9 +188,6 @@ fun AboutScreen(
 
     if (showSponsorDialog) {
         SponsorDialog(onDismiss = { showSponsorDialog = false })
-    }
-    if (showCreditsDialog) {
-        CreditsDialog(onDismiss = { showCreditsDialog = false })
     }
 }
 
@@ -265,129 +262,6 @@ private fun SponsorDialog(onDismiss: () -> Unit) {
                 )
 
                 Spacer(Modifier.height(16.dp))
-
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CreditsDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text(
-                    stringResource(R.string.about_credits),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Projects
-                Text(
-                    stringResource(R.string.about_projects_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_bepinex_name),
-                    desc = stringResource(R.string.about_project_bepinex_desc),
-                    url = stringResource(R.string.about_url_bepinex),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_fusioncore_name),
-                    desc = stringResource(R.string.about_project_fusioncore_desc),
-                    url = stringResource(R.string.about_url_fusioncore),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_nextbep_name),
-                    desc = stringResource(R.string.about_project_nextbep_desc),
-                    url = stringResource(R.string.about_url_nextbep),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_bepinexandroid_name),
-                    desc = stringResource(R.string.about_project_bepinexandroid_desc),
-                    url = stringResource(R.string.about_url_bepinexandroid),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_dotnet_name),
-                    desc = stringResource(R.string.about_project_dotnet_desc),
-                    url = stringResource(R.string.about_url_dotnet),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_openssl_name),
-                    desc = stringResource(R.string.about_project_openssl_desc),
-                    url = stringResource(R.string.about_url_openssl),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_pine_name),
-                    desc = stringResource(R.string.about_project_pine_desc),
-                    url = stringResource(R.string.about_url_pine),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_dobby_name),
-                    desc = stringResource(R.string.about_project_dobby_desc),
-                    url = stringResource(R.string.about_url_dobby),
-                    context = context
-                )
-                CreditProjectCard(
-                    name = stringResource(R.string.about_project_cpp2il_name),
-                    desc = stringResource(R.string.about_project_cpp2il_desc),
-                    url = stringResource(R.string.about_url_cpp2il),
-                    context = context
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                // Dev team
-                Text(
-                    stringResource(R.string.about_dev_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Text(
-                    stringResource(R.string.about_dev_names),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                // Footer
-                Text(
-                    stringResource(R.string.about_footer),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(8.dp))
 
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                     TextButton(onClick = onDismiss) {

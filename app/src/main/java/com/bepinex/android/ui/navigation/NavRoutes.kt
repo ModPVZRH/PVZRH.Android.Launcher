@@ -9,6 +9,7 @@ object NavRoutes {
     const val MODPACK_DETAIL = "modpack_detail/{packageName}/{modpackName}"
     const val SETTINGS = "settings/{packageName}"
     const val ABOUT = "about"
+    const val CREDITS = "credits"
     const val LOG_VIEWER = "log_viewer/{packageName}/{modpackName}"
     const val CONFIG_EDITOR = "config_editor/{filePath}"
     const val MOD_FILE_BROWSER = "mod_file_browser/{packageName}/{modpackName}"

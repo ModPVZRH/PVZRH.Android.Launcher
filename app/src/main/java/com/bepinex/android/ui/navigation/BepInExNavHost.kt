@@ -673,8 +673,18 @@ fun BepInExNavHost(
                     }.getOrDefault("0.170")
                     AboutScreen(
                         versionName = versionName,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToCredits = { navController.navigate(NavRoutes.CREDITS) }
                     )
+                }
+
+                // Credits
+                composable(
+                    route = NavRoutes.CREDITS,
+                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
+                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                ) {
+                    CreditsScreen(onNavigateBack = { navController.popBackStack() })
                 }
             }
     }
