@@ -110,6 +110,45 @@ private fun bottomTabExitTransition(
     return slideOutHorizontally(tween(300)) { width -> width * offset } + fadeOut(tween(300))
 }
 
+private const val SECONDARY_TRANSITION_DURATION_MS = 260
+private const val SECONDARY_FADE_DURATION_MS = 180
+
+private fun secondaryEnterTransition(): EnterTransition =
+    slideInHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> width / 3 } +
+        fadeIn(tween(SECONDARY_FADE_DURATION_MS))
+
+private fun secondaryExitTransition(): ExitTransition =
+    slideOutHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> -width / 6 } +
+        fadeOut(tween(SECONDARY_FADE_DURATION_MS))
+
+private fun secondaryPopEnterTransition(): EnterTransition =
+    slideInHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> -width / 6 } +
+        fadeIn(tween(SECONDARY_FADE_DURATION_MS))
+
+private fun secondaryPopExitTransition(): ExitTransition =
+    slideOutHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> width / 3 } +
+        fadeOut(tween(SECONDARY_FADE_DURATION_MS))
+
+private fun topLevelExitTransition(
+    initialRoute: String?,
+    targetRoute: String?
+): ExitTransition? = bottomTabExitTransition(initialRoute, targetRoute)
+    ?: if (bottomTabIndex(initialRoute) != null && bottomTabIndex(targetRoute) == null) {
+        secondaryExitTransition()
+    } else {
+        null
+    }
+
+private fun topLevelPopEnterTransition(
+    initialRoute: String?,
+    targetRoute: String?
+): EnterTransition? = bottomTabEnterTransition(initialRoute, targetRoute)
+    ?: if (bottomTabIndex(initialRoute) == null && bottomTabIndex(targetRoute) != null) {
+        secondaryPopEnterTransition()
+    } else {
+        null
+    }
+
 /**
  * Root navigation host with bottom navigation bar.
  */
@@ -258,7 +297,14 @@ fun BepInExNavHost(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (showBottomBar) {
+            AnimatedVisibility(
+                visible = showBottomBar,
+                enter = slideInVertically(tween(SECONDARY_TRANSITION_DURATION_MS)) { height -> height } +
+                    fadeIn(tween(SECONDARY_FADE_DURATION_MS)),
+                // Hide immediately before the secondary destination starts drawing, so the tab bar
+                // cannot temporarily overlap the incoming page.
+                exit = ExitTransition.None
+            ) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurface
@@ -318,13 +364,13 @@ fun BepInExNavHost(
                         ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
                     },
                     exitTransition = {
-                        bottomTabExitTransition(
+                        topLevelExitTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                        )
                     },
                     popEnterTransition = {
-                        bottomTabEnterTransition(
+                        topLevelPopEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
                         )
@@ -364,13 +410,13 @@ fun BepInExNavHost(
                         ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
                     },
                     exitTransition = {
-                        bottomTabExitTransition(
+                        topLevelExitTransition(
                             initialState.destination.route,
                             targetState.destination.route
                         )
                     },
                     popEnterTransition = {
-                        bottomTabEnterTransition(
+                        topLevelPopEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
                         )
@@ -450,10 +496,10 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    exitTransition = { slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)) },
-                    popEnterTransition = { slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { secondaryEnterTransition() },
+                    exitTransition = { secondaryExitTransition() },
+                    popEnterTransition = { secondaryPopEnterTransition() },
+                    popExitTransition = { secondaryPopExitTransition() }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val modpackName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -519,10 +565,10 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    exitTransition = { slideOutHorizontally(tween(300)) { -it } + fadeOut(tween(300)) },
-                    popEnterTransition = { slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { secondaryEnterTransition() },
+                    exitTransition = { secondaryExitTransition() },
+                    popEnterTransition = { secondaryPopEnterTransition() },
+                    popExitTransition = { secondaryPopExitTransition() }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName")
                         ?: return@composable
@@ -566,13 +612,13 @@ fun BepInExNavHost(
                         ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
                     },
                     exitTransition = {
-                        bottomTabExitTransition(
+                        topLevelExitTransition(
                             initialState.destination.route,
                             targetState.destination.route
                         )
                     },
                     popEnterTransition = {
-                        bottomTabEnterTransition(
+                        topLevelPopEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
                         )
@@ -662,8 +708,10 @@ fun BepInExNavHost(
                 // About
                 composable(
                     route = NavRoutes.ABOUT,
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { secondaryEnterTransition() },
+                    exitTransition = { secondaryExitTransition() },
+                    popEnterTransition = { secondaryPopEnterTransition() },
+                    popExitTransition = { secondaryPopExitTransition() }
                 ) {
                     val context = LocalContext.current
                     val versionName = runCatching {
@@ -679,8 +727,10 @@ fun BepInExNavHost(
                 // Credits
                 composable(
                     route = NavRoutes.CREDITS,
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { secondaryEnterTransition() },
+                    exitTransition = { secondaryExitTransition() },
+                    popEnterTransition = { secondaryPopEnterTransition() },
+                    popExitTransition = { secondaryPopExitTransition() }
                 ) {
                     CreditsScreen(onNavigateBack = { navController.popBackStack() })
                 }
