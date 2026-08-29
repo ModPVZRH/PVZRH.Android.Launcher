@@ -156,18 +156,20 @@ fun AboutScreen(
                 title = stringResource(R.string.about_privacy_policy),
                 subtitle = stringResource(R.string.about_privacy_policy_desc),
                 onClick = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://modpvzrh.github.io/privacy.html"))
-                    )
+                    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+                    val url = if (isZh) "https://modpvzrh.github.io/zh/privacy"
+                              else "https://modpvzrh.github.io/privacy"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
             )
             AboutActionButton(
                 title = stringResource(R.string.about_official_docs),
                 subtitle = stringResource(R.string.about_official_docs_desc),
                 onClick = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://modpvzrh.github.io/docs.html"))
-                    )
+                    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+                    val url = if (isZh) "https://modpvzrh.github.io/zh/docs"
+                              else "https://modpvzrh.github.io/docs"
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
             )
 
