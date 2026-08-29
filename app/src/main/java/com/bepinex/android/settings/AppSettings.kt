@@ -17,6 +17,7 @@ object AppSettings {
     private const val KEY_FLOATING_LOG_IN_GAME = "floating_log_in_game"
     private const val KEY_ACTIVE_MODPACK_PREFIX = "active_modpack_"
     private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
+    private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
     private const val KEY_LAST_SEEN_ANNOUNCEMENT = "last_seen_announcement_date"
 
     enum class ThemeMode {
@@ -97,6 +98,15 @@ object AppSettings {
 
     fun setUseUnstrippedLibUnity(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_USE_UNSTRIPPED_LIBUNITY, enabled).apply()
+    }
+
+    // Dynamic Color (Material You / Monet)
+
+    fun isDynamicColorEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_USE_DYNAMIC_COLOR, false)
+
+    fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
     }
 
     fun getLastSeenAnnouncementDate(context: Context): String =

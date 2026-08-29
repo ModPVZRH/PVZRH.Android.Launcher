@@ -1,5 +1,6 @@
 package com.bepinex.android.ui.screens
 
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteForever
@@ -64,11 +66,13 @@ fun SettingsScreen(
     packageName: String,
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
+    dynamicColor: Boolean,
     floatingLogInGame: Boolean,
     useUnstrippedLibUnity: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
+    onDynamicColorChanged: (Boolean) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
@@ -127,6 +131,22 @@ fun SettingsScreen(
                     icon = { Icon(Icons.Outlined.Language, contentDescription = null) },
                     onClick = { showLanguageDialog = true }
                 )
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                item {
+                    SettingListItem(
+                        title = stringResource(R.string.settings_dynamic_color),
+                        summary = stringResource(R.string.settings_dynamic_color_desc),
+                        icon = { Icon(Icons.Outlined.ColorLens, contentDescription = null) },
+                        trailing = {
+                            Switch(
+                                checked = dynamicColor,
+                                onCheckedChange = { checked -> onDynamicColorChanged(checked) }
+                            )
+                        },
+                        onClick = { onDynamicColorChanged(!dynamicColor) }
+                    )
+                }
             }
 
             item { SettingsSectionHeader(stringResource(R.string.settings_section_ingame)) }

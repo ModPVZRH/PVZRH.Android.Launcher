@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
     // Settings state
     private var themeMode by mutableStateOf(AppSettings.ThemeMode.SYSTEM)
     private var language by mutableStateOf(AppSettings.Language.SYSTEM)
+    private var dynamicColor by mutableStateOf(false)
 
     // Update check state
     private var updateInfo by mutableStateOf<UpdateChecker.UpdateInfo?>(null)
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
         AppSettings.initialize(this)
         themeMode = AppSettings.getThemeMode(this)
         language = AppSettings.getLanguage(this)
+        dynamicColor = AppSettings.isDynamicColorEnabled(this)
 
         BepInExLog.init(this)
         BepInExLog.i("=== PVZRH Launcher ===")
@@ -607,7 +609,7 @@ class MainActivity : ComponentActivity() {
 
     private fun setupContent() {
         setContent {
-            BepInExTheme(themeMode = themeMode) {
+            BepInExTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
                 if (storagePermissionGranted) {
                     BepInExNavHost(
                     scope = scope,
@@ -621,6 +623,7 @@ class MainActivity : ComponentActivity() {
                     extractionStatus = extractionStatus,
                     themeMode = themeMode,
                     language = language,
+                    dynamicColor = dynamicColor,
                     onSelectGame = { selectGame(it) },
                     onRescan = {
                         GameDetector.invalidateCache()
@@ -629,6 +632,9 @@ class MainActivity : ComponentActivity() {
                     onLaunch = { modpackName -> launchGame(modpackName) },
                     onThemeChanged = { onThemeChanged(it) },
                     onLanguageChanged = { onLanguageChanged(it) },
+                    onDynamicColorChanged = { enabled ->
+                        dynamicColor = enabled
+                    },
                     onClearBepInEx = { onClearBepInEx(it) },
                     onClearDotnet = { onClearDotnet(it) },
                     onClearLibUnity = { onClearLibUnity(it) },

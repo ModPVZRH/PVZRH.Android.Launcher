@@ -165,12 +165,14 @@ fun BepInExNavHost(
     // Settings state
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
+    dynamicColor: Boolean,
     // Callbacks
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
     onRescan: () -> Unit,
     onLaunch: (modpackName: String?) -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
+    onDynamicColorChanged: (Boolean) -> Unit,
     onClearBepInEx: (String) -> Unit,
     onClearDotnet: (String) -> Unit,
     onClearLibUnity: (String) -> Unit,
@@ -638,15 +640,24 @@ fun BepInExNavHost(
                     var useUnstrippedLibUnity by remember {
                         mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
                     }
+                    var dynamicColor by remember {
+                        mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
+                    }
                     SettingsScreen(
                         packageName = packageName,
                         themeMode = themeMode,
                         language = language,
+                        dynamicColor = dynamicColor,
                         floatingLogInGame = floatingLogInGame,
                         useUnstrippedLibUnity = useUnstrippedLibUnity,
                         onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                         onThemeChanged = onThemeChanged,
                         onLanguageChanged = onLanguageChanged,
+                        onDynamicColorChanged = { enabled ->
+                            AppSettings.setDynamicColorEnabled(settingsContext, enabled)
+                            dynamicColor = enabled
+                            onDynamicColorChanged(enabled)
+                        },
                         onFloatingLogInGameChanged = { enabled ->
                             AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
                             floatingLogInGame = enabled
