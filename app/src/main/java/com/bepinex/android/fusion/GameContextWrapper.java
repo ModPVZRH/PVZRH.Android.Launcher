@@ -11,10 +11,7 @@ import androidx.annotation.Nullable;
 
 import java.io.File;
 
-/**
- * Direct port of FusionCore's CustomContextWrapper.
- * Used to wrap the UnityPlayer constructor argument.
- */
+/** Wraps Context to redirect resource and data paths for the UnityPlayer constructor. */
 public class GameContextWrapper extends ContextWrapper {
     Context fusionContext;
     Context appContext;

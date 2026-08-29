@@ -7,9 +7,6 @@ import java.util.zip.ZipInputStream
 
 /**
  * Extracts BepInEx and .NET runtime from APK assets to per-game directories.
- *
- * Uses [BepInExPaths] for path resolution. Extraction is idempotent —
- * checks for marker files before extracting and skips if already complete.
  */
 class FileExtractor(private val context: Context) {
 

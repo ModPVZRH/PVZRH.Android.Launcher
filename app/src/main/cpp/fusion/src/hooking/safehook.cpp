@@ -1,13 +1,4 @@
-/*
- * BepInEx.Android 鈥?Dobby SafeHook wrapper
- *
- * Ported from FusionCore main branch (fusion/src/hooking/safehook.cpp).
- *
- * Wraps DobbyHook with additional logic:
- *   - Trampoline allocation from injected code cave (via allocator)
- *   - Near-branch optimization for close targets
- *   - Bridge hook for functions using X8 return buffer (ARM64)
- */
+/* Dobby SafeHook wrapper with code cave trampoline allocation. */
 
 #include "fusion.h"
 #include "dobby.h"
@@ -104,10 +95,7 @@ bool safehook_initialize(void *lib_handle, uintptr_t lib_base, allocate_func all
     return true;
 }
 
-/*
- * Check if a function is "small" 鈥?too short for Dobby to place an
- * inline hook safely (less than 3 instructions before a branch/return).
- */
+/* Check if function is too short for inline Dobby hook. */
 static bool is_small_function(void *address, int max_instr = 3) {
     auto *code = reinterpret_cast<uint32_t *>(address);
     for (int i = 0; i < max_instr; i++) {

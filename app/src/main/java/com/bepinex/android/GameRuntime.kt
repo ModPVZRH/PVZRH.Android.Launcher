@@ -1,17 +1,7 @@
 package com.bepinex.android
 
 /**
- * Describes a target Unity IL2CPP game for the FusionCore launcher.
- *
- * Each runtime specifies the game's identity, Unity version, and the
- * Java package where UnityPlayer classes reside. This information is
- * used by [BootstrapActivity] and native libmain/libfusion to resolve
- * classes, libraries, and hook targets.
- *
- * ## Extensibility
- *
- * Currently hardcoded for Among Us. Future versions will support
- * multiple games via dynamic discovery from extracted APK metadata.
+ * Describes a target Unity IL2CPP game for the launcher.
  */
 data class GameRuntime(
     /** Android package name (e.g. "com.innersloth.spacemafia") */

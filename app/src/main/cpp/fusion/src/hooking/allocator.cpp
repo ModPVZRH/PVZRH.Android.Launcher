@@ -1,11 +1,4 @@
-/*
- * BepInEx.Android — Trampoline allocator (code cave)
- * Ported from FusionCore main branch (fusion/src/hooking/allocator.cpp)
- *
- * Uses the padded libil2cpp.so's extra memory pool to allocate
- * trampoline space for SafeHook, ensuring hooks on small functions
- * have enough room for absolute jumps.
- */
+/* Trampoline allocator — allocates from injected code cave for SafeHook. */
 
 #include <cstdint>
 #include <dlfcn.h>

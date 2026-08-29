@@ -1,7 +1,4 @@
-/*
- * BepInEx.Android — ELF padding / code cave injection
- * Ported from FusionCore main branch (fusion/src/utilities/library.cpp)
- */
+/* ELF padding and code cave injection utilities. */
 
 #include <dlfcn.h>
 #include <fstream>

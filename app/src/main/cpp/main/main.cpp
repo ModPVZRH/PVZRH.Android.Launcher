@@ -1,18 +1,4 @@
-/*
- * BepInEx.Android 鈥?libmain.so (FusionCore main branch pattern)
- *
- * This is a CUSTOM libmain.so that replaces the game's original libmain.so.
- * It is loaded BY the game's ClassLoader (via findLibrary Pine hook redirect),
- * so JNI FindClass here searches the GAME's DEX 鈥?therefore we can find
- * com.unity3d.player.NativeLoader directly.
- *
- * Architecture:
- *   - NOT linked to libfusion.so (resolved dynamically via dlopen/dlsym)
- *   - JNI_OnLoad: registers custom load/unload on NativeLoader
- *   - load(): resolves fusion symbols 鈫?stages config 鈫?loads unity+il2cpp 鈫? *            bootstraps fusion (which hooks il2cpp_init)
- *
- * This is the entry point that bridges Unity's native loading to BepInEx.
- */
+/* Custom libmain.so — bridges Unity native loading to BepInEx via libfusion. */
 
 #include <jni.h>
 #include <dlfcn.h>
@@ -231,10 +217,7 @@ static void load_original_game_main(JNIEnv *env, const std::string &configPath)
     const std::string sourcePath = gameLibDir + "/libmain.so";
     const std::string copyPath = configPath + ".original_main.so";
 
-    /* Both libraries have SONAME libmain.so. Loading the original by its
-     * absolute path would therefore resolve to this replacement. Make a
-     * private copy with a different SONAME so Android's linker creates a
-     * second link-map entry and runs the original JNI_OnLoad. */
+    /* Copy with renamed SONAME so Android linker creates a separate link-map entry. */
     std::ifstream source(sourcePath, std::ios::binary);
     std::ofstream copy(copyPath, std::ios::binary | std::ios::trunc);
     if (!source || !copy) {
@@ -410,9 +393,7 @@ load(JNIEnv *env, jclass clazz, jstring path)
     }
     nlog("load: fusion staged OK");
 
-    /* 4. Load Unity first, THEN IL2CPP.
-     * Loading patched libil2cpp with RTLD_NOW before libunity runs IL2CPP
-     * constructors too early and crashes some Unity Android forks (PVZ). */
+    /* Load libunity first — loading il2cpp before libunity causes early IL2CPP constructors. */
     nlog("load: loading libunity");
     if (!internal_load(env, override_unity_path.c_str(), &unityLibHandle)) {
         nlog("load: FAILED to load libunity.so");

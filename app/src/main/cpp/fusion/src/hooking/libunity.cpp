@@ -1,12 +1,4 @@
-/*
- * BepInEx.Android — libunity.so hooks
- *
- * Ported from FusionCore (fusion/src/hooking/libunity.cpp).
- *
- * Hooks scripting_method_invoke to prevent crashes when using unstripped
- * libunity.so. Reads the .sym.so companion file to locate the target
- * function RVA, then installs a null-guard hook via DobbyHook.
- */
+/* Hooks scripting_method_invoke and path_check in libunity.so. */
 
 #include "fusion.h"
 #include "utilities/elf.h"
@@ -38,10 +30,7 @@ static void* scripting_method_invoke_hook(void* method, void* obj,
     return g_original_scripting_method_invoke(method, obj, args, exc, something);
 }
 
-// Path check hook (sub_69A808)
-// Original: checks if libunity.so path contains "/data/data", "/data/user", "/storage", "/sdcard"
-//           If match → triggers UnityPlayer.kill() → SIGKILL 9
-// Hooked: always returns false (0) - no path match
+// Path check hook (sub_69A808) — blocks UnityPlayer.kill() on storage paths
 
 using path_check_fn = bool (*)(const char* path);
 static path_check_fn g_original_path_check = nullptr;
@@ -139,10 +128,6 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
 
     LOGI("scripting_method_invoke hook installed");
 
-    // 6. Hook path check function (sub_69A808 @ RVA 0x69A808)
-    //    This function checks if libunity.so path contains "/data/data", "/data/user", "/storage", "/sdcard"
-    //    If match → triggers UnityPlayer.kill() → SIGKILL 9
-    //    Hook it to always return false (0) - no path match
     constexpr uintptr_t path_check_rva = 0x69A808;
     void *path_check_target = reinterpret_cast<void *>(base + path_check_rva);
 

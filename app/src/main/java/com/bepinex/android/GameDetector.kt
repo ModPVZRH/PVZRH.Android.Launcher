@@ -14,16 +14,6 @@ import java.util.zip.ZipFile
 
 /**
  * Auto-detects Unity IL2CPP games installed on the device.
- *
- * Uses [PackageManager.queryIntentActivities] with MAIN/LAUNCHER intent
- * to discover launchable apps without requiring QUERY_ALL_PACKAGES permission.
- * The corresponding `<queries>` declaration in AndroidManifest.xml makes this
- * work on Android 11+ without any runtime permission dialogs.
- *
- * Detection algorithm:
- *   1. Query all launchable activities via PackageManager
- *   2. Deduplicate by package name, skip system + our own app
- *   3. For each candidate APK, open as ZIP and check for libil2cpp.so
  */
 object GameDetector {
 

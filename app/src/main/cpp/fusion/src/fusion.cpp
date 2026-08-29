@@ -1,11 +1,4 @@
-/*
- * BepInEx.Android 鈥?libfusion.so core
- *
- * Ported from FusionCore main branch (fusion/src/fusion.cpp).
- *
- * Coordinates the full injection pipeline:
- *   Config parse 鈫?allocate injected code cave 鈫?il2cpp_init hook 鈫?CoreCLR 鈫?BepInEx
- */
+/* Core injection pipeline: config parse → hook → il2cpp_init → CoreCLR → BepInEx. */
 
 #include "fusion.h"
 #include <dlfcn.h>
@@ -72,18 +65,7 @@ static std::string read_file(const char *path)
     return result;
 }
 
-/*
- * Simple config parser. Expected format (one key=value per line):
- *
- *   gameLibraryDirectory=/data/app/.../lib/arm64
- *   appLibraryDirectory=/data/app/.../lib/arm64
- *   appDataDirectory=/data/data/com.bepinex.android/files/...
- *   bepInExDirectory=/storage/...
- *   dotnetDirectory=/storage/...
- *   unityDataDirectory=/storage/...
- *   unityVersion=2022.3.62f3
- *   useOriginalLibUnity=false
- */
+/* Simple config parser — key=value per line, returns true if appLibraryDir is set. */
 static bool parse_fusion_config(const char *text, FusionConfig *out)
 {
     if (!text || !out) return false;
@@ -144,17 +126,7 @@ static bool stage_fusion_config(const FusionConfig &config)
         unityPath = config.appDataDir + "/libunity/unstripped/libunity.so";
     }
 
-    /*
-     * FusionCore pattern: patch libil2cpp.so with an extended memory segment
-     * (1 MB code cave) 鈫?copy to appDataDir 鈫?load the patched copy.
-     *
-     * The code cave provides executable memory within the library's own
-     * segment, bypassing Android 14+ W^X restrictions. Dobby trampolines
-     * are allocated from this cave instead of mmap (which would be W^X).
-     *
-     * The patched copy path matches the DataLibrary redirect in
-     * NativeLibraryManager 鈫?findLibrary("il2cpp") returns this path.
-     */
+    /* Patch libil2cpp.so with 1MB code cave — bypasses Android 14+ W^X restrictions. */
     std::string patchedIl2CppPath = config.appDataDir + "/libil2cpp.so";
     LOGI("Patching il2cpp: %s -> %s (1MB pool)", gameIl2cppPath.c_str(), patchedIl2CppPath.c_str());
 
@@ -195,17 +167,7 @@ static bool stage_fusion_config(const FusionConfig &config)
 
 // il2cpp_init hook callback
 
-/*
- * One-shot hook on il2cpp_init (FusionCore pattern).
- *
- * Called when Unity invokes il2cpp_init. We:
- *   1. Destroy the hook (one-shot 鈥?only fire once)
- *   2. Call the real il2cpp_init (chains through Dobby trampoline)
- *   3. Set environment variables for BepInEx
- *   4. Start CoreCLR 鈫?BepInEx
- *
- * Signature matches FusionCore: int il2cpp_init(char *domain_name)
- */
+/* One-shot hook on il2cpp_init — destroys hook, calls real init, starts CoreCLR. */
 static int il2cpp_init_hook(char *domain_name)
 {
     __android_log_write(ANDROID_LOG_ERROR, "FusionB", "il2cpp_init HOOK FIRED!");
@@ -265,20 +227,7 @@ bool fusion_stage_from_config_path(const char *configPath)
     return stage_fusion_config(config);
 }
 
-/*
- * Bootstrap the fusion chain (FusionCore main branch pattern).
- *
- * Called from libmain's load() AFTER libunity.so and libil2cpp.so
- * have been dlopen'd. Steps:
- *
- *   1. Initialize IL2CPP (dlopen with RTLD_GLOBAL 鈫?symbols visible for P/Invoke)
- *   2. Initialize SafeHook with IL2CPP handle/base
- *   3. Install one-shot DobbyHook on il2cpp_init
- *
- * NOTE: Code cave injection (allocate_setup_injected) is not yet
- * implemented. For now we rely on Dobby's own trampoline allocation.
- * The il2cpp_init function is large enough for Dobby to hook directly.
- */
+/* Bootstrap fusion: init IL2CPP, SafeHook, install il2cpp_init hook. */
 bool fusion_bootstrap_from_libmain(JNIEnv *env)
 {
     if (!g_staged) {
@@ -306,11 +255,7 @@ bool fusion_bootstrap_from_libmain(JNIEnv *env)
     void *il2cppHandle = il2cpp_get_handle();
     uintptr_t il2cppBase = il2cpp_get_library_base();
 
-    /*
-     * Pass allocate_injected as the trampoline allocator.
-     * This ensures Dobby trampolines are allocated within the patched
-     * libil2cpp.so's code cave (bypassing Android W^X).
-     */
+    /* Use code cave allocator for Dobby trampolines — bypasses Android W^X. */
     if (!safehook_initialize(il2cppHandle, il2cppBase, allocate_injected)) {
         LOGE("safehook_initialize failed");
         return false;

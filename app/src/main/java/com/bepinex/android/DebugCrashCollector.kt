@@ -9,9 +9,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Saves the previous process/crash state when the launcher starts again.
- * A process killed by SIGABRT cannot run cleanup code, so collection must
- * happen on the next launch.
+ * Saves the previous process crash state on the next launcher start.
  */
 object DebugCrashCollector {
     private const val TARGET_PACKAGE = "com.LanPiaoPiao.PlantsVsZombiesRH"

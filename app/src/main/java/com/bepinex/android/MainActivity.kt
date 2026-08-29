@@ -27,10 +27,7 @@ import kotlinx.coroutines.*
 import java.io.File
 
 /**
- * Main launcher Activity  -- Compose UI for multi-game BepInEx mod management.
- *
- * On launch, auto-detects installed Unity IL2CPP games via [GameDetector].
- * User selects a game, manages mods, and launches it through [BootstrapActivity].
+ * Main launcher Activity with Compose UI for BepInEx mod management.
  */
 class MainActivity : ComponentActivity() {
 

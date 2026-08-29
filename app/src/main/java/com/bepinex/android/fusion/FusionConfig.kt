@@ -1,11 +1,6 @@
 package com.bepinex.android.fusion
 
-/**
- * Configuration passed to the native libfusion.so layer.
- *
- * Mirrors the FusionConfig struct in fusion.cpp. Written to disk by
- * [FusionConfigStore] and read by libmain's load() → fusion_stage_from_config_path().
- */
+/** Configuration passed to the native libfusion.so layer. */
 data class FusionConfig(
     /** Directory where the GAME's native libraries are located (Among Us APK lib/arm64-v8a) */
     val gameLibraryDirectory: String,

@@ -25,8 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 
 /**
- * Bootstrap activity that injects BepInEx into the target game process
- * via Pine hooks, custom libmain.so/libfusion.so, and CoreCLR bootstrap.
+ * Injects BepInEx into the target game process.
  */
 class BootstrapActivity : Activity() {
 
@@ -173,14 +172,12 @@ class BootstrapActivity : Activity() {
             BepInExLog.i("Base hooks already installed, skipping")
         }
 
-        // 5. Hook game launcher's onCreate (optional -- some launchers inherit it)
+        // 6. Hook game launcher's onCreate (optional -- some launchers inherit it)
         updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 85)
         val launcherClassName = launcher.className
         installLauncherOnCreateHook(gameContext, gameContext.classLoader, launcherClassName)
 
-        // 6. Start the registered stub. InstrumentationHooks restores the
-        // target class in this process and UnityPlayerHooks supplies its
-        // game-resource/Fusion storage context.
+        // 7. Start the registered stub via InstrumentationHooks
         updateProgress(getString(R.string.bootstrap_status_launching), "", 95)
         try {
             val launcherClass = gameContext.classLoader.loadClass(launcherClassName)
@@ -267,14 +264,8 @@ class BootstrapActivity : Activity() {
 
     /**
      * Hook UnityPlayer.kill() to prevent integrity check self-kill.
-     * Unity's nativeRender() calls UnityPlayer.kill() when it detects
-     * a non-matching libunity.so.
-     *
-     * During the first [KILL_BLOCK_WINDOW_MS] after init, the call is blocked
-     * (integrity-check kill). After that window the original kill() is allowed
-     * through so Unity can call Process.killProcess() and exit cleanly.
-     * With BootstrapActivity launchMode=standard, the killed :game task is NOT
-     * restored on the next launch — a fresh BootstrapActivity runs instead.
+     * Blocks the call during the first [KILL_BLOCK_WINDOW_MS] after init,
+     * then allows normal kill() through so Unity can exit cleanly.
      */
     private fun hookUnityPlayerKill() {
         killInitTimestamp = System.currentTimeMillis()
@@ -355,12 +346,6 @@ class BootstrapActivity : Activity() {
                     } catch (t: Throwable) {
                         BepInExLog.e("Failed to persist logs on destroy", t)
                     }
-                    // Do NOT call Process.killProcess() here.
-                    // Unity's UnityPlayer.kill() (allowed after the block window)
-                    // or the normal activity finish path will terminate the process.
-                    // Hard-killing here causes Android to restore StubActivity from the
-                    // killed task stack on next launch instead of BootstrapActivity,
-                    // resulting in a black screen (no hooks, no native loading).
                 }
             })
             BepInExLog.i("Hooked onDestroy for log copy to modpack: $activeModpack")
@@ -378,9 +363,7 @@ class BootstrapActivity : Activity() {
     ): FusionConfig {
         var gameLibDir = gameContext.applicationInfo.nativeLibraryDir
         if (gameLibDir.isNullOrEmpty()) {
-            // createPackageContext sometimes yields an ApplicationInfo with an
-            // empty nativeLibraryDir (observed on 2nd launch). Fall back to the
-            // authoritative PackageManager lookup.
+            // createPackageContext can yield empty nativeLibraryDir; fall back to PackageManager
             val info = packageManager.getApplicationInfo(targetPackage, 0)
             gameLibDir = info.nativeLibraryDir
             BepInExLog.i("gameLibDir was empty, resolved from PackageManager: $gameLibDir")
@@ -473,10 +456,7 @@ class BootstrapActivity : Activity() {
             true
         }
 
-        // Download unity base libraries using Android's HTTP stack (not .NET's).
-        // .NET's HttpClient crashes on Android 16 with SIGSEGV in
-        // AndroidCryptoNative_SSLStreamCreate. FusionCore mirrors this pattern
-        // Hook redirection is handled by the native C++ layer.
+        // Download unity base libraries via Android HTTP stack (not .NET's HttpClient)
         updateProgress(getString(R.string.bootstrap_status_preparing_unity_libraries), "", 50)
         val unityLibsDir = File(bepInExDir, "unity-libs")
         BepInExLog.i("Ensuring unity base libraries for Unity $unityVersion...")
@@ -630,10 +610,7 @@ class BootstrapActivity : Activity() {
     // Config fixup
 
     /**
-     * Sets `UnityBaseLibrariesSource` to empty in BepInEx.cfg so the managed
-     * [Il2CppInteropManager.DownloadUnityAssemblies] returns early instead of
-     * attempting an HTTPS download via .NET HttpClient (which SIGSEGVs on
-     * Android 16 in AndroidCryptoNative_SSLStreamCreate).
+     * Disables UnityBaseLibrariesSource in BepInEx.cfg to prevent .NET HttpClient crash.
      */
     private fun patchBepInExConfigDisableDownload(bepInExDir: File) {
         val configFile = File(bepInExDir, "config/BepInEx.cfg")

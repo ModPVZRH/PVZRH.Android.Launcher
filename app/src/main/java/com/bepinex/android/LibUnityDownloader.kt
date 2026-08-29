@@ -6,11 +6,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Downloads unstripped libunity.so + libunity.sym.so from GitHub
- * and caches them in the target directory.
- *
- * The native C++ layer (fusion.cpp) reads libunity.so from:
- *   appDataDir/libunity/unstripped/libunity.so (when useOriginalLibUnity=false)
+ * Downloads and caches unstripped libunity.so from GitHub.
  */
 object LibUnityDownloader {
 

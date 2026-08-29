@@ -93,9 +93,7 @@ object UpdateChecker {
     }
 
     /**
-     * Compare current version with remote version.
-     * Strips -ci.XXX suffix before comparing.
-     * Returns true if update is available.
+     * Compare current version with remote version, ignoring -ci.XXX suffix.
      */
     fun hasUpdate(currentVersion: String, remoteVersion: String): Boolean {
         val currentBase = currentVersion.replace(Regex("-ci\\.\\d+$"), "")

@@ -23,16 +23,6 @@ data class ModpackMeta(
 
 /**
  * Manages modpack CRUD operations on the file system.
- *
- * Directory layout:
- * ```
- * /storage/emulated/0/PVZRH_Launcher/{pkg}/
- *   modpacks/
- *     {name}/
- *       modpack.json       (metadata)
- *       plugins/           (mod DLL files)
- *       config/            (mod .cfg config files)
- * ```
  */
 class ModpackManager {
 
@@ -113,9 +103,7 @@ class ModpackManager {
 
         if (!oldDir.renameTo(newDir)) return false
 
-        // The directory rename is the actual operation. Metadata is repaired on
-        // a best-effort basis so a write error cannot report a successful rename
-        // as failed and leave the active-pack setting pointing at the old name.
+        // Metadata is repaired on a best-effort basis after the directory rename.
         try {
             val meta = readMeta(packageName, safeNewName)
                 ?: ModpackMeta(name = safeNewName, packageName = packageName)
@@ -232,10 +220,7 @@ class ModpackManager {
 
     /**
      * Apply the modpack contents to the active BepInEx directory.
-     *
-     * A modpack may contain any BepInEx-root entry, not only plugins/config/logs
-     * (for example patchers, monomod, or other runtime folders). Runtime writes
-     * stay in BepInEx/; persistRuntimeState() copies them back later.
+     * Runtime writes stay in BepInEx/; persistRuntimeState() copies them back later.
      */
     fun applyModpack(packageName: String, modpackName: String): Boolean {
         return try {
@@ -275,9 +260,6 @@ class ModpackManager {
 
         if (!modpackName.isNullOrEmpty()) {
             // plugins/config/logs use their dedicated runtime-state handling.
-            // Synchronize instead of deleting everything on every launch. Files
-            // that are already identical are kept, while changed/new files are
-            // copied and stale files from the previous state are removed.
             syncDirContents(getModpackPluginsDir(packageName, modpackName), pluginsDir)
             copyModpackRootContents(srcRoot, bepInExDir)
         } else {
@@ -324,9 +306,7 @@ class ModpackManager {
     }
 
     /**
-     * Mirror [source] into [dest] without rewriting files that already have the
-     * same content. Unlike a simple "target exists" check, this still applies an
-     * updated mod/config that keeps the same file name.
+     * Mirror [source] into [dest], keeping identical files and updating changed ones.
      */
     private fun syncDirContents(source: File, dest: File) {
         if (!source.isDirectory) {
@@ -380,9 +360,7 @@ class ModpackManager {
     }
 
     /**
-     * Copy a modpack's BepInEx-root contents while excluding launcher metadata
-     * and runtime-owned directories. Existing identical files are retained;
-     * changed/new files are copied and stale children are removed.
+     * Copy a modpack's BepInEx-root contents, excluding launcher metadata.
      */
     private fun copyModpackRootContents(source: File, bepInExDir: File) {
         if (!source.isDirectory) return
@@ -477,9 +455,7 @@ class ModpackManager {
 
     private fun readMeta(packageName: String, name: String): ModpackMeta? {
         val file = getMetaFile(packageName, name)
-        // modCount in modpack.json is only a cache. Files can also be copied into
-        // the modpack directory outside the launcher, so always derive the count
-        // from the current plugins directory when displaying the pack.
+        // modCount in modpack.json is only a cache; derive from actual file system.
         val actualModCount = getModCount(packageName, name)
         if (!file.exists()) {
             // Infer from directory
@@ -491,9 +467,7 @@ class ModpackManager {
         }
         return try {
             val json = JSONObject(file.readText())
-            // The directory being read is the source of truth for identity.
-            // This also keeps metadata writes inside the renamed directory when
-            // an older modpack.json still contains the previous name.
+            // Use directory name as source of truth for identity.
             val meta = ModpackMeta(
                 name = name,
                 packageName = packageName,

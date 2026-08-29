@@ -7,24 +7,7 @@ import java.net.URL
 import java.util.regex.Pattern
 
 /**
- * Downloads Unity base libraries from unity.bepinex.dev using Android's
- * [HttpURLConnection]  -- mirroring FusionCore's [LibUnityDownloader] pattern.
- *
- * ## Why this exists
- *
- * BepInEx's managed `Il2CppInteropManager.DownloadUnityAssemblies()` downloads
- * the same ZIP via .NET's `HttpClient`. On Android 16,
- * `libSystem.Security.Cryptography.Native.Android.so` crashes with a NULL-pointer
- * dereference in `AndroidCryptoNative_SSLStreamCreate` when called from a .NET
- * ThreadPool worker.
- *
- * By downloading the ZIP with Android's own HTTP stack **before** BepInEx starts,
- * the managed code finds the cached file and skips the broken .NET download path.
- *
- * Important: we only download the ZIP  -- BepInEx handles extraction itself
- * (see `Il2CppInteropManager.DownloadUnityAssemblies` lines 293-295).
- *
- * FusionCore does the same thing for `libunity.so`  -- see `LibUnityDownloader.java`.
+ * Downloads Unity base libraries from unity.bepinex.dev using Android's HTTP stack.
  */
 object UnityLibsDownloader {
 
@@ -37,13 +20,8 @@ object UnityLibsDownloader {
 
     /**
      * Ensure the unity base libraries ZIP is cached in [outputDir].
+     * BepInEx skips its broken .NET download path when the file already exists.
      *
-     * BepInEx checks for `{outputDir}/{version}.zip` before attempting to
-     * download via .NET HttpClient. If the file exists, BepInEx extracts it
-     * and skips the broken download path.
-     *
-     * @param outputDir  e.g. `{bepInExDir}/unity-libs/`
-     * @param version    Unity version string, e.g. `2022.3.62`
      * @return true if the ZIP is ready (cached or freshly downloaded)
      */
     fun ensureLibraries(outputDir: File, version: String, onProgress: (String) -> Unit = {}): Boolean {
@@ -73,8 +51,6 @@ object UnityLibsDownloader {
 
     /**
      * Extracts the base version (Major.Minor.Build) from a full Unity version string.
-     * Mirrors FusionCore LibUnityDownloader.java lines 271-277.
-     * e.g. "2022.3.62f3"  -> "2022.3.62", "2017.1.0p4"  -> "2017.1.0"
      */
     private fun normalizeVersionForDownload(version: String): String {
         val matcher = UNITY_BASE_VERSION_PATTERN.matcher(version)

@@ -1,15 +1,4 @@
-/*
- * BepInEx.Android 鈥?IL2CPP initialization and hooking
- *
- * Ported from FusionCore main branch (fusion/src/hooking/il2cpp.cpp).
- *
- * Key design:
- *   - il2cpp_initialize: dlopen libil2cpp.so with RTLD_GLOBAL so that
- *     BepInEx's P/Invoke (via DllImportResolver 鈫?NativeLibrary.Load)
- *     can resolve IL2CPP symbols.
- *   - il2cpp_install_init_hook: uses DobbyHook directly (FusionCore pattern)
- *   - il2cpp_destroy_init_hook: one-shot hook cleanup (called from hook callback)
- */
+/* IL2CPP initialization and hooking. */
 
 #include "fusion.h"
 #include <jni.h>
@@ -53,14 +42,7 @@ bool il2cpp_initialize(const char *library_path)
         return true;
     }
 
-    /*
-     * CRITICAL: RTLD_GLOBAL makes IL2CPP symbols globally visible.
-     * This is required for BepInEx's managed P/Invoke to resolve
-     * functions like il2cpp_domain_get, il2cpp_assembly_get_image, etc.
-     *
-     * Without RTLD_GLOBAL, NativeLibrary.Load in managed code returns
-     * a handle that has NO globally visible symbols 鈫?SIGSEGV.
-     */
+    /* RTLD_GLOBAL: required for BepInEx managed P/Invoke to resolve IL2CPP symbols. */
     dlerror();
     g_il2cpp_handle = dlopen(library_path, RTLD_GLOBAL | RTLD_NOW);
     if (!g_il2cpp_handle) {
@@ -119,12 +101,7 @@ const char *il2cpp_method_get_name(void *method)
     return g_orig_il2cpp_method_get_name(method);
 }
 
-/*
- * Wrapper for the real il2cpp_init.
- * After DobbyHook is installed, this points to the original function
- * (Dobby stores the trampoline here). Called from the hook callback
- * AFTER destroying the hook, to chain to the real il2cpp_init.
- */
+/* Wrapper for real il2cpp_init — chains through Dobby trampoline after hook removal. */
 int il2cpp_init(char *domain_name)
 {
     if (!g_orig_il2cpp_init) {
@@ -134,16 +111,7 @@ int il2cpp_init(char *domain_name)
     return g_orig_il2cpp_init(domain_name);
 }
 
-/*
- * Install a one-shot DobbyHook on il2cpp_init.
- *
- * After this call, any invocation of il2cpp_init will redirect to
- * `hook`. The REAL il2cpp_init is saved in g_orig_il2cpp_init
- * (Dobby's trampoline mechanism).
- *
- * The hook callback should call il2cpp_destroy_init_hook() before
- * chaining to the real il2cpp_init (one-shot pattern).
- */
+/* Install one-shot DobbyHook on il2cpp_init. Callback should call destroy_init_hook before chaining. */
 void il2cpp_install_init_hook(void *hookCallback)
 {
     if (!g_p_il2cpp_init) {
@@ -171,10 +139,7 @@ void il2cpp_install_init_hook(void *hookCallback)
     LOGI("DobbyHook installed on il2cpp_init");
 }
 
-/*
- * Destroy the one-shot hook. After this, il2cpp_init calls go
- * directly to the original function.
- */
+/* Destroy the one-shot hook — il2cpp_init calls go directly to original after this. */
 void il2cpp_destroy_init_hook()
 {
     if (!g_p_il2cpp_init) {

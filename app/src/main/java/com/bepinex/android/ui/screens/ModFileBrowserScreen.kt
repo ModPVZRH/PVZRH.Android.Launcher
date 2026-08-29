@@ -39,10 +39,6 @@ private fun isProtectedModpackFile(file: File): Boolean =
 
 /**
  * Browses all files and directories below a modpack's root directory.
- *
- * Directory navigation is handled locally so this screen can be used as a
- * single navigation destination. The callbacks expose file tree events to the
- * navigation layer without requiring it to manage directory listings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

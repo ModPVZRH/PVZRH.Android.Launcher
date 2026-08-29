@@ -80,13 +80,7 @@ private val DarkFallbackColors = darkColorScheme(
 // Theme
 
 /**
- * BepInEx Launcher theme  -- Material 3 Design.
- *
- * Uses dynamic colors (Material You) on Android 12+,
- * falls back to a purple-toned Material 3 baseline scheme.
- *
- * @param themeMode Dark / Light / System override
- * @param dynamicColor Whether to use Material You dynamic colors (default true on API 31+)
+ * BepInEx Launcher theme using Material 3 Design with optional dynamic colors.
  */
 @Composable
 fun BepInExTheme(

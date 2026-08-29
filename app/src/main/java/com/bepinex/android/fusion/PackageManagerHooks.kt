@@ -6,27 +6,12 @@ import top.canyie.pine.Pine
 import top.canyie.pine.callback.MethodHook
 import java.lang.reflect.Method
 
-/**
- * Pine hooks on PackageManager to suppress PlayCore AssetPackDelivery errors.
- *
- * Some Unity games use Google Play Asset Delivery. When running outside
- * the official Play Store environment, calls to PlayCore components fail
- * with "does not exist" errors. We suppress these errors so the game
- * can continue running.
- *
- * Note: Pine cannot hook abstract methods, so we find the concrete
- * implementation (ApplicationPackageManager) and hook that.
- *
- * @see PackageManagerHooks.java in FusionCore main branch
- */
+/** Hooks PackageManager to suppress PlayCore AssetPackDelivery errors outside the Play Store environment. */
 object PackageManagerHooks {
 
     private const val PLAY_CORE_PREFIX = "com.google.android.play.core.assetpacks."
 
-    /**
-     * Install hooks on PackageManager.setComponentEnabledSetting() to
-     * silently swallow calls targeting PlayCore components.
-     */
+    /** Install hooks on setComponentEnabledSetting() to silently swallow PlayCore calls. */
     fun installHooks(packageManager: PackageManager) {
         try {
             // We can't hook the abstract PackageManager method directly.

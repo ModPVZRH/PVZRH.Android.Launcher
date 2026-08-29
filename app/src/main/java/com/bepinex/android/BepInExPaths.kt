@@ -4,14 +4,7 @@ import android.os.Environment
 import java.io.File
 
 /**
- * Resolves BepInEx paths for any game package.
- *
- * FusionCore-compatible pattern:
- *   External: /storage/emulated/0/PVZRH_Launcher/{packageName}/BepInEx/
- *   Internal: {filesDir}/{packageName}/
- *
- * Each game gets its own directory under the PVZRH_Launcher root on external storage,
- * so mods, configs, and logs are isolated per game.
+ * Resolves BepInEx file paths for each game package.
  */
 object BepInExPaths {
 

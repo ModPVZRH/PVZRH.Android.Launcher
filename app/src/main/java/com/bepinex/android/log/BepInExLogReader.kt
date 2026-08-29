@@ -8,10 +8,7 @@ import java.io.File
 import java.io.RandomAccessFile
 
 /**
- * Reads and tails BepInEx runtime LogOutput.log.
- *
- * BepInEx writes its logs to `BepInEx/LogOutput.log` via the DiskLogListener.
- * This reader polls the file periodically and exposes new lines as a StateFlow.
+ * Reads and tails BepInEx runtime log files, exposing new lines as a StateFlow.
  */
 object BepInExLogReader {
 

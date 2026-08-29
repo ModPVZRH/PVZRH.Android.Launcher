@@ -1,13 +1,4 @@
-/*
- * BepInEx.Android — libfusion.so public API
- *
- * libfusion.so provides the core injection logic:
- *   1. fusion_stage_from_config_path() — reads config, hooks libunity, sets paths
- *   2. fusion_bootstrap_from_libmain() — installs il2cpp_init hook → CoreCLR → BepInEx
- *
- * libfusion has NO JNI_OnLoad. All entry points are pure C functions exported
- * with C linkage, resolved at runtime by libmain.so via dlopen/dlsym.
- */
+/* Public API for libfusion.so — injection and bootstrap entry points. */
 
 #ifndef FUSION_H
 #define FUSION_H

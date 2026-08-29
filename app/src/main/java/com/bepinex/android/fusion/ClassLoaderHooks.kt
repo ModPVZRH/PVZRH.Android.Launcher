@@ -5,26 +5,13 @@ import top.canyie.pine.Pine
 import top.canyie.pine.callback.MethodHook
 import java.lang.reflect.Method
 
-/**
- * Pine hooks on ClassLoader.loadClass() for bidirectional class loading.
- *
- * This is necessary because:
- *   1. Our code needs to load game Activity classes (from game DEX)
- *   2. Game code may need classes from our DEX (UnityPlayer stubs etc.)
- *
- * The hook wraps loadClass() on BOTH classloaders to enable cross-loading
- * when a class is not found in the default loader.
- *
- * @see ClassLoaderHooks.java in FusionCore main branch
- */
+/** Hooks ClassLoader.loadClass() to enable bidirectional class loading between game and mod classloaders. */
 object ClassLoaderHooks {
 
     private const val TAG = "ClassLoaderHooks"
 
     /**
      * Install the bidirectional loadClass hook.
-     *
-     * @param gameClassLoader The game's ClassLoader (from createPackageContext with CONTEXT_INCLUDE_CODE)
      */
     fun installHooks(gameClassLoader: ClassLoader) {
         val loadClassMethod = findLoadClassMethod()
@@ -78,9 +65,7 @@ object ClassLoaderHooks {
         })
     }
 
-    /**
-     * Find ClassLoader.loadClass(String, boolean) via reflection.
-     */
+    /** Find ClassLoader.loadClass(String, boolean) via reflection. */
     private fun findLoadClassMethod(): Method? {
         var clazz: Class<*>? = ClassLoaderHooks::class.java.classLoader?.javaClass
 
