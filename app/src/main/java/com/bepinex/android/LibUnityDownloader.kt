@@ -13,9 +13,9 @@ object LibUnityDownloader {
     private const val TAG = "LibUnityDownloader"
     private const val VERSION = "2022.3.62f1c1"
     private const val BASE_URL_RAW =
-        "https://raw.githubusercontent.com/Modded-PVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
+        "https://raw.githubusercontent.com/ModPVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
     private const val BASE_URL_GH_PROXY =
-        "https://gh-proxy.org/https://raw.githubusercontent.com/Modded-PVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
+        "https://gh-proxy.org/https://raw.githubusercontent.com/ModPVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
 
     // Try gh-proxy mirror first (China-reachable), then fall back to raw.githubusercontent.com
     private fun getFileUrls(fileName: String): List<String> =

@@ -157,7 +157,7 @@
     <string name="about_project_bepinexandroid_desc">通用 BepInEx Android 启动器 — 支持多游戏整合包管理。</string>
     <string name="about_dev_section">主要开发者</string>
     <string name="about_dev_names">HayashiUme · Gaoshu · NextBep</string>
-    <string name="about_footer">©2026 Modded-PVZRH</string>
+    <string name="about_footer">©2026 PVZRH Mod Dev</string>
     <string name="about_sponsor">赞助</string>
     <string name="about_sponsor_desc">支持开发</string>
     <string name="about_sponsor_code_desc">赞助二维码</string>
