@@ -298,26 +298,6 @@ fun BepInExNavHost(
         }
     }
 
-    fun navigateToGameTab() {
-        navController.navigate(NavRoutes.GAMES) {
-            popUpTo(navController.graph.startDestinationId) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
-
-    fun navigateToParameterizedTab(route: String) {
-        navController.navigate(route) {
-            popUpTo(navController.graph.startDestinationId) {
-                saveState = false
-            }
-            launchSingleTop = true
-            restoreState = false
-        }
-    }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -348,7 +328,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.MODPACKS) {
                                 selectedGame?.let { game ->
-                                    navigateToParameterizedTab(NavRoutes.modpacks(game.packageName))
+                                    navigateToBottomTab(NavRoutes.modpacks(game.packageName))
                                 }
                             }
                         },
@@ -361,7 +341,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.SETTINGS) {
                                 selectedGame?.let { game ->
-                                    navigateToParameterizedTab(NavRoutes.settings(game.packageName))
+                                    navigateToBottomTab(NavRoutes.settings(game.packageName))
                                 }
                             }
                         },
@@ -453,10 +433,11 @@ fun BepInExNavHost(
                         ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
                     }
                 ) { backStackEntry ->
-                    val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
-                    // Refresh modpacks
+                    val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
+                    val packageName = selectedGame?.packageName ?: routePackageName
                     LaunchedEffect(packageName) {
                         modpacks = modpackManager.listModpacks(packageName)
+                        activeModpackName = AppSettings.getActiveModpack(context, packageName)
                     }
                     ModpackListScreen(
                         packageName = packageName,
@@ -680,7 +661,8 @@ fun BepInExNavHost(
                         ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
                     }
                 ) { backStackEntry ->
-                    val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
+                    val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
+                    val packageName = selectedGame?.packageName ?: routePackageName
                     val settingsContext = LocalContext.current
                     var floatingLogInGame by remember {
                         mutableStateOf(AppSettings.isFloatingLogInGameEnabled(settingsContext))
