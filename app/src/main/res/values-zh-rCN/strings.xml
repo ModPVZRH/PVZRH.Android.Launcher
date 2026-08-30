@@ -172,7 +172,7 @@
     <string name="about_sponsor">赞助</string>
     <string name="about_sponsor_desc">支持开发</string>
     <string name="about_sponsor_code_desc">赞助二维码</string>
-    <string name="about_sponsor_tipping">Support the development via tipping</string>
+    <string name="about_sponsor_tipping">通过请喝咖啡支持开发</string>
     <string name="about_sponsor_note">赞助为自愿行为，您不会在启动器内得到任何奖励与特权</string>
     <string name="about_credits">致谢</string>
     <string name="about_credits_desc">项目与开发者</string>
