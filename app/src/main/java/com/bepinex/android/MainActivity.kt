@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.LocaleList
@@ -196,14 +197,31 @@ class MainActivity : ComponentActivity() {
 
     private fun requestStoragePermission() {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val isHuawei = manufacturer.contains("huawei") || manufacturer.contains("honor")
+        if (isHuawei) {
+            try {
+                val intent = Intent().apply {
+                    setClassName("com.huawei.permissionmanager",
+                        "com.huawei.permissionmanager.filepermission.FilePermissionActivity")
+                }
+                storagePermissionLauncher.launch(intent)
+                return
+            } catch (_: Exception) { }
+        }
         try {
             val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                 data = Uri.parse("package:$packageName")
             }
             storagePermissionLauncher.launch(intent)
         } catch (e: Exception) {
-            BepInExLog.e("Failed to open storage permission settings", e)
-            Toast.makeText(this, "Please grant 'All files access' in app settings", Toast.LENGTH_LONG).show()
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                storagePermissionLauncher.launch(intent)
+            } catch (e2: Exception) {
+                BepInExLog.e("Failed to open storage permission settings", e2)
+                Toast.makeText(this, "Please grant 'All files access' in app settings", Toast.LENGTH_LONG).show()
+            }
         }
     }
 

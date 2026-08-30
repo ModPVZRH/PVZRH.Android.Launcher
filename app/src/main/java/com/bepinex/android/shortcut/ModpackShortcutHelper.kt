@@ -51,12 +51,24 @@ object ModpackShortcutHelper {
 
     private fun checkHuaweiShortcutPermission(context: Context): Boolean {
         return try {
-            val intent = Intent("com.huawei.android.launcher.action.INSTALL_SHORTCUT")
-            val packageManager = context.packageManager
-            val resolveInfo = packageManager.resolveActivity(intent, 0)
-            resolveInfo != null
+            val intent = Intent("com.android.launcher.action.INSTALL_SHORTCUT").apply {
+                putExtra("duplicate", false)
+            }
+            val permissionManager = Class.forName("com.huawei.hsm.permission.PermissionManager")
+            Log.i(TAG, "Huawei PermissionManager class found: ${permissionManager.name}")
+            val methods = permissionManager.declaredMethods
+            for (m in methods) {
+                Log.i(TAG, "  method: ${m.name}(${m.parameterTypes.joinToString { it.simpleName }})")
+            }
+            val method = permissionManager.getDeclaredMethod(
+                "canSendBroadcast", Context::class.java, Intent::class.java
+            )
+            method.isAccessible = true
+            val result = method.invoke(null, context, intent) as Boolean
+            Log.i(TAG, "Huawei shortcut permission: $result")
+            result
         } catch (e: Exception) {
-            Log.w(TAG, "Huawei shortcut permission check failed", e)
+            Log.e(TAG, "Huawei shortcut permission check failed: ${e.javaClass.simpleName}: ${e.message}")
             true
         }
     }
