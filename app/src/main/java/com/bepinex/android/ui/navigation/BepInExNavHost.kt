@@ -1,7 +1,7 @@
 package com.bepinex.android.ui.navigation
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -96,7 +96,7 @@ private fun bottomTabEnterTransition(
     if (initialIndex == targetIndex) return null
 
     val offset = if (targetIndex > initialIndex) 1 else -1
-    return slideInHorizontally(tween(300)) { width -> width * offset } + fadeIn(tween(300))
+    return slideInHorizontally(spring()) { width -> width * offset } + fadeIn(spring())
 }
 
 private fun bottomTabExitTransition(
@@ -108,27 +108,24 @@ private fun bottomTabExitTransition(
     if (initialIndex == targetIndex) return null
 
     val offset = if (targetIndex > initialIndex) -1 else 1
-    return slideOutHorizontally(tween(300)) { width -> width * offset } + fadeOut(tween(300))
+    return slideOutHorizontally(spring()) { width -> width * offset } + fadeOut(spring())
 }
 
-private const val SECONDARY_TRANSITION_DURATION_MS = 260
-private const val SECONDARY_FADE_DURATION_MS = 180
-
 private fun secondaryEnterTransition(): EnterTransition =
-    slideInHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> width / 3 } +
-        fadeIn(tween(SECONDARY_FADE_DURATION_MS))
+    slideInHorizontally(spring()) { width -> width / 3 } +
+        fadeIn(spring())
 
 private fun secondaryExitTransition(): ExitTransition =
-    slideOutHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> -width / 6 } +
-        fadeOut(tween(SECONDARY_FADE_DURATION_MS))
+    slideOutHorizontally(spring()) { width -> -width / 6 } +
+        fadeOut(spring())
 
 private fun secondaryPopEnterTransition(): EnterTransition =
-    slideInHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> -width / 6 } +
-        fadeIn(tween(SECONDARY_FADE_DURATION_MS))
+    slideInHorizontally(spring()) { width -> -width / 6 } +
+        fadeIn(spring())
 
 private fun secondaryPopExitTransition(): ExitTransition =
-    slideOutHorizontally(tween(SECONDARY_TRANSITION_DURATION_MS)) { width -> width / 3 } +
-        fadeOut(tween(SECONDARY_FADE_DURATION_MS))
+    slideOutHorizontally(spring()) { width -> width / 3 } +
+        fadeOut(spring())
 
 private fun topLevelExitTransition(
     initialRoute: String?,
@@ -303,8 +300,8 @@ fun BepInExNavHost(
         bottomBar = {
             AnimatedVisibility(
                 visible = showBottomBar,
-                enter = slideInVertically(tween(SECONDARY_TRANSITION_DURATION_MS)) { height -> height } +
-                    fadeIn(tween(SECONDARY_FADE_DURATION_MS)),
+                enter = slideInVertically(spring()) { height -> height } +
+                    fadeIn(spring()),
                 // Hide immediately before the secondary destination starts drawing, so the tab bar
                 // cannot temporarily overlap the incoming page.
                 exit = ExitTransition.None
@@ -365,7 +362,7 @@ fun BepInExNavHost(
                         bottomTabEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
@@ -412,7 +409,7 @@ fun BepInExNavHost(
                         bottomTabEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
@@ -430,7 +427,7 @@ fun BepInExNavHost(
                         bottomTabExitTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                        ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
                     }
                 ) { backStackEntry ->
                     val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
@@ -640,7 +637,7 @@ fun BepInExNavHost(
                         bottomTabEnterTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideInHorizontally(tween(300)) { it } + fadeIn(tween(300))
+                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
@@ -658,7 +655,7 @@ fun BepInExNavHost(
                         bottomTabExitTransition(
                             initialState.destination.route,
                             targetState.destination.route
-                        ) ?: slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300))
+                        ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
                     }
                 ) { backStackEntry ->
                     val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
@@ -710,8 +707,8 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { slideInHorizontally(spring()) { it } + fadeIn(spring()) },
+                    popExitTransition = { slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
                 ) { backStackEntry ->
                     val pkg = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val mpName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -726,8 +723,8 @@ fun BepInExNavHost(
                 composable(
                     route = NavRoutes.CONFIG_EDITOR,
                     arguments = listOf(navArgument("filePath") { type = NavType.StringType }),
-                    enterTransition = { slideInHorizontally(tween(300)) { it } + fadeIn(tween(300)) },
-                    popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
+                    enterTransition = { slideInHorizontally(spring()) { it } + fadeIn(spring()) },
+                    popExitTransition = { slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
                 ) { backStackEntry ->
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
                     val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")

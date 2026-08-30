@@ -102,7 +102,7 @@ fun ModFileBrowserScreen(
         }
     }
 
-    BackHandler(onBack = ::navigateUp)
+    BackHandler { navigateUp() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
