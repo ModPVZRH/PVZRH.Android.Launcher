@@ -54,7 +54,12 @@ jobs:
 
       - name: Read CI version
         id: ci_version
-        run: echo "version=$(cat ci-version.txt)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(cat ci-version.txt | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            VERSION=366
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon -PciVersion=${{ steps.ci_version.outputs.version }}

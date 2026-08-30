@@ -11,7 +11,8 @@ val isBuildInvocation = gradle.startParameter.taskNames.any {
 }
 val ciBuildNumber: Int = if (project.hasProperty("ciVersion")) {
     // CI: use provided version, do NOT write back
-    project.property("ciVersion").toString().toInt()
+    project.property("ciVersion").toString().toIntOrNull()
+        ?: (ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181)
 } else {
     // Local: auto-increment
     val stored = ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181
