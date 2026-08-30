@@ -222,6 +222,9 @@ private fun AboutActionButton(title: String, subtitle: String, onClick: () -> Un
 
 @Composable
 private fun SponsorDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -243,14 +246,32 @@ private fun SponsorDialog(onDismiss: () -> Unit) {
 
                 Spacer(Modifier.height(16.dp))
 
-                Image(
-                    painter = painterResource(R.drawable.sponsor_code),
-                    contentDescription = stringResource(R.string.about_sponsor_code_desc),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.FillWidth
-                )
+                if (isZh) {
+                    Image(
+                        painter = painterResource(R.drawable.sponsor_code),
+                        contentDescription = stringResource(R.string.about_sponsor_code_desc),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.FillWidth
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.about_sponsor_tipping),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "https://trytipping.com/hayashiume",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.clickable {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://trytipping.com/hayashiume")))
+                        }
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
 
