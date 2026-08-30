@@ -172,6 +172,7 @@
     <string name="about_sponsor">Sponsor</string>
     <string name="about_sponsor_desc">Support the development</string>
     <string name="about_sponsor_code_desc">Sponsor QR Code</string>
+    <string name="about_sponsor_tipping">Support the development via tipping</string>
     <string name="about_sponsor_note">Sponsorship is voluntary. You will not receive any rewards or privileges within the launcher.</string>
     <string name="about_credits">Credits</string>
     <string name="about_credits_desc">Projects and developers</string>
