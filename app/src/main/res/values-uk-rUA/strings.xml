@@ -134,9 +134,27 @@
     <string name="theme_light">Light</string>
     <string name="theme_system">System Default</string>
     <!-- Language -->
+    <string name="lang_system">System Default</string>
     <string name="lang_english">English</string>
     <string name="lang_chinese">简体中文</string>
-    <string name="lang_system">System Default</string>
+    <string name="lang_chinese_tw">繁體中文</string>
+    <string name="lang_japanese">日本語</string>
+    <string name="lang_korean">한국어</string>
+    <string name="lang_russian">Русский</string>
+    <string name="lang_portuguese">Português</string>
+    <string name="lang_portuguese_br">Português (BR)</string>
+    <string name="lang_spanish">Español</string>
+    <string name="lang_german">Deutsch</string>
+    <string name="lang_french">Français</string>
+    <string name="lang_italian">Italiano</string>
+    <string name="lang_dutch">Nederlands</string>
+    <string name="lang_turkish">Türkçe</string>
+    <string name="lang_arabic">العربية</string>
+    <string name="lang_ukrainian">Українська</string>
+    <string name="lang_malayalam">മലയാളം</string>
+    <string name="lang_venetian">Vèneto</string>
+    <string name="lang_incomplete_title">Localization Not Contributed</string>
+    <string name="lang_incomplete_message">The translation for your language is not complete. If you would like to help improve the localization, please visit [here](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md) to contribute.</string>
     <!-- About -->
     <string name="about_title">PVZRH Launcher</string>
     <string name="about_description">A BepInEx loader supporting Android for PVZRH</string>
@@ -246,6 +264,4 @@
     <string name="bootstrap_status_launching">Launching game…</string>
     <string name="bootstrap_status_error">Launch failed</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
-    <string name="lang_incomplete_title">Локалізацію не внесено</string>
-    <string name="lang_incomplete_message">Переклад вашою мовою неповний. Якщо ви хочете допомогти покращити локалізацію, відвідайте [цю сторінку](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
 </resources>
