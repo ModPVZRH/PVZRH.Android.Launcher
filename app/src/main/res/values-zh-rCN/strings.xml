@@ -109,6 +109,9 @@
     <string name="settings_dynamic_color_desc">基于系统主题色的配色（该功能仅对 Android 12 以上的设备有效）。</string>
     <string name="settings_animation_disabled">关闭动画</string>
     <string name="settings_animation_disabled_desc">关闭动画可以提升一部分性能。</string>
+    <string name="animation_restart_title">Restart Required</string>
+    <string name="animation_restart_message">Animations will be disabled after restarting the app. Restart now?</string>
+    <string name="animation_restart_now">Restart</string>
     <string name="settings_about">关于</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">清除 BepInEx 文件？</string>
@@ -172,7 +175,7 @@
     <string name="about_sponsor">赞助</string>
     <string name="about_sponsor_desc">支持开发</string>
     <string name="about_sponsor_code_desc">赞助二维码</string>
-    <string name="about_sponsor_tipping">通过请喝咖啡支持开发</string>
+    <string name="about_sponsor_tipping">Support the development via tipping</string>
     <string name="about_sponsor_note">赞助为自愿行为，您不会在启动器内得到任何奖励与特权</string>
     <string name="about_credits">致谢</string>
     <string name="about_credits_desc">项目与开发者</string>
