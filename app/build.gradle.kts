@@ -15,7 +15,7 @@ val ciBuildNumber: Int = if (project.hasProperty("ciVersion")) {
         ?: (ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181)
 } else {
     // Local: auto-increment
-    val stored = ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 181
+    val stored = ciVersionFile.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull() ?: 1
     if (isBuildInvocation) {
         (stored + 1).also { ciVersionFile.writeText(it.toString()) }
     } else {
