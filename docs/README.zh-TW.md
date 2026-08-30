@@ -18,6 +18,12 @@
 - [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
 - [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
 
+## 指南
+
+- [貢獻指南](CONTRIBUTING.md) — 如何參與專案貢獻
+- [翻譯指南](TRANSLATING.md) — 幫助將啟動器翻譯成你的語言
+- [故障排除](https://modpvzrh.github.io/zh/troubleshooting) — 常見問題與解決方案
+
 ## 建置
 
 GitHub Actions 頁面有 CI 建置。

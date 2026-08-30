@@ -18,6 +18,12 @@
 - [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
 - [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
 
+## ガイド
+
+- [貢献ガイド](CONTRIBUTING.md) — プロジェクトへの貢献方法
+- [翻訳ガイド](TRANSLATING.md) — ランチャーの翻訳を手伝う
+- [トラブルシューティング](https://modpvzrh.github.io/troubleshooting) — よくある問題と解決策
+
 ## ビルド
 
 GitHub Actions ページにCIビルドがあります。

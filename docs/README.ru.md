@@ -18,6 +18,12 @@
 - [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
 - [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
 
+## Руководство
+
+- [Руководство по участию](CONTRIBUTING.md) — Как внести вклад в проект
+- [Руководство по переводу](TRANSLATING.md) — Помогите перевести лаунчер на ваш язык
+- [Устранение неполадок](https://modpvzrh.github.io/troubleshooting) — Типичные проблемы и решения
+
 ## Сборка
 
 CI-сборка доступна на странице GitHub Actions.

@@ -18,6 +18,12 @@ Launcher e gerenciador de mods Android dedicado para Plants Vs Zombies Fusion.
 - [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
 - [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
 
+## Guia
+
+- [Guia de Contribuição](CONTRIBUTING.md) — Como contribuir para o projeto
+- [Guia de Tradução](TRANSLATING.md) — Ajude a traduzir o launcher para seu idioma
+- [Solução de Problemas](https://modpvzrh.github.io/troubleshooting) — Problemas comuns e soluções
+
 ## Compilação
 
 Há uma compilação CI na página do GitHub Actions.
