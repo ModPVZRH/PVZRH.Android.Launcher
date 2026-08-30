@@ -290,12 +290,31 @@ fun BepInExNavHost(
     )
     fun navigateToBottomTab(route: String) {
         navController.navigate(route) {
-            // Keep one entry per top-level tab while retaining each tab's saved state.
             popUpTo(navController.graph.startDestinationId) {
                 saveState = true
             }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+
+    fun navigateToGameTab() {
+        navController.navigate(NavRoutes.GAMES) {
+            popUpTo(navController.graph.startDestinationId) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    fun navigateToParameterizedTab(route: String) {
+        navController.navigate(route) {
+            popUpTo(navController.graph.startDestinationId) {
+                saveState = false
+            }
+            launchSingleTop = true
+            restoreState = false
         }
     }
 
@@ -329,7 +348,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.MODPACKS) {
                                 selectedGame?.let { game ->
-                                    navigateToBottomTab(NavRoutes.modpacks(game.packageName))
+                                    navigateToParameterizedTab(NavRoutes.modpacks(game.packageName))
                                 }
                             }
                         },
@@ -342,7 +361,7 @@ fun BepInExNavHost(
                         onClick = {
                             if (currentRoute != NavRoutes.SETTINGS) {
                                 selectedGame?.let { game ->
-                                    navigateToBottomTab(NavRoutes.settings(game.packageName))
+                                    navigateToParameterizedTab(NavRoutes.settings(game.packageName))
                                 }
                             }
                         },
