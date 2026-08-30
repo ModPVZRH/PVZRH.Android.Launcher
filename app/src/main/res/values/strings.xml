@@ -44,6 +44,17 @@
     <string name="modpack_delete">Delete Modpack</string>
     <string name="modpack_rename">Rename</string>
     <string name="modpack_rename_failed">The name is invalid or already exists</string>
+    <string name="modpack_edit">Edit Modpack</string>
+    <string name="modpack_icon">Icon</string>
+    <string name="modpack_icon_hint">Tap to pick an image</string>
+    <string name="modpack_shortcut">Desktop Shortcut</string>
+    <string name="modpack_shortcut_desc">Create a shortcut to launch this modpack directly</string>
+    <string name="shortcut_permission_required">Shortcut permission not granted. Opening settings…</string>
+    <string name="shortcut_permission_title">Permission Required</string>
+    <string name="shortcut_permission_guide">Creating desktop shortcuts requires the \"Home screen shortcut\" permission. Please enable it in the settings page that opens next.</string>
+    <string name="shortcut_permission_open_settings">Open Settings</string>
+    <string name="modpack_vanilla_desc">No mods loaded</string>
+    <string name="modpack_empty">No modpacks installed</string>
     <string name="modpack_export">Export</string>
     <string name="modpack_import">Import Modpack</string>
     <string name="modpack_select_active">Activate</string>

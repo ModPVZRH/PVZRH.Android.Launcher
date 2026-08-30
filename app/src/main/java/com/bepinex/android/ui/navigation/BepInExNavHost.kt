@@ -2,6 +2,7 @@ package com.bepinex.android.ui.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -188,6 +189,7 @@ fun BepInExNavHost(
     var modpacks by remember { mutableStateOf<List<ModpackMeta>>(emptyList()) }
     var activeModpackName by remember { mutableStateOf<String?>(null) }
     var modpackRefreshKey by remember { mutableStateOf(0) }
+    var modpackIconRefreshKey by remember { mutableStateOf(0) }
 
     // Load active modpack on game selection
     LaunchedEffect(selectedGame?.packageName) {
@@ -442,8 +444,18 @@ fun BepInExNavHost(
                         targetGameLabel = selectedGame?.label ?: packageName,
                         modpacks = modpacks,
                         activeModpackName = activeModpackName,
-                        onCreateModpack = { name ->
-                            modpackManager.createModpack(packageName, name)
+                        iconRefreshKey = modpackIconRefreshKey,
+                        onCreateModpack = { name, createShortcut, iconBitmap ->
+                            val created = modpackManager.createModpack(packageName, name)
+                            if (created != null) {
+                                modpackManager.updateMeta(packageName, created.name, createShortcut)
+                                if (createShortcut) {
+                                    ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
+                                }
+                                if (iconBitmap != null) {
+                                    modpackManager.saveModpackIcon(packageName, created.name, iconBitmap, "png")
+                                }
+                            }
                             modpacks = modpackManager.listModpacks(packageName)
                         },
                         onDeleteModpack = { name ->
@@ -451,7 +463,7 @@ fun BepInExNavHost(
                             if (activeModpackName == name) activeModpackName = null
                             modpacks = modpackManager.listModpacks(packageName)
                         },
-                        onRenameModpack = { oldName, newName ->
+                        onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
                             val normalizedName = modpackManager.normalizeModpackName(newName)
                             val success = modpackManager.renameModpack(packageName, oldName, newName)
                             if (success) {
@@ -459,8 +471,23 @@ fun BepInExNavHost(
                                     activeModpackName = normalizedName
                                     AppSettings.setActiveModpack(context, packageName, normalizedName)
                                 }
+                                modpackManager.updateMeta(packageName, normalizedName, createShortcut)
+                                // Create or remove desktop shortcut
+                                if (createShortcut) {
+                                    ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
+                                } else {
+                                    ModpackShortcutHelper.removeShortcut(context, packageName, normalizedName)
+                                }
+                                if (iconBitmap != null) {
+                                    val ext = when {
+                                        iconBitmap.config == android.graphics.Bitmap.Config.RGB_565 -> "jpg"
+                                        else -> "png"
+                                    }
+                                    modpackManager.saveModpackIcon(packageName, normalizedName, iconBitmap, ext)
+                                }
                                 modpacks = modpackManager.listModpacks(packageName)
                                 modpackRefreshKey++
+                                modpackIconRefreshKey++
                             }
                             success
                         },

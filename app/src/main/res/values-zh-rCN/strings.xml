@@ -44,6 +44,17 @@
     <string name="modpack_delete">删除整合包</string>
     <string name="modpack_rename">重命名</string>
     <string name="modpack_rename_failed">名称无效或已存在</string>
+    <string name="modpack_edit">编辑整合包</string>
+    <string name="modpack_icon">图标</string>
+    <string name="modpack_icon_hint">点击选择图片</string>
+    <string name="modpack_shortcut">桌面快捷方式</string>
+    <string name="modpack_shortcut_desc">创建快捷方式以直接启动此整合包</string>
+    <string name="shortcut_permission_required">未授予快捷方式权限，正在打开设置…</string>
+    <string name="shortcut_permission_title">需要权限</string>
+    <string name="shortcut_permission_guide">创建桌面快捷方式需要「桌面快捷方式」权限。请在接下来打开的设置页面中开启该权限。</string>
+    <string name="shortcut_permission_open_settings">打开设置</string>
+    <string name="modpack_vanilla_desc">未加载模组</string>
+    <string name="modpack_empty">暂无整合包</string>
     <string name="modpack_export">导出</string>
     <string name="modpack_import">导入整合包</string>
     <string name="modpack_select_active">激活</string>

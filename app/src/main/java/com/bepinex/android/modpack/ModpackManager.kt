@@ -2,6 +2,8 @@ package com.bepinex.android.modpack
 
 import android.content.Context
 import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
 import org.json.JSONObject
@@ -18,7 +20,8 @@ data class ModpackMeta(
     val name: String,
     val packageName: String,
     val createdAt: Long = System.currentTimeMillis(),
-    val modCount: Int = 0
+    val modCount: Int = 0,
+    val createShortcut: Boolean = false
 )
 
 /**
@@ -455,10 +458,8 @@ class ModpackManager {
 
     private fun readMeta(packageName: String, name: String): ModpackMeta? {
         val file = getMetaFile(packageName, name)
-        // modCount in modpack.json is only a cache; derive from actual file system.
         val actualModCount = getModCount(packageName, name)
         if (!file.exists()) {
-            // Infer from directory
             return ModpackMeta(
                 name = name,
                 packageName = packageName,
@@ -467,15 +468,13 @@ class ModpackManager {
         }
         return try {
             val json = JSONObject(file.readText())
-            // Use directory name as source of truth for identity.
             val meta = ModpackMeta(
                 name = name,
                 packageName = packageName,
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
-                modCount = actualModCount
+                modCount = actualModCount,
+                createShortcut = json.optBoolean("createShortcut", false)
             )
-            // Repair stale metadata so exports and later reads also contain the
-            // current value rather than the old cached count.
             if (json.optInt("modCount", -1) != actualModCount) {
                 writeMeta(meta)
             }
@@ -492,7 +491,46 @@ class ModpackManager {
             put("packageName", meta.packageName)
             put("createdAt", meta.createdAt)
             put("modCount", meta.modCount)
+            put("createShortcut", meta.createShortcut)
         }
         getMetaFile(meta.packageName, meta.name).writeText(json.toString(2))
     }
+
+    fun updateMeta(packageName: String, modpackName: String, createShortcut: Boolean): ModpackMeta? {
+        val current = readMeta(packageName, modpackName) ?: return null
+        val updated = current.copy(createShortcut = createShortcut)
+        writeMeta(updated)
+        return updated
+    }
+
+    // Icon
+
+    fun getModpackIconFile(packageName: String, modpackName: String): File? {
+        val dir = getModpackDir(packageName, modpackName)
+        return dir.listFiles()?.firstOrNull {
+            it.isFile && it.name.startsWith("icon.") &&
+                it.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")
+        }
+    }
+
+    fun saveModpackIcon(packageName: String, modpackName: String, bitmap: Bitmap, extension: String = "png") {
+        // Delete old icon first
+        getModpackIconFile(packageName, modpackName)?.delete()
+        val file = File(getModpackDir(packageName, modpackName), "icon.$extension")
+        file.outputStream().use { out ->
+            val format = when (extension.lowercase()) {
+                "jpg", "jpeg" -> Bitmap.CompressFormat.JPEG
+                "webp" -> Bitmap.CompressFormat.WEBP_LOSSY
+                else -> Bitmap.CompressFormat.PNG
+            }
+            bitmap.compress(format, 90, out)
+        }
+    }
+
+    fun deleteModpackIcon(packageName: String, modpackName: String) {
+        getModpackIconFile(packageName, modpackName)?.delete()
+    }
+
+    fun hasModpackIcon(packageName: String, modpackName: String): Boolean =
+        getModpackIconFile(packageName, modpackName) != null
 }
