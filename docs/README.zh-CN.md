@@ -85,16 +85,21 @@ $apk = "E:\WindowsFile\BepInExt\PVZRH.Android.Launcher\app\build\outputs\apk\deb
 
 ## 注入模型
 
-启动器基于 FusionCore 模型并进行了额外修复：
+启动器使用 **Pine**（Java 方法 Hook 框架）将 BepInEx 注入游戏进程：
 
-1. 为 PVZRH 创建包上下文并获取其类加载器。
-2. 安装类加载器、Instrumentation、PackageManager、Activity 和原生库 hook。
-3. 启动注册的 `StubActivity`。
-4. 通过启动器进程中的 `Instrumentation.newActivity` 恢复 `UnityPlayerActivity`。
-5. 仅对 `attachBaseContext` 使用三层 Context 包装器。
-6. 保留 UnityPlayer 构造函数参数为真实 Activity。
+1. 通过 `createPackageContext()` 获取 PVZRH 的 ClassLoader 和 DEX 访问权限。
+2. 安装 Pine Hook：双向 ClassLoader、Instrumentation、PackageManager、原生库和 UnityPlayer。
+3. 通过 `Instrumentation.execStartActivity` Hook 将游戏 Activity 重定向到清单中注册的 `StubActivity`。
+4. `Instrumentation.newActivity` 恢复真实的游戏 Activity 类和原始 Intent。
+5. `Activity.attachBaseContext` Hook 用三路 `CustomContextWrapper` 包装 Context：
+   - **游戏资源**（Assets、Resources、Theme）→ PVZRH 包上下文
+   - **文件/存储**（getFilesDir、SharedPreferences）→ 启动器 Application
+   - **窗口服务**（getDisplay、getSystemService）→ 原始 Activity 基础 Context
+6. `ClassLoader.findLibrary()` Hook 重定向原生 .so 加载：游戏库来自游戏 APK，Fusion 库来自启动器，.NET/il2cpp/unity 库来自数据目录。
+7. `UnityPlayer` 构造函数 Hook 设置 activity 字段并显示注入覆盖层。
+8. `UnityPlayer.kill()` Hook 阻止首次调用 5 秒以通过完整性检查。
 
-Context 包装器将游戏资源路由到 PVZRH，启动器存储路由到启动器 Application，窗口服务路由到原始 Activity 的 base Context。
+所有 Hook 均通过 Kotlin/Java 安装，无需原生 `libmain.so` 引导。
 
 ## 调试快照
 

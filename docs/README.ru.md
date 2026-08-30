@@ -85,16 +85,21 @@ $apk = "E:\WindowsFile\BepInExt\PVZRH.Android.Launcher\app\build\outputs\apk\deb
 
 ## Модель инъекции
 
-Лаунчер следует модели FusionCore с дополнительными исправлениями:
+Лаунчер внедряет BepInEx в процесс игры с помощью **Pine** (фреймворк хуков Java-методов):
 
-1. Создаёт контекст пакета для PVZRH и получает его загрузчик классов.
-2. Устанавливает хуки загрузчика классов, инструментации, менеджера пакетов, Activity и нативных библиотек.
-3. Запускает зарегистрированную `StubActivity`.
-4. Восстанавливает `UnityPlayerActivity` через `Instrumentation.newActivity` в процессе лаунчера.
-5. Оборачивает только `attachBaseContext` трёхуровневой обёрткой контекста.
-6. Сохраняет аргумент конструктора UnityPlayer как реальную Activity.
+1. `createPackageContext()` для PVZRH — получение class loader и доступа к DEX.
+2. Установка Pine хуков: двунаправленный ClassLoader, Instrumentation, PackageManager, нативные библиотеки и UnityPlayer.
+3. Перенаправление activity игры на зарегистрированную в манифесте `StubActivity` через хук `Instrumentation.execStartActivity`.
+4. `Instrumentation.newActivity` восстанавливает реальный класс activity игры и оригинальный Intent.
+5. Хук `Activity.attachBaseContext` оборачивает Context трёхслойным `CustomContextWrapper`:
+   - **Игровые ресурсы** (Assets, Resources, Theme) → контекст пакета PVZRH
+   - **Файлы/хранилище** (getFilesDir, SharedPreferences) → Application лаунчера
+   - **Оконные сервисы** (getDisplay, getSystemService) → базовый Context оригинальной Activity
+6. Хук `ClassLoader.findLibrary()` перенаправляет загрузку нативных .so: игровые библиотеки из APK, Fusion из лаунчера, .NET/il2cpp/unity из каталога данных.
+7. Хук конструктора `UnityPlayer` устанавливает поле activity и показывает оверлей инъекции.
+8. Хук `UnityPlayer.kill()` блокирует первый вызов на 5 секунд для прохождения проверок целостности.
 
-Обёртка контекста направляет ресурсы игры в PVZRH, хранилище лаунчера в Application лаунчера, а оконные сервисы в базовый Context оригинальной Activity.
+Все хуки устанавливаются из Kotlin/Java — нативный `libmain.so` бутстрап не требуется.
 
 ## Отладочные снимки
 

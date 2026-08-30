@@ -85,16 +85,21 @@ O diretório contém plugins, configuração, logs, modpacks e estado vanilla.
 
 ## Modelo de Injeção
 
-O launcher segue o modelo do FusionCore com correções adicionais:
+O launcher injeta BepInEx no processo do jogo usando **Pine** (framework de hook de métodos Java):
 
-1. Cria um contexto de pacote para o PVZRH e obtém seu class loader.
-2. Instala hooks de class loader, instrumentation, package manager, Activity e biblioteca nativa.
-3. Inicia a `StubActivity` registrada.
-4. Restaura o `UnityPlayerActivity` através de `Instrumentation.newActivity` no processo do launcher.
-5. Envolve apenas o `attachBaseContext` com um wrapper de contexto de três vias.
-6. Mantém o argumento do construtor do UnityPlayer como a Activity real.
+1. `createPackageContext()` para PVZRH para obter seu class loader e acesso DEX.
+2. Instala hooks Pine: ClassLoader bidirecional, Instrumentation, PackageManager, biblioteca nativa e UnityPlayer.
+3. Redireciona a activity do jogo para uma `StubActivity` registrada no manifest via hook `Instrumentation.execStartActivity`.
+4. `Instrumentation.newActivity` restaura a classe real da activity do jogo e a Intent original.
+5. Hook `Activity.attachBaseContext` envolve o Context com um `CustomContextWrapper` de três vias:
+   - **Recursos do jogo** (Assets, Resources, Theme) → contexto do pacote PVZRH
+   - **Arquivos/armazenamento** (getFilesDir, SharedPreferences) → Application do launcher
+   - **Serviços de janela** (getDisplay, getSystemService) → Context base da Activity original
+6. Hook `ClassLoader.findLibrary()` redireciona o carregamento de .so nativos: libs do jogo vêm do APK, libs do Fusion vêm do launcher, libs .NET/il2cpp/unity vêm do diretório de dados.
+7. Hook do construtor `UnityPlayer` define o campo activity e mostra overlay de injeção.
+8. Hook `UnityPlayer.kill()` bloqueia a primeira chamada por 5 segundos para sobreviver a verificações de integridade.
 
-O wrapper de contexto roteia os recursos do jogo para o PVZRH, o armazenamento do launcher para a Application do launcher e os serviços de janela para o base Context da Activity original.
+Todos os hooks são instalados via Kotlin/Java — nenhum bootstrap nativo `libmain.so` necessário.
 
 ## Capturas de Depuração
 

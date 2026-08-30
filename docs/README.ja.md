@@ -85,16 +85,21 @@ $apk = "E:\WindowsFile\BepInExt\PVZRH.Android.Launcher\app\build\outputs\apk\deb
 
 ## 注入モデル
 
-ランチャーはFusionCoreモデルに基づき、追加の修正を施しています：
+ランチャーは **Pine**（Java メソッドフックフレームワーク）を使用して BepInEx をゲームプロセスに注入します：
 
-1. PVZRHのパッケージコンテキストを作成し、クラスローダーを取得。
-2. クラスローダー、Instrumentation、PackageManager、Activity、ネイティブライブラリのフックをインストール。
-3. 登録された `StubActivity` を起動。
-4. ランチャープロセス内の `Instrumentation.newActivity` を通じて `UnityPlayerActivity` を復元。
-5. `attachBaseContext` のみを3層のContextラッパーで包む。
-6. UnityPlayerのコンストラクタ引数を実際のActivityとして保持。
+1. `createPackageContext()` で PVZRH のクラスローダーと DEX アクセスを取得。
+2. Pine フックをインストール：双方向 ClassLoader、Instrumentation、PackageManager、ネイティブライブラリ、UnityPlayer。
+3. `Instrumentation.execStartActivity` フックでゲーム Activity をマニフェスト登録の `StubActivity` にリダイレクト。
+4. `Instrumentation.newActivity` で実際のゲーム Activity クラスと元の Intent を復元。
+5. `Activity.attachBaseContext` フックで Context を三重の `CustomContextWrapper` でラップ：
+   - **ゲームリソース**（Assets、Resources、Theme）→ PVZRH パッケージコンテキスト
+   - **ファイル/ストレージ**（getFilesDir、SharedPreferences）→ ランチャー Application
+   - **ウィンドウサービス**（getDisplay、getSystemService）→ 元の Activity ベースコンテキスト
+6. `ClassLoader.findLibrary()` フックでネイティブ .so のロードをリダイレクト：ゲームライブラリはゲーム APKから、Fusion ライブラリはランチャーから、.NET/il2cpp/unity ライブラリはデータディレクトリから。
+7. `UnityPlayer` コンストラクターフックで activity フィールドを設定し、注入オーバーレイを表示。
+8. `UnityPlayer.kill()` フックで最初の呼び出しを 5 秒間ブロックし、整合性チェックを回避。
 
-ContextラッパーはゲームリソースをPVZRHへ、ランチャーストレージをランチャーApplicationへ、ウィンドウサービスを元のActivityのbase Contextへルーティングします。
+すべてのフックは Kotlin/Java からインストールされ、ネイティブ `libmain.so` ブートストラップは不要です。
 
 ## デバッグスナップショット
 

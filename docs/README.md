@@ -85,16 +85,21 @@ The directory contains plugins, configuration, logs, modpacks, and vanilla state
 
 ## Injection Model
 
-The launcher follows the FusionCore model with extra fixes:
+The launcher injects BepInEx into the game process using **Pine** (Java method hooking framework):
 
-1. Create a package context for PVZRH and obtain its class loader.
-2. Install class-loader, instrumentation, package-manager, Activity, and native-library hooks.
-3. Start the registered `StubActivity`.
-4. Restore `UnityPlayerActivity` through `Instrumentation.newActivity` in the launcher process.
-5. Wrap only `attachBaseContext` with a three-way Context wrapper.
-6. Keep the UnityPlayer constructor argument as the real Activity.
+1. `createPackageContext()` for PVZRH to obtain its class loader and DEX access.
+2. Install Pine hooks: bidirectional ClassLoader, Instrumentation, PackageManager, native library, and UnityPlayer.
+3. Redirect the game activity to a manifest-registered `StubActivity` via `Instrumentation.execStartActivity` hook.
+4. `Instrumentation.newActivity` restores the real game activity class and original Intent.
+5. `Activity.attachBaseContext` hook wraps the Context with a three-way `CustomContextWrapper`:
+   - **Game resources** (Assets, Resources, Theme) → PVZRH package context
+   - **File/storage** (getFilesDir, SharedPreferences) → launcher Application
+   - **Window services** (getDisplay, getSystemService) → original Activity base Context
+6. `ClassLoader.findLibrary()` hook redirects native .so loading: game libs from game APK, fusion libs from launcher, .NET/il2cpp/unity libs from data directory.
+7. `UnityPlayer` constructor hook sets the activity field and shows injection overlay.
+8. `UnityPlayer.kill()` hook blocks the first call for 5 seconds to survive integrity checks.
 
-The Context wrapper routes game resources to PVZRH, launcher storage to the launcher Application, and window services to the original Activity base Context.
+All hooks are installed from Kotlin/Java — no native `libmain.so` bootstrap required.
 
 ## Debug Snapshots
 
