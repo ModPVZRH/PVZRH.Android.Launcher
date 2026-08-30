@@ -116,6 +116,8 @@
     <string name="settings_language">语言</string>
     <string name="settings_dynamic_color">莫奈取色</string>
     <string name="settings_dynamic_color_desc">基于系统主题色的配色（该功能仅对 Android 12 以上的设备有效）。</string>
+    <string name="settings_animation_disabled">关闭动画</string>
+    <string name="settings_animation_disabled_desc">关闭动画可以提升一部分性能。</string>
     <string name="settings_about">关于</string>
 
     <!-- Confirm Dialogs -->

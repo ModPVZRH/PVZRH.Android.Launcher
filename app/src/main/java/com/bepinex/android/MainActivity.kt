@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
     private var themeMode by mutableStateOf(AppSettings.ThemeMode.SYSTEM)
     private var language by mutableStateOf(AppSettings.Language.SYSTEM)
     private var dynamicColor by mutableStateOf(false)
+    private var animationDisabled by mutableStateOf(false)
 
     // Update check state
     private var updateInfo by mutableStateOf<UpdateChecker.UpdateInfo?>(null)
@@ -114,6 +115,7 @@ class MainActivity : ComponentActivity() {
         themeMode = AppSettings.getThemeMode(this)
         language = AppSettings.getLanguage(this)
         dynamicColor = AppSettings.isDynamicColorEnabled(this)
+        animationDisabled = AppSettings.isAnimationDisabled(this)
 
         BepInExLog.init(this)
         BepInExLog.i("=== PVZRH Launcher ===")
@@ -642,6 +644,7 @@ class MainActivity : ComponentActivity() {
                     themeMode = themeMode,
                     language = language,
                     dynamicColor = dynamicColor,
+                    animationDisabled = animationDisabled,
                     onSelectGame = { selectGame(it) },
                     onRescan = {
                         GameDetector.invalidateCache()
@@ -652,6 +655,9 @@ class MainActivity : ComponentActivity() {
                     onLanguageChanged = { onLanguageChanged(it) },
                     onDynamicColorChanged = { enabled ->
                         dynamicColor = enabled
+                    },
+                    onAnimationDisabledChanged = { disabled ->
+                        animationDisabled = disabled
                     },
                     onClearBepInEx = { onClearBepInEx(it) },
                     onClearDotnet = { onClearDotnet(it) },

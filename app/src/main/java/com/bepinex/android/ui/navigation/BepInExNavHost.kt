@@ -89,60 +89,66 @@ private fun bottomTabIndex(route: String?): Int? = when (route) {
 
 private fun bottomTabEnterTransition(
     initialRoute: String?,
-    targetRoute: String?
+    targetRoute: String?,
+    disabled: Boolean = false
 ): EnterTransition? {
     val initialIndex = bottomTabIndex(initialRoute) ?: return null
     val targetIndex = bottomTabIndex(targetRoute) ?: return null
     if (initialIndex == targetIndex) return null
 
     val offset = if (targetIndex > initialIndex) 1 else -1
-    return slideInHorizontally(spring()) { width -> width * offset } + fadeIn(spring())
+    return if (disabled) EnterTransition.None
+    else slideInHorizontally(spring()) { width -> width * offset } + fadeIn(spring())
 }
 
 private fun bottomTabExitTransition(
     initialRoute: String?,
-    targetRoute: String?
+    targetRoute: String?,
+    disabled: Boolean = false
 ): ExitTransition? {
     val initialIndex = bottomTabIndex(initialRoute) ?: return null
     val targetIndex = bottomTabIndex(targetRoute) ?: return null
     if (initialIndex == targetIndex) return null
 
     val offset = if (targetIndex > initialIndex) -1 else 1
-    return slideOutHorizontally(spring()) { width -> width * offset } + fadeOut(spring())
+    return if (disabled) ExitTransition.None
+    else slideOutHorizontally(spring()) { width -> width * offset } + fadeOut(spring())
 }
 
-private fun secondaryEnterTransition(): EnterTransition =
-    slideInHorizontally(spring()) { width -> width / 3 } +
-        fadeIn(spring())
+private fun secondaryEnterTransition(disabled: Boolean = false): EnterTransition =
+    if (disabled) EnterTransition.None
+    else slideInHorizontally(spring()) { width -> width / 3 } + fadeIn(spring())
 
-private fun secondaryExitTransition(): ExitTransition =
-    slideOutHorizontally(spring()) { width -> -width / 6 } +
-        fadeOut(spring())
+private fun secondaryExitTransition(disabled: Boolean = false): ExitTransition =
+    if (disabled) ExitTransition.None
+    else slideOutHorizontally(spring()) { width -> -width / 6 } + fadeOut(spring())
 
-private fun secondaryPopEnterTransition(): EnterTransition =
-    slideInHorizontally(spring()) { width -> -width / 6 } +
-        fadeIn(spring())
+private fun secondaryPopEnterTransition(disabled: Boolean = false): EnterTransition =
+    if (disabled) EnterTransition.None
+    else slideInHorizontally(spring()) { width -> -width / 6 } + fadeIn(spring())
 
-private fun secondaryPopExitTransition(): ExitTransition =
-    slideOutHorizontally(spring()) { width -> width / 3 } +
-        fadeOut(spring())
+private fun secondaryPopExitTransition(disabled: Boolean = false): ExitTransition =
+    if (disabled) ExitTransition.None
+    else slideOutHorizontally(spring()) { width -> width / 3 } + fadeOut(spring())
 
 private fun topLevelExitTransition(
     initialRoute: String?,
-    targetRoute: String?
-): ExitTransition? = bottomTabExitTransition(initialRoute, targetRoute)
+    targetRoute: String?,
+    disabled: Boolean = false
+): ExitTransition? = bottomTabExitTransition(initialRoute, targetRoute, disabled)
     ?: if (bottomTabIndex(initialRoute) != null && bottomTabIndex(targetRoute) == null) {
-        secondaryExitTransition()
+        secondaryExitTransition(disabled)
     } else {
         null
     }
 
 private fun topLevelPopEnterTransition(
     initialRoute: String?,
-    targetRoute: String?
-): EnterTransition? = bottomTabEnterTransition(initialRoute, targetRoute)
+    targetRoute: String?,
+    disabled: Boolean = false
+): EnterTransition? = bottomTabEnterTransition(initialRoute, targetRoute, disabled)
     ?: if (bottomTabIndex(initialRoute) == null && bottomTabIndex(targetRoute) != null) {
-        secondaryPopEnterTransition()
+        secondaryPopEnterTransition(disabled)
     } else {
         null
     }
@@ -164,6 +170,7 @@ fun BepInExNavHost(
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     dynamicColor: Boolean,
+    animationDisabled: Boolean,
     // Callbacks
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
     onRescan: () -> Unit,
@@ -171,6 +178,7 @@ fun BepInExNavHost(
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
+    onAnimationDisabledChanged: (Boolean) -> Unit,
     onClearBepInEx: (String) -> Unit,
     onClearDotnet: (String) -> Unit,
     onClearLibUnity: (String) -> Unit,
@@ -355,31 +363,36 @@ fun BepInExNavHost(
             startDestination = NavRoutes.GAMES,
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
+                val animOff = animationDisabled
                 // Main game screen
                 composable(
                     route = NavRoutes.GAMES,
                     enterTransition = {
                         bottomTabEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popEnterTransition = {
                         topLevelPopEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popExitTransition = {
                         bottomTabExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     }
                 ) {
@@ -408,25 +421,29 @@ fun BepInExNavHost(
                     enterTransition = {
                         bottomTabEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popEnterTransition = {
                         topLevelPopEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popExitTransition = {
                         bottomTabExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
                     }
                 ) { backStackEntry ->
@@ -524,10 +541,10 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { secondaryEnterTransition() },
-                    exitTransition = { secondaryExitTransition() },
-                    popEnterTransition = { secondaryPopEnterTransition() },
-                    popExitTransition = { secondaryPopExitTransition() }
+                    enterTransition = { secondaryEnterTransition(animOff) },
+                    exitTransition = { secondaryExitTransition(animOff) },
+                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
+                    popExitTransition = { secondaryPopExitTransition(animOff) }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val modpackName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -593,10 +610,10 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { secondaryEnterTransition() },
-                    exitTransition = { secondaryExitTransition() },
-                    popEnterTransition = { secondaryPopEnterTransition() },
-                    popExitTransition = { secondaryPopExitTransition() }
+                    enterTransition = { secondaryEnterTransition(animOff) },
+                    exitTransition = { secondaryExitTransition(animOff) },
+                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
+                    popExitTransition = { secondaryPopExitTransition(animOff) }
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName")
                         ?: return@composable
@@ -636,25 +653,29 @@ fun BepInExNavHost(
                     enterTransition = {
                         bottomTabEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
                     },
                     exitTransition = {
                         topLevelExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popEnterTransition = {
                         topLevelPopEnterTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         )
                     },
                     popExitTransition = {
                         bottomTabExitTransition(
                             initialState.destination.route,
-                            targetState.destination.route
+                            targetState.destination.route,
+                            animOff
                         ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
                     }
                 ) { backStackEntry ->
@@ -670,11 +691,15 @@ fun BepInExNavHost(
                     var dynamicColor by remember {
                         mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
                     }
+                    var animationDisabled by remember {
+                        mutableStateOf(AppSettings.isAnimationDisabled(settingsContext))
+                    }
                     SettingsScreen(
                         packageName = packageName,
                         themeMode = themeMode,
                         language = language,
                         dynamicColor = dynamicColor,
+                        animationDisabled = animationDisabled,
                         floatingLogInGame = floatingLogInGame,
                         useUnstrippedLibUnity = useUnstrippedLibUnity,
                         onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
@@ -684,6 +709,10 @@ fun BepInExNavHost(
                             AppSettings.setDynamicColorEnabled(settingsContext, enabled)
                             dynamicColor = enabled
                             onDynamicColorChanged(enabled)
+                        },
+                        onAnimationDisabledChanged = { disabled ->
+                            AppSettings.setAnimationDisabled(settingsContext, disabled)
+                            animationDisabled = disabled
                         },
                         onFloatingLogInGameChanged = { enabled ->
                             AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
@@ -707,8 +736,8 @@ fun BepInExNavHost(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
                     ),
-                    enterTransition = { slideInHorizontally(spring()) { it } + fadeIn(spring()) },
-                    popExitTransition = { slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
+                    enterTransition = { if (animOff) EnterTransition.None else slideInHorizontally(spring()) { it } + fadeIn(spring()) },
+                    popExitTransition = { if (animOff) ExitTransition.None else slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
                 ) { backStackEntry ->
                     val pkg = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val mpName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -723,8 +752,8 @@ fun BepInExNavHost(
                 composable(
                     route = NavRoutes.CONFIG_EDITOR,
                     arguments = listOf(navArgument("filePath") { type = NavType.StringType }),
-                    enterTransition = { slideInHorizontally(spring()) { it } + fadeIn(spring()) },
-                    popExitTransition = { slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
+                    enterTransition = { if (animOff) EnterTransition.None else slideInHorizontally(spring()) { it } + fadeIn(spring()) },
+                    popExitTransition = { if (animOff) ExitTransition.None else slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
                 ) { backStackEntry ->
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
                     val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")
@@ -746,10 +775,10 @@ fun BepInExNavHost(
                 // About
                 composable(
                     route = NavRoutes.ABOUT,
-                    enterTransition = { secondaryEnterTransition() },
-                    exitTransition = { secondaryExitTransition() },
-                    popEnterTransition = { secondaryPopEnterTransition() },
-                    popExitTransition = { secondaryPopExitTransition() }
+                    enterTransition = { secondaryEnterTransition(animOff) },
+                    exitTransition = { secondaryExitTransition(animOff) },
+                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
+                    popExitTransition = { secondaryPopExitTransition(animOff) }
                 ) {
                     val context = LocalContext.current
                     val versionName = runCatching {
@@ -765,10 +794,10 @@ fun BepInExNavHost(
                 // Credits
                 composable(
                     route = NavRoutes.CREDITS,
-                    enterTransition = { secondaryEnterTransition() },
-                    exitTransition = { secondaryExitTransition() },
-                    popEnterTransition = { secondaryPopEnterTransition() },
-                    popExitTransition = { secondaryPopExitTransition() }
+                    enterTransition = { secondaryEnterTransition(animOff) },
+                    exitTransition = { secondaryExitTransition(animOff) },
+                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
+                    popExitTransition = { secondaryPopExitTransition(animOff) }
                 ) {
                     CreditsScreen(onNavigateBack = { navController.popBackStack() })
                 }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Animation
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,12 +68,14 @@ fun SettingsScreen(
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     dynamicColor: Boolean,
+    animationDisabled: Boolean,
     floatingLogInGame: Boolean,
     useUnstrippedLibUnity: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
+    onAnimationDisabledChanged: (Boolean) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
@@ -147,6 +150,20 @@ fun SettingsScreen(
                         onClick = { onDynamicColorChanged(!dynamicColor) }
                     )
                 }
+            }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_animation_disabled),
+                    summary = stringResource(R.string.settings_animation_disabled_desc),
+                    icon = { Icon(Icons.Outlined.Animation, contentDescription = null) },
+                    trailing = {
+                        Switch(
+                            checked = animationDisabled,
+                            onCheckedChange = { onAnimationDisabledChanged(it) }
+                        )
+                    },
+                    onClick = { onAnimationDisabledChanged(!animationDisabled) }
+                )
             }
 
             item { SettingsSectionHeader(stringResource(R.string.settings_section_ingame)) }

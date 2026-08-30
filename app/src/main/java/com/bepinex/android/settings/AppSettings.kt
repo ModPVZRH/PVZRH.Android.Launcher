@@ -19,6 +19,7 @@ object AppSettings {
     private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
     private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
     private const val KEY_LAST_SEEN_ANNOUNCEMENT = "last_seen_announcement_date"
+    private const val KEY_ANIMATION_DISABLED = "animation_disabled"
 
     enum class ThemeMode {
         SYSTEM, DARK, LIGHT;
@@ -107,6 +108,15 @@ object AppSettings {
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
+    }
+
+    // Animation
+
+    fun isAnimationDisabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ANIMATION_DISABLED, false)
+
+    fun setAnimationDisabled(context: Context, disabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ANIMATION_DISABLED, disabled).apply()
     }
 
     fun getLastSeenAnnouncementDate(context: Context): String =

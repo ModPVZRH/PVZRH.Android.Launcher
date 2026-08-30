@@ -116,6 +116,8 @@
     <string name="settings_language">Language</string>
     <string name="settings_dynamic_color">Monet Color</string>
     <string name="settings_dynamic_color_desc">Color scheme based on the system accent color (Android 12+ only).</string>
+    <string name="settings_animation_disabled">Disable Animations</string>
+    <string name="settings_animation_disabled_desc">Disabling animations can improve performance on some devices.</string>
     <string name="settings_about">About</string>
 
     <!-- Confirm Dialogs -->
