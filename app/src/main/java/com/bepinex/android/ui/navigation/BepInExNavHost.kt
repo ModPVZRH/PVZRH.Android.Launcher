@@ -238,7 +238,10 @@ fun BepInExNavHost(
                         selected = pagerState.currentPage == 0,
                         onClick = {
                             if (pagerState.currentPage != 0) {
-                                composeScope.launch { pagerState.animateScrollToPage(0) }
+                                composeScope.launch {
+                                    if (animationDisabled) pagerState.scrollToPage(0)
+                                    else pagerState.animateScrollToPage(0)
+                                }
                             }
                         },
                         icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
@@ -248,7 +251,10 @@ fun BepInExNavHost(
                         selected = pagerState.currentPage == 1,
                         onClick = {
                             if (selectedGame != null && pagerState.currentPage != 1) {
-                                composeScope.launch { pagerState.animateScrollToPage(1) }
+                                composeScope.launch {
+                                    if (animationDisabled) pagerState.scrollToPage(1)
+                                    else pagerState.animateScrollToPage(1)
+                                }
                             }
                         },
                         enabled = selectedGame != null,
@@ -259,7 +265,10 @@ fun BepInExNavHost(
                         selected = pagerState.currentPage == 2,
                         onClick = {
                             if (selectedGame != null && pagerState.currentPage != 2) {
-                                composeScope.launch { pagerState.animateScrollToPage(2) }
+                                composeScope.launch {
+                                    if (animationDisabled) pagerState.scrollToPage(2)
+                                    else pagerState.animateScrollToPage(2)
+                                }
                             }
                         },
                         enabled = selectedGame != null,
