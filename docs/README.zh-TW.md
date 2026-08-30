@@ -14,9 +14,23 @@
 
 ## 致謝
 
-- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
-- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
-- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+### 使用和引用的專案
+
+- [BepInEx](https://github.com/BepInEx/BepInEx) — Unity IL2CPP 模組框架，核心插件載入器
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore) — Starlight 團隊的 Android Unity IL2CPP 運行時容器
+- [NextBep (BepInEx.Android)](https://github.com/NextBep/BepInEx.Android) — 自訂 Android BepInEx 分支
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher) — 通用 BepInEx Android 啟動器，支援整合包管理
+- [dotnet/runtime](https://github.com/dotnet/runtime) — .NET 運行時，使用 OpenSSL 加密後端從原始碼建置
+- [OpenSSL](https://github.com/openssl/openssl) — OpenSSL 3.4.0，替代 BoringSSL 用於 ARM64 Android 加密
+- [Pine](https://github.com/canyie/Pine) — ART Java 方法 Hook 框架
+- [Dobby](https://github.com/jmpews/Dobby) — ARM64 原生 Hook 框架
+- [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) — IL2CPP 逆向工程工具
+
+### 主要開發者
+
+HayashiUme · Gaoshu · NextBep
+
+©2026 PVZRH Mod Dev
 
 ## 指南
 

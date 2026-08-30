@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Announcement
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.SearchOff
@@ -85,7 +86,8 @@ fun GameScreen(
     onRescan: () -> Unit,
     onLaunch: () -> Unit,
     onExportLogs: () -> Unit,
-    onShowAnnouncement: () -> Unit = {}
+    onShowAnnouncement: () -> Unit = {},
+    showIncompleteBanner: Boolean = false
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -153,6 +155,33 @@ fun GameScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
             ) {
+                if (showIncompleteBanner) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                com.bepinex.android.update.MarkdownText(
+                                    rawText = stringResource(R.string.lang_incomplete_message),
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onErrorContainer),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),

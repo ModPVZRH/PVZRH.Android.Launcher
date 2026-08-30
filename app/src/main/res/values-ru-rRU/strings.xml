@@ -245,4 +245,6 @@
     <string name="bootstrap_status_launching">Launching game…</string>
     <string name="bootstrap_status_error">Launch failed</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
+    <string name="lang_incomplete_title">Локализация не внесена</string>
+    <string name="lang_incomplete_message">Перевод на ваш язык неполный. Если вы хотите помочь улучшить локализацию, посетите [эту страницу](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
 </resources>

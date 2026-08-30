@@ -14,9 +14,23 @@
 
 ## Благодарности
 
-- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
-- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
-- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+### Используемые и упомянутые проекты
+
+- [BepInEx](https://github.com/BepInEx/BepInEx) — Фреймворк моддинга Unity IL2CPP, загрузчик плагинов
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore) — Контейнер рантайма Unity IL2CPP для Android от команды Starlight
+- [NextBep (BepInEx.Android)](https://github.com/NextBep/BepInEx.Android) — Пользовательский форк BepInEx для Android
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher) — Универсальный лаунчер BepInEx для Android с управлением модпаками
+- [dotnet/runtime](https://github.com/dotnet/runtime) — Рантайм .NET, собранный из исходников с криптографическим бэкендом OpenSSL
+- [OpenSSL](https://github.com/openssl/openssl) — OpenSSL 3.4.0, заменяющий BoringSSL для криптографии ARM64 Android
+- [Pine](https://github.com/canyie/Pine) — Фреймворк хуков Java-методов ART
+- [Dobby](https://github.com/jmpews/Dobby) — Фреймворк нативных хуков для ARM64
+- [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) — Инструмент реверс-инжиниринга IL2CPP
+
+### Ведущие разработчики
+
+HayashiUme · Gaoshu · NextBep
+
+©2026 PVZRH Mod Dev
 
 ## Руководство
 

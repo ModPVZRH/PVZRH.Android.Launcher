@@ -20,6 +20,13 @@ object AppSettings {
     private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
     private const val KEY_LAST_SEEN_ANNOUNCEMENT = "last_seen_announcement_date"
     private const val KEY_ANIMATION_DISABLED = "animation_disabled"
+    private const val KEY_LANGUAGE_INCOMPLETE_SHOWN = "language_incomplete_shown"
+    private const val KEY_PENDING_INCOMPLETE_DIALOG = "pending_incomplete_dialog"
+
+    /** Static flag for pending incomplete dialog (survives activity recreation). */
+    @Volatile
+    var pendingIncompleteDialog = false
+        private set
 
     enum class ThemeMode {
         SYSTEM, DARK, LIGHT;
@@ -36,14 +43,28 @@ object AppSettings {
     enum class Language(val key: String) {
         SYSTEM("system"),
         ENGLISH("en"),
-        CHINESE("zh");
+        CHINESE("zh"),
+        CHINESE_TW("zh-TW"),
+        JAPANESE("ja"),
+        KOREAN("ko"),
+        RUSSIAN("ru"),
+        PORTUGUESE("pt"),
+        PORTUGUESE_BR("pt-BR"),
+        SPANISH("es"),
+        GERMAN("de"),
+        FRENCH("fr"),
+        ITALIAN("it"),
+        DUTCH("nl"),
+        TURKISH("tr"),
+        ARABIC("ar"),
+        UKRAINIAN("uk"),
+        MALAYAML("ml"),
+        VENETIAN("vec");
 
         companion object {
-            fun fromKey(value: String?): Language = when (value) {
-                "en" -> ENGLISH
-                "zh" -> CHINESE
-                else -> SYSTEM
-            }
+            fun fromKey(value: String?): Language = entries.find { it.key == value } ?: SYSTEM
+
+            fun isCompleteTranslation(lang: Language) = lang == SYSTEM || lang == ENGLISH || lang == CHINESE
         }
     }
 
@@ -76,6 +97,21 @@ object AppSettings {
 
     fun setLanguage(context: Context, language: Language) {
         prefs(context).edit().putString(KEY_LANGUAGE, language.key).apply()
+    }
+
+    fun isLanguageIncompleteShown(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LANGUAGE_INCOMPLETE_SHOWN, false)
+
+    fun setLanguageIncompleteShown(context: Context, shown: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LANGUAGE_INCOMPLETE_SHOWN, shown).apply()
+    }
+
+    fun isPendingIncompleteDialog(context: Context): Boolean =
+        pendingIncompleteDialog || prefs(context).getBoolean(KEY_PENDING_INCOMPLETE_DIALOG, false)
+
+    fun setPendingIncompleteDialog(context: Context, pending: Boolean) {
+        pendingIncompleteDialog = pending
+        prefs(context).edit().putBoolean(KEY_PENDING_INCOMPLETE_DIALOG, pending).commit()
     }
 
     // Floating Log in Game

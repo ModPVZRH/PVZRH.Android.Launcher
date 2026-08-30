@@ -120,6 +120,44 @@ fun AnnouncementDialog(
 }
 
 @Composable
+fun IncompleteTranslationDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = stringResource(R.string.lang_incomplete_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                MarkdownText(
+                    rawText = stringResource(R.string.lang_incomplete_message),
+                    style = MaterialTheme.typography.bodyLarge,
+                    lineHeight = 24.sp,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.ok))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun UpdateDialog(
     currentVersion: String,
     remoteVersion: String,

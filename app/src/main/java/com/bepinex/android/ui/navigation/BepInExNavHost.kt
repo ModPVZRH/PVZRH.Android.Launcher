@@ -112,7 +112,8 @@ fun BepInExNavHost(
     onClearLibUnity: (String) -> Unit,
     onCopyGameResources: (String) -> Unit,
     onExportLogs: () -> Unit,
-    onShowAnnouncement: () -> Unit = {}
+    onShowAnnouncement: () -> Unit = {},
+    showIncompleteBanner: Boolean = false
 ) {
     val navController = rememberNavController()
     val modpackManager = remember { ModpackManager() }
@@ -312,7 +313,8 @@ fun BepInExNavHost(
                                 onRescan = onRescan,
                                 onLaunch = { onLaunch(activeModpackName) },
                                 onExportLogs = onExportLogs,
-                                onShowAnnouncement = onShowAnnouncement
+                                onShowAnnouncement = onShowAnnouncement,
+                                showIncompleteBanner = showIncompleteBanner
                             )
                             1 -> {
                                 val packageName = selectedGame?.packageName ?: ""
@@ -447,7 +449,9 @@ fun BepInExNavHost(
                                     onClearBepInEx = { onClearBepInEx(packageName) },
                                     onClearDotnet = { onClearDotnet(packageName) },
                                     onClearLibUnity = { onClearLibUnity(packageName) },
-                                    onCopyGameResources = { onCopyGameResources(packageName) }
+                                    onCopyGameResources = { onCopyGameResources(packageName) },
+                                    isLanguageIncompleteShown = AppSettings.isLanguageIncompleteShown(settingsContext),
+                                    onLanguageIncompleteShown = { AppSettings.setLanguageIncompleteShown(settingsContext, true) }
                                 )
                             }
                         }

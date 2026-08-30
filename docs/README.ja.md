@@ -14,9 +14,23 @@
 
 ## クレジット
 
-- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
-- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
-- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+### 使用・参照されているプロジェクト
+
+- [BepInEx](https://github.com/BepInEx/BepInEx) — Unity IL2CPP モジュールフレームワーク、コアプラグインローダー
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore) — Starlight チームの Android Unity IL2CPP ランタイムコンテナ
+- [NextBep (BepInEx.Android)](https://github.com/NextBep/BepInEx.Android) — カスタム Android BepInEx フォーク
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher) — モッドパック管理対応の汎用 BepInEx Android ランチャー
+- [dotnet/runtime](https://github.com/dotnet/runtime) — .NET ランタイム、OpenSSL 暗号化バックエンドでソースから構築
+- [OpenSSL](https://github.com/openssl/openssl) — OpenSSL 3.4.0、ARM64 Android 暗号化用に BoringSSL を置換
+- [Pine](https://github.com/canyie/Pine) — ART Java メソッドフックフレームワーク
+- [Dobby](https://github.com/jmpews/Dobby) — ARM64 ネイティブフックフレームワーク
+- [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) — IL2CPP リバースエンジニアリングツール
+
+### メイン開発者
+
+HayashiUme · Gaoshu · NextBep
+
+©2026 PVZRH Mod Dev
 
 ## ガイド
 

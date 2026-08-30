@@ -73,11 +73,8 @@ class BootstrapActivity : Activity() {
     override fun attachBaseContext(newBase: Context?) {
         val ctx = newBase ?: return super.attachBaseContext(newBase)
         val lang = AppSettings.getLanguage(ctx)
-        val locale = when (lang) {
-            AppSettings.Language.ENGLISH -> Locale.forLanguageTag("en")
-            AppSettings.Language.CHINESE -> Locale.forLanguageTag("zh-CN")
-            AppSettings.Language.SYSTEM -> return super.attachBaseContext(newBase)
-        }
+        if (lang == AppSettings.Language.SYSTEM) return super.attachBaseContext(newBase)
+        val locale = Locale.forLanguageTag(lang.key)
         val config = Configuration(ctx.resources.configuration)
         config.setLocales(LocaleList(locale))
         super.attachBaseContext(ctx.createConfigurationContext(config))

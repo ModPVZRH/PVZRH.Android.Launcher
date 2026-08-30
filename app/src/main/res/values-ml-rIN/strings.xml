@@ -126,6 +126,7 @@
     <string name="confirm_copy_resources_msg">This will copy the game\'s asset data from the APK to local storage.</string>
     <string name="confirm_yes">Yes</string>
     <string name="confirm_no">No</string>
+    <string name="confirm_ok">ശരി</string>
     <string name="confirm_cancel">Cancel</string>
     <string name="confirm_delete">Delete</string>
     <!-- Theme -->
@@ -245,4 +246,6 @@
     <string name="bootstrap_status_launching">Launching game…</string>
     <string name="bootstrap_status_error">Launch failed</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
+    <string name="lang_incomplete_title">വിവർത്തനം സംഭാവന ചെയ്തിട്ടില്ല</string>
+    <string name="lang_incomplete_message">നിങ്ങളുടെ ഭാഷയുടെ വിവർത്തനം പൂർത്തിയായിട്ടില്ല. വിവർത്തനം മെച്ചപ്പെടുത്താൻ സഹായിക്കാൻ ആഗ്രഹിക്കുന്നുവെങ്കിൽ, [ഇവിടെ](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md) സന്ദർശിക്കുക.</string>
 </resources>

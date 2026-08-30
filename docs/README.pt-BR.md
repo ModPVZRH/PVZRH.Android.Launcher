@@ -14,9 +14,23 @@ Launcher e gerenciador de mods Android dedicado para Plants Vs Zombies Fusion.
 
 ## Créditos
 
-- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
-- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
-- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+### Projetos Utilizados e Referenciados
+
+- [BepInEx](https://github.com/BepInEx/BepInEx) — Framework de modding Unity IL2CPP, o carregador principal de plugins
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore) — Contêiner de Runtime Unity IL2CPP para Android pela equipe Starlight
+- [NextBep (BepInEx.Android)](https://github.com/NextBep/BepInEx.Android) — Fork customizado do BepInEx para Android
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher) — Launcher genérico BepInEx para Android com gerenciamento de modpacks
+- [dotnet/runtime](https://github.com/dotnet/runtime) — Runtime .NET, compilado do fonte com backend criptográfico OpenSSL
+- [OpenSSL](https://github.com/openssl/openssl) — OpenSSL 3.4.0, substituindo BoringSSL para criptografia ARM64 Android
+- [Pine](https://github.com/canyie/Pine) — Framework de hook de métodos Java ART
+- [Dobby](https://github.com/jmpews/Dobby) — Framework de hook nativo para ARM64
+- [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) — Ferramenta de engenharia reversa IL2CPP
+
+### Desenvolvedores Principais
+
+HayashiUme · Gaoshu · NextBep
+
+©2026 PVZRH Mod Dev
 
 ## Guia
 

@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.outlined.Code
@@ -82,7 +85,9 @@ fun SettingsScreen(
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onClearLibUnity: () -> Unit,
-    onCopyGameResources: () -> Unit
+    onCopyGameResources: () -> Unit,
+    isLanguageIncompleteShown: Boolean,
+    onLanguageIncompleteShown: () -> Unit
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -90,6 +95,7 @@ fun SettingsScreen(
     var maintenanceAction by remember { mutableStateOf<MaintenanceAction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val completedMessage = stringResource(R.string.done)
 
@@ -275,12 +281,31 @@ fun SettingsScreen(
             title = stringResource(R.string.settings_language),
             selected = language,
             options = listOf(
+                AppSettings.Language.SYSTEM to stringResource(R.string.lang_system),
                 AppSettings.Language.ENGLISH to stringResource(R.string.lang_english),
                 AppSettings.Language.CHINESE to stringResource(R.string.lang_chinese),
-                AppSettings.Language.SYSTEM to stringResource(R.string.lang_system)
+                AppSettings.Language.CHINESE_TW to stringResource(R.string.lang_chinese_tw),
+                AppSettings.Language.JAPANESE to stringResource(R.string.lang_japanese),
+                AppSettings.Language.KOREAN to stringResource(R.string.lang_korean),
+                AppSettings.Language.RUSSIAN to stringResource(R.string.lang_russian),
+                AppSettings.Language.PORTUGUESE to stringResource(R.string.lang_portuguese),
+                AppSettings.Language.PORTUGUESE_BR to stringResource(R.string.lang_portuguese_br),
+                AppSettings.Language.SPANISH to stringResource(R.string.lang_spanish),
+                AppSettings.Language.GERMAN to stringResource(R.string.lang_german),
+                AppSettings.Language.FRENCH to stringResource(R.string.lang_french),
+                AppSettings.Language.ITALIAN to stringResource(R.string.lang_italian),
+                AppSettings.Language.DUTCH to stringResource(R.string.lang_dutch),
+                AppSettings.Language.TURKISH to stringResource(R.string.lang_turkish),
+                AppSettings.Language.ARABIC to stringResource(R.string.lang_arabic),
+                AppSettings.Language.UKRAINIAN to stringResource(R.string.lang_ukrainian),
+                AppSettings.Language.MALAYAML to stringResource(R.string.lang_malayalam),
+                AppSettings.Language.VENETIAN to stringResource(R.string.lang_venetian)
             ),
             onDismiss = { showLanguageDialog = false },
-            onSelected = { onLanguageChanged(it); showLanguageDialog = false }
+            onSelected = {
+                onLanguageChanged(it)
+                showLanguageDialog = false
+            }
         )
     }
 
@@ -355,9 +380,25 @@ private fun themeLabel(mode: AppSettings.ThemeMode) = when (mode) {
 
 @Composable
 private fun languageLabel(language: AppSettings.Language) = when (language) {
+    AppSettings.Language.SYSTEM -> stringResource(R.string.lang_system)
     AppSettings.Language.ENGLISH -> stringResource(R.string.lang_english)
     AppSettings.Language.CHINESE -> stringResource(R.string.lang_chinese)
-    AppSettings.Language.SYSTEM -> stringResource(R.string.lang_system)
+    AppSettings.Language.CHINESE_TW -> stringResource(R.string.lang_chinese_tw)
+    AppSettings.Language.JAPANESE -> stringResource(R.string.lang_japanese)
+    AppSettings.Language.KOREAN -> stringResource(R.string.lang_korean)
+    AppSettings.Language.RUSSIAN -> stringResource(R.string.lang_russian)
+    AppSettings.Language.PORTUGUESE -> stringResource(R.string.lang_portuguese)
+    AppSettings.Language.PORTUGUESE_BR -> stringResource(R.string.lang_portuguese_br)
+    AppSettings.Language.SPANISH -> stringResource(R.string.lang_spanish)
+    AppSettings.Language.GERMAN -> stringResource(R.string.lang_german)
+    AppSettings.Language.FRENCH -> stringResource(R.string.lang_french)
+    AppSettings.Language.ITALIAN -> stringResource(R.string.lang_italian)
+    AppSettings.Language.DUTCH -> stringResource(R.string.lang_dutch)
+    AppSettings.Language.TURKISH -> stringResource(R.string.lang_turkish)
+    AppSettings.Language.ARABIC -> stringResource(R.string.lang_arabic)
+    AppSettings.Language.UKRAINIAN -> stringResource(R.string.lang_ukrainian)
+    AppSettings.Language.MALAYAML -> stringResource(R.string.lang_malayalam)
+    AppSettings.Language.VENETIAN -> stringResource(R.string.lang_venetian)
 }
 
 @Composable
@@ -419,7 +460,10 @@ private fun <T> SelectionDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 options.forEach { (value, label) ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { onSelected(value) }.padding(vertical = 6.dp),

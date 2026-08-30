@@ -14,9 +14,23 @@ Dedicated Android launcher and mod manager for Plants Vs Zombies Fusion.
 
 ## Credits
 
-- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore)
-- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher)
-- [BepInEx.Android](https://github.com/NextBep/BepInEx.Android)
+### Projects Used & Referenced
+
+- [BepInEx](https://github.com/BepInEx/BepInEx) — Unity IL2CPP modding framework, the core plugin loader
+- [FusionCore](https://github.com/All-Of-Us-Mods/FusionCore) — Android Unity IL2CPP Runtime Container by Starlight team
+- [NextBep (BepInEx.Android)](https://github.com/NextBep/BepInEx.Android) — Custom BepInEx fork for Android
+- [BepInEx.Android.Launcher](https://github.com/NextBep/BepInEx.Android.Launcher) — Generic BepInEx Android launcher with modpack management
+- [dotnet/runtime](https://github.com/dotnet/runtime) — .NET Runtime, built from source with OpenSSL crypto backend
+- [OpenSSL](https://github.com/openssl/openssl) — OpenSSL 3.4.0, replacing BoringSSL for ARM64 Android crypto
+- [Pine](https://github.com/canyie/Pine) — ART Java method hook framework
+- [Dobby](https://github.com/jmpews/Dobby) — Native hook framework for ARM64
+- [Cpp2IL](https://github.com/SamboyCoding/Cpp2IL) — IL2CPP reverse engineering tool
+
+### Lead Developers
+
+HayashiUme · Gaoshu · NextBep
+
+©2026 PVZRH Mod Dev
 
 ## Guide
 

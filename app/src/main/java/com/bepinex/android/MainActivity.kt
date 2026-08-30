@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,7 @@ import com.bepinex.android.ui.navigation.BepInExNavHost
 import com.bepinex.android.ui.theme.BepInExTheme
 import com.bepinex.android.update.UpdateChecker
 import com.bepinex.android.update.AnnouncementDialog
+import com.bepinex.android.update.IncompleteTranslationDialog
 import com.bepinex.android.update.UpdateDialog
 import com.bepinex.android.update.BlockedDialog
 import com.bepinex.android.update.CrashDialog
@@ -73,6 +75,8 @@ class MainActivity : ComponentActivity() {
     private var showUpdate by mutableStateOf(false)
     private var showBlocked by mutableStateOf(false)
     private var isCheckingUpdate by mutableStateOf(true)
+    private var pendingAnnouncementToShow by mutableStateOf(false)
+    private var showIncompleteTranslation by mutableStateOf(false)
 
     // Crash detection state
     private var crashMonitorJob: Job? = null
@@ -87,16 +91,14 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Saved across activity recreations (e.g. language switch) */
         private var savedPackageName: String? = null
+        private var savedPagerPage = 0
     }
 
     override fun attachBaseContext(newBase: Context?) {
         val ctx = newBase ?: return super.attachBaseContext(newBase)
         val lang = AppSettings.getLanguage(ctx)
-        val locale = when (lang) {
-            AppSettings.Language.ENGLISH -> Locale.forLanguageTag("en")
-            AppSettings.Language.CHINESE -> Locale.forLanguageTag("zh-CN")
-            AppSettings.Language.SYSTEM -> return super.attachBaseContext(newBase)
-        }
+        if (lang == AppSettings.Language.SYSTEM) return super.attachBaseContext(newBase)
+        val locale = Locale.forLanguageTag(lang.key)
         val config = Configuration(ctx.resources.configuration)
         config.setLocales(LocaleList(locale))
         super.attachBaseContext(ctx.createConfigurationContext(config))
@@ -122,6 +124,16 @@ class MainActivity : ComponentActivity() {
         BepInExLog.i("Device: ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.SDK_INT}")
 
         fileExtractor = FileExtractor(this)
+        
+        val sysTag = resources.configuration.locales[0]?.toLanguageTag() ?: ""
+        val isCompleteLocale = sysTag.startsWith("en") || sysTag == "zh-CN" || sysTag == "zh"
+        val needsIncompleteDialog = !isCompleteLocale
+                && !AppSettings.isLanguageIncompleteShown(this)
+        if (needsIncompleteDialog || AppSettings.isPendingIncompleteDialog(this)) {
+            AppSettings.setPendingIncompleteDialog(this, false)
+            AppSettings.setLanguageIncompleteShown(this, true)
+            showIncompleteTranslation = true
+        }
 
         // Compose is installed once; subsequent updates are driven by observable state.
         setupContent()
@@ -148,6 +160,12 @@ class MainActivity : ComponentActivity() {
                         UpdateChecker.hasUpdate(currentVersion, info.version) -> {
                             showUpdate = true
                         }
+                        pendingAnnouncementToShow
+                            && info.announcementDate.isNotEmpty()
+                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
+                            pendingAnnouncementToShow = false
+                            showAnnouncement = true
+                        }
                         info.announcementDate.isNotEmpty()
                             && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
                             showAnnouncement = true
@@ -161,6 +179,17 @@ class MainActivity : ComponentActivity() {
     private fun onDismissAnnouncement() {
         showAnnouncement = false
         updateInfo?.let { AppSettings.setLastSeenAnnouncementDate(this, it.announcementDate) }
+    }
+
+    private fun onIncompleteDialogDismissed() {
+        // Show announcement next if available, otherwise flag it for when update info loads
+        val info = updateInfo
+        if (info != null && info.announcementDate.isNotEmpty()
+            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this)) {
+            showAnnouncement = true
+        } else {
+            pendingAnnouncementToShow = true
+        }
     }
 
     private fun onDismissUpdate() {
@@ -666,6 +695,14 @@ class MainActivity : ComponentActivity() {
                     onExportLogs = { onExportLogs() },
                     onShowAnnouncement = {
                         if (updateInfo != null) showAnnouncement = true
+                    },
+                    showIncompleteBanner = run {
+                        val lang = if (language == AppSettings.Language.SYSTEM) {
+                            val tag = resources.configuration.locales[0]?.toLanguageTag() ?: ""
+                            if (tag.startsWith("en") || tag == "zh-CN" || tag == "zh") AppSettings.Language.SYSTEM
+                            else AppSettings.Language.entries.find { it.key == tag } ?: AppSettings.Language.SYSTEM
+                        } else language
+                        !AppSettings.Language.isCompleteTranslation(lang)
                     }
                     )
                 } else {
@@ -674,7 +711,7 @@ class MainActivity : ComponentActivity() {
 
                 // Update / Announcement dialogs
                 if (showBlocked) {
-                    val isZh = resources.configuration.locales[0]?.language == "zh"
+                    val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                     val blockedMsg = updateInfo?.let {
                         if (isZh) it.announcementZh else it.announcementEn
                     } ?: ""
@@ -683,7 +720,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showUpdate) {
                     updateInfo?.let { info ->
-                        val isZh = resources.configuration.locales[0]?.language == "zh"
+                        val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
                         val currentVersion = try {
                             packageManager.getPackageInfo(packageName, 0).versionName ?: ""
@@ -701,7 +738,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showAnnouncement) {
                     updateInfo?.let { info ->
-                        val isZh = resources.configuration.locales[0]?.language == "zh"
+                        val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
                         if (announcement.isNotEmpty()) {
                             AnnouncementDialog(
@@ -727,6 +764,15 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+                }
+
+                if (showIncompleteTranslation) {
+                    IncompleteTranslationDialog(
+                        onDismiss = {
+                            showIncompleteTranslation = false
+                            onIncompleteDialogDismissed()
+                        }
+                    )
                 }
             }
         }

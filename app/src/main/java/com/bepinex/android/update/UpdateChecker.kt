@@ -34,8 +34,8 @@ object UpdateChecker {
     }
 
     private fun isChinese(context: Context): Boolean {
-        val lang = context.resources.configuration.locales[0]?.language
-        return lang == "zh"
+        val tag = context.resources.configuration.locales[0]?.toLanguageTag() ?: ""
+        return tag == "zh" || tag == "zh-CN"
     }
 
     private fun infoJsonUrl(context: Context): String =

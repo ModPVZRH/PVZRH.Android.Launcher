@@ -143,7 +143,7 @@ fun AboutScreen(
                 title = stringResource(R.string.about_contact),
                 subtitle = stringResource(R.string.about_contact_desc),
                 onClick = {
-                    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+                    val isZh = context.resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                     val url = if (isZh) {
                         "https://qm.qq.com/q/Ig1yGGlkek"
                     } else {
@@ -156,7 +156,7 @@ fun AboutScreen(
                 title = stringResource(R.string.about_privacy_policy),
                 subtitle = stringResource(R.string.about_privacy_policy_desc),
                 onClick = {
-                    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+                    val isZh = context.resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                     val url = if (isZh) "https://modpvzrh.github.io/zh/privacy"
                               else "https://modpvzrh.github.io/privacy"
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -166,7 +166,7 @@ fun AboutScreen(
                 title = stringResource(R.string.about_official_docs),
                 subtitle = stringResource(R.string.about_official_docs_desc),
                 onClick = {
-                    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+                    val isZh = context.resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
                     val url = if (isZh) "https://modpvzrh.github.io/zh/docs"
                               else "https://modpvzrh.github.io/docs"
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -223,7 +223,7 @@ private fun AboutActionButton(title: String, subtitle: String, onClick: () -> Un
 @Composable
 private fun SponsorDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val isZh = context.resources.configuration.locales[0]?.language == "zh"
+    val isZh = context.resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
