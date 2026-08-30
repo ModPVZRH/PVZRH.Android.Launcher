@@ -51,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import com.bepinex.android.settings.AppSettings
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class MaintenanceAction {
@@ -85,6 +86,7 @@ fun SettingsScreen(
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showAnimationRestartDialog by remember { mutableStateOf(false) }
     var maintenanceAction by remember { mutableStateOf<MaintenanceAction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -159,10 +161,22 @@ fun SettingsScreen(
                     trailing = {
                         Switch(
                             checked = animationDisabled,
-                            onCheckedChange = { onAnimationDisabledChanged(it) }
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    showAnimationRestartDialog = true
+                                } else {
+                                    onAnimationDisabledChanged(false)
+                                }
+                            }
                         )
                     },
-                    onClick = { onAnimationDisabledChanged(!animationDisabled) }
+                    onClick = {
+                        if (!animationDisabled) {
+                            showAnimationRestartDialog = true
+                        } else {
+                            onAnimationDisabledChanged(false)
+                        }
+                    }
                 )
             }
 
@@ -267,6 +281,31 @@ fun SettingsScreen(
             ),
             onDismiss = { showLanguageDialog = false },
             onSelected = { onLanguageChanged(it); showLanguageDialog = false }
+        )
+    }
+
+    if (showAnimationRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { showAnimationRestartDialog = false },
+            title = { Text(stringResource(R.string.animation_restart_title)) },
+            text = { Text(stringResource(R.string.animation_restart_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showAnimationRestartDialog = false
+                    onAnimationDisabledChanged(true)
+                    scope.launch {
+                        delay(300)
+                        android.os.Process.killProcess(android.os.Process.myPid())
+                    }
+                }) {
+                    Text(stringResource(R.string.animation_restart_now))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAnimationRestartDialog = false }) {
+                    Text(stringResource(R.string.confirm_cancel))
+                }
+            }
         )
     }
 

@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.spring
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -80,79 +81,6 @@ private fun deleteModpackFile(modpackDirectory: File, target: File): Boolean {
     return runCatching { safeTarget.delete() }.getOrDefault(false)
 }
 
-private fun bottomTabIndex(route: String?): Int? = when (route) {
-    NavRoutes.GAMES -> 0
-    NavRoutes.MODPACKS -> 1
-    NavRoutes.SETTINGS -> 2
-    else -> null
-}
-
-private fun bottomTabEnterTransition(
-    initialRoute: String?,
-    targetRoute: String?,
-    disabled: Boolean = false
-): EnterTransition? {
-    val initialIndex = bottomTabIndex(initialRoute) ?: return null
-    val targetIndex = bottomTabIndex(targetRoute) ?: return null
-    if (initialIndex == targetIndex) return null
-
-    val offset = if (targetIndex > initialIndex) 1 else -1
-    return if (disabled) EnterTransition.None
-    else slideInHorizontally(spring()) { width -> width * offset } + fadeIn(spring())
-}
-
-private fun bottomTabExitTransition(
-    initialRoute: String?,
-    targetRoute: String?,
-    disabled: Boolean = false
-): ExitTransition? {
-    val initialIndex = bottomTabIndex(initialRoute) ?: return null
-    val targetIndex = bottomTabIndex(targetRoute) ?: return null
-    if (initialIndex == targetIndex) return null
-
-    val offset = if (targetIndex > initialIndex) -1 else 1
-    return if (disabled) ExitTransition.None
-    else slideOutHorizontally(spring()) { width -> width * offset } + fadeOut(spring())
-}
-
-private fun secondaryEnterTransition(disabled: Boolean = false): EnterTransition =
-    if (disabled) EnterTransition.None
-    else slideInHorizontally(spring()) { width -> width / 3 } + fadeIn(spring())
-
-private fun secondaryExitTransition(disabled: Boolean = false): ExitTransition =
-    if (disabled) ExitTransition.None
-    else slideOutHorizontally(spring()) { width -> -width / 6 } + fadeOut(spring())
-
-private fun secondaryPopEnterTransition(disabled: Boolean = false): EnterTransition =
-    if (disabled) EnterTransition.None
-    else slideInHorizontally(spring()) { width -> -width / 6 } + fadeIn(spring())
-
-private fun secondaryPopExitTransition(disabled: Boolean = false): ExitTransition =
-    if (disabled) ExitTransition.None
-    else slideOutHorizontally(spring()) { width -> width / 3 } + fadeOut(spring())
-
-private fun topLevelExitTransition(
-    initialRoute: String?,
-    targetRoute: String?,
-    disabled: Boolean = false
-): ExitTransition? = bottomTabExitTransition(initialRoute, targetRoute, disabled)
-    ?: if (bottomTabIndex(initialRoute) != null && bottomTabIndex(targetRoute) == null) {
-        secondaryExitTransition(disabled)
-    } else {
-        null
-    }
-
-private fun topLevelPopEnterTransition(
-    initialRoute: String?,
-    targetRoute: String?,
-    disabled: Boolean = false
-): EnterTransition? = bottomTabEnterTransition(initialRoute, targetRoute, disabled)
-    ?: if (bottomTabIndex(initialRoute) == null && bottomTabIndex(targetRoute) != null) {
-        secondaryPopEnterTransition(disabled)
-    } else {
-        null
-    }
-
 /**
  * Root navigation host with bottom navigation bar.
  */
@@ -189,6 +117,7 @@ fun BepInExNavHost(
     val navController = rememberNavController()
     val modpackManager = remember { ModpackManager() }
     val context = LocalContext.current
+    val composeScope = rememberCoroutineScope()
 
     // State for modpack list
     var modpacks by remember { mutableStateOf<List<ModpackMeta>>(emptyList()) }
@@ -284,24 +213,12 @@ fun BepInExNavHost(
         }
     }
 
-    // Determine which bottom tabs to show
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val showBottomBar = currentRoute in listOf(
-        NavRoutes.GAMES,
-        NavRoutes.MODPACKS,
-        NavRoutes.SETTINGS
-    )
-    fun navigateToBottomTab(route: String) {
-        navController.navigate(route) {
-            popUpTo(navController.graph.startDestinationId) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
+    val showBottomBar = currentRoute == NavRoutes.MAIN
+
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -317,22 +234,20 @@ fun BepInExNavHost(
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     NavigationBarItem(
-                        selected = currentRoute == NavRoutes.GAMES,
+                        selected = pagerState.currentPage == 0,
                         onClick = {
-                            if (currentRoute != NavRoutes.GAMES) {
-                                navigateToBottomTab(NavRoutes.GAMES)
+                            if (pagerState.currentPage != 0) {
+                                composeScope.launch { pagerState.animateScrollToPage(0) }
                             }
                         },
                         icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
                         label = { Text(stringResource(R.string.nav_games)) }
                     )
                     NavigationBarItem(
-                        selected = currentRoute == NavRoutes.MODPACKS,
+                        selected = pagerState.currentPage == 1,
                         onClick = {
-                            if (currentRoute != NavRoutes.MODPACKS) {
-                                selectedGame?.let { game ->
-                                    navigateToBottomTab(NavRoutes.modpacks(game.packageName))
-                                }
+                            if (selectedGame != null && pagerState.currentPage != 1) {
+                                composeScope.launch { pagerState.animateScrollToPage(1) }
                             }
                         },
                         enabled = selectedGame != null,
@@ -340,12 +255,10 @@ fun BepInExNavHost(
                         label = { Text(stringResource(R.string.nav_modpacks)) }
                     )
                     NavigationBarItem(
-                        selected = currentRoute == NavRoutes.SETTINGS,
+                        selected = pagerState.currentPage == 2,
                         onClick = {
-                            if (currentRoute != NavRoutes.SETTINGS) {
-                                selectedGame?.let { game ->
-                                    navigateToBottomTab(NavRoutes.settings(game.packageName))
-                                }
+                            if (selectedGame != null && pagerState.currentPage != 2) {
+                                composeScope.launch { pagerState.animateScrollToPage(2) }
                             }
                         },
                         enabled = selectedGame != null,
@@ -358,178 +271,187 @@ fun BepInExNavHost(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = NavRoutes.GAMES,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+            startDestination = NavRoutes.MAIN,
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            enterTransition = {
+                if (animationDisabled) EnterTransition.None
+                else slideInHorizontally(spring()) { it } + fadeIn(spring())
+            },
+            exitTransition = {
+                if (animationDisabled) ExitTransition.None
+                else slideOutHorizontally(spring()) { -it / 3 } + fadeOut(spring())
+            },
+            popEnterTransition = {
+                if (animationDisabled) EnterTransition.None
+                else slideInHorizontally(spring()) { -it / 3 } + fadeIn(spring())
+            },
+            popExitTransition = {
+                if (animationDisabled) ExitTransition.None
+                else slideOutHorizontally(spring()) { it } + fadeOut(spring())
+            }
         ) {
-                val animOff = animationDisabled
-                // Main game screen
-                composable(
-                    route = NavRoutes.GAMES,
-                    enterTransition = {
-                        bottomTabEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
-                    },
-                    exitTransition = {
-                        topLevelExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popEnterTransition = {
-                        topLevelPopEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popExitTransition = {
-                        bottomTabExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    }
-                ) {
-                    GameScreen(
-                        detectedGames = detectedGames,
-                        selectedGame = selectedGame,
-                        isScanning = isScanning,
-                        isFrameworkReady = isFrameworkReady,
-                        isExtracting = isExtracting,
-                        extractionStatus = extractionStatus,
-                        activeModpackName = activeModpackName,
-                        activeModpackModCount = if (activeModpackName != null)
-                            modpacks.find { it.name == activeModpackName }?.modCount ?: 0 else 0,
-                        onSelectGame = onSelectGame,
-                        onRescan = onRescan,
-                        onLaunch = { onLaunch(activeModpackName) },
-                        onExportLogs = onExportLogs,
-                        onShowAnnouncement = onShowAnnouncement
-                    )
-                }
-
-                // Modpack list
-                composable(
-                    route = NavRoutes.MODPACKS,
-                    arguments = listOf(navArgument("packageName") { type = NavType.StringType }),
-                    enterTransition = {
-                        bottomTabEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
-                    },
-                    exitTransition = {
-                        topLevelExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popEnterTransition = {
-                        topLevelPopEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popExitTransition = {
-                        bottomTabExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
-                    }
-                ) { backStackEntry ->
-                    val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
-                    val packageName = selectedGame?.packageName ?: routePackageName
-                    LaunchedEffect(packageName) {
-                        modpacks = modpackManager.listModpacks(packageName)
-                        activeModpackName = AppSettings.getActiveModpack(context, packageName)
-                    }
-                    ModpackListScreen(
-                        packageName = packageName,
-                        targetGameLabel = selectedGame?.label ?: packageName,
-                        modpacks = modpacks,
-                        activeModpackName = activeModpackName,
-                        iconRefreshKey = modpackIconRefreshKey,
-                        onCreateModpack = { name, createShortcut, iconBitmap ->
-                            val created = modpackManager.createModpack(packageName, name)
-                            if (created != null) {
-                                modpackManager.updateMeta(packageName, created.name, createShortcut)
-                                if (createShortcut) {
-                                    ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
-                                }
-                                if (iconBitmap != null) {
-                                    modpackManager.saveModpackIcon(packageName, created.name, iconBitmap, "png")
-                                }
-                            }
-                            modpacks = modpackManager.listModpacks(packageName)
-                        },
-                        onDeleteModpack = { name ->
-                            modpackManager.deleteModpack(packageName, name)
-                            if (activeModpackName == name) activeModpackName = null
-                            modpacks = modpackManager.listModpacks(packageName)
-                        },
-                        onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
-                            val normalizedName = modpackManager.normalizeModpackName(newName)
-                            val success = modpackManager.renameModpack(packageName, oldName, newName)
-                            if (success) {
-                                if (activeModpackName == oldName) {
-                                    activeModpackName = normalizedName
-                                    AppSettings.setActiveModpack(context, packageName, normalizedName)
-                                }
-                                modpackManager.updateMeta(packageName, normalizedName, createShortcut)
-                                // Create or remove desktop shortcut
-                                if (createShortcut) {
-                                    ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
-                                } else {
-                                    ModpackShortcutHelper.removeShortcut(context, packageName, normalizedName)
-                                }
-                                if (iconBitmap != null) {
-                                    val ext = when {
-                                        iconBitmap.config == android.graphics.Bitmap.Config.RGB_565 -> "jpg"
-                                        else -> "png"
-                                    }
-                                    modpackManager.saveModpackIcon(packageName, normalizedName, iconBitmap, ext)
-                                }
-                                modpacks = modpackManager.listModpacks(packageName)
-                                modpackRefreshKey++
-                                modpackIconRefreshKey++
-                            }
-                            success
-                        },
-                        onSelectModpack = { name ->
-                            val previous = activeModpackName
-                            if (previous != name) {
-                                modpackManager.persistRuntimeState(packageName, previous)
-                                if (name == null) {
-                                    modpackManager.clearActiveMods(packageName)
-                                } else {
-                                    modpackManager.applyModpack(packageName, name)
-                                }
-                                AppSettings.setActiveModpack(context, packageName, name)
-                                activeModpackName = name
-                                modpackRefreshKey++
-                            }
-                        },
-                        onOpenModpack = { name ->
-                            navController.navigate(NavRoutes.modpackDetail(packageName, name))
-                        },
-                        onExportModpack = { name ->
-                            val outputFile = java.io.File(
-                                android.os.Environment.getExternalStorageDirectory(),
-                        "PVZRH_Launcher/export/${name}.zip"
+                // Main pager — 3 pages: Games, Modpacks, Settings
+                composable(route = NavRoutes.MAIN) {
+                    androidx.compose.foundation.pager.HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 2
+                    ) { page ->
+                        when (page) {
+                            0 -> GameScreen(
+                                detectedGames = detectedGames,
+                                selectedGame = selectedGame,
+                                isScanning = isScanning,
+                                isFrameworkReady = isFrameworkReady,
+                                isExtracting = isExtracting,
+                                extractionStatus = extractionStatus,
+                                activeModpackName = activeModpackName,
+                                activeModpackModCount = if (activeModpackName != null)
+                                    modpacks.find { it.name == activeModpackName }?.modCount ?: 0 else 0,
+                                onSelectGame = onSelectGame,
+                                onRescan = onRescan,
+                                onLaunch = { onLaunch(activeModpackName) },
+                                onExportLogs = onExportLogs,
+                                onShowAnnouncement = onShowAnnouncement
                             )
-                            outputFile.parentFile?.mkdirs()
-                            modpackManager.exportModpack(packageName, name, outputFile)
-                        },
-                        onImportModpack = { importModpackTrigger = true }
-                    )
+                            1 -> {
+                                val packageName = selectedGame?.packageName ?: ""
+                                LaunchedEffect(packageName, modpackRefreshKey) {
+                                    if (packageName.isNotEmpty()) {
+                                        modpacks = withContext(Dispatchers.IO) { modpackManager.listModpacks(packageName) }
+                                        activeModpackName = AppSettings.getActiveModpack(context, packageName)
+                                    }
+                                }
+                                ModpackListScreen(
+                                    packageName = packageName,
+                                    targetGameLabel = selectedGame?.label ?: packageName,
+                                    modpacks = modpacks,
+                                    activeModpackName = activeModpackName,
+                                    iconRefreshKey = modpackIconRefreshKey,
+                                    onCreateModpack = { name, createShortcut, iconBitmap ->
+                                        val created = modpackManager.createModpack(packageName, name)
+                                        if (created != null) {
+                                            modpackManager.updateMeta(packageName, created.name, createShortcut)
+                                            if (createShortcut) {
+                                                ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
+                                            }
+                                            if (iconBitmap != null) {
+                                                modpackManager.saveModpackIcon(packageName, created.name, iconBitmap, "png")
+                                            }
+                                        }
+                                        modpacks = modpackManager.listModpacks(packageName)
+                                    },
+                                    onDeleteModpack = { name ->
+                                        modpackManager.deleteModpack(packageName, name)
+                                        if (activeModpackName == name) activeModpackName = null
+                                        modpacks = modpackManager.listModpacks(packageName)
+                                    },
+                                    onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
+                                        val normalizedName = modpackManager.normalizeModpackName(newName)
+                                        val success = modpackManager.renameModpack(packageName, oldName, newName)
+                                        if (success) {
+                                            if (activeModpackName == oldName) {
+                                                activeModpackName = normalizedName
+                                                AppSettings.setActiveModpack(context, packageName, normalizedName)
+                                            }
+                                            modpackManager.updateMeta(packageName, normalizedName, createShortcut)
+                                            if (createShortcut) {
+                                                ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
+                                            } else {
+                                                ModpackShortcutHelper.removeShortcut(context, packageName, normalizedName)
+                                            }
+                                            if (iconBitmap != null) {
+                                                val ext = when {
+                                                    iconBitmap.config == android.graphics.Bitmap.Config.RGB_565 -> "jpg"
+                                                    else -> "png"
+                                                }
+                                                modpackManager.saveModpackIcon(packageName, normalizedName, iconBitmap, ext)
+                                            }
+                                            modpacks = modpackManager.listModpacks(packageName)
+                                            modpackRefreshKey++
+                                            modpackIconRefreshKey++
+                                        }
+                                        success
+                                    },
+                                    onSelectModpack = { name ->
+                                        val previous = activeModpackName
+                                        if (previous != name) {
+                                            modpackManager.persistRuntimeState(packageName, previous)
+                                            if (name == null) {
+                                                modpackManager.clearActiveMods(packageName)
+                                            } else {
+                                                modpackManager.applyModpack(packageName, name)
+                                            }
+                                            AppSettings.setActiveModpack(context, packageName, name)
+                                            activeModpackName = name
+                                            modpackRefreshKey++
+                                        }
+                                    },
+                                    onOpenModpack = { name ->
+                                        navController.navigate(NavRoutes.modpackDetail(packageName, name))
+                                    },
+                                    onExportModpack = { name ->
+                                        val outputFile = java.io.File(
+                                            android.os.Environment.getExternalStorageDirectory(),
+                                            "PVZRH_Launcher/export/${name}.zip"
+                                        )
+                                        outputFile.parentFile?.mkdirs()
+                                        modpackManager.exportModpack(packageName, name, outputFile)
+                                    },
+                                    onImportModpack = { importModpackTrigger = true }
+                                )
+                            }
+                            2 -> {
+                                val packageName = selectedGame?.packageName ?: ""
+                                val settingsContext = LocalContext.current
+                                var floatingLogInGame by remember {
+                                    mutableStateOf(AppSettings.isFloatingLogInGameEnabled(settingsContext))
+                                }
+                                var useUnstrippedLibUnity by remember {
+                                    mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
+                                }
+                                var dynamicColor by remember {
+                                    mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
+                                }
+                                var animationDisabledSetting by remember {
+                                    mutableStateOf(AppSettings.isAnimationDisabled(settingsContext))
+                                }
+                                SettingsScreen(
+                                    packageName = packageName,
+                                    themeMode = themeMode,
+                                    language = language,
+                                    dynamicColor = dynamicColor,
+                                    animationDisabled = animationDisabledSetting,
+                                    floatingLogInGame = floatingLogInGame,
+                                    useUnstrippedLibUnity = useUnstrippedLibUnity,
+                                    onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
+                                    onThemeChanged = onThemeChanged,
+                                    onLanguageChanged = onLanguageChanged,
+                                    onDynamicColorChanged = { enabled ->
+                                        AppSettings.setDynamicColorEnabled(settingsContext, enabled)
+                                        dynamicColor = enabled
+                                        onDynamicColorChanged(enabled)
+                                    },
+                                    onAnimationDisabledChanged = { disabled ->
+                                        AppSettings.setAnimationDisabled(settingsContext, disabled)
+                                        animationDisabledSetting = disabled
+                                    },
+                                    onFloatingLogInGameChanged = { enabled ->
+                                        AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
+                                        floatingLogInGame = enabled
+                                    },
+                                    onUseUnstrippedLibUnityChanged = { enabled ->
+                                        AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)
+                                        useUnstrippedLibUnity = enabled
+                                    },
+                                    onClearBepInEx = { onClearBepInEx(packageName) },
+                                    onClearDotnet = { onClearDotnet(packageName) },
+                                    onClearLibUnity = { onClearLibUnity(packageName) },
+                                    onCopyGameResources = { onCopyGameResources(packageName) }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Modpack detail
@@ -538,11 +460,7 @@ fun BepInExNavHost(
                     arguments = listOf(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
-                    ),
-                    enterTransition = { secondaryEnterTransition(animOff) },
-                    exitTransition = { secondaryExitTransition(animOff) },
-                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
-                    popExitTransition = { secondaryPopExitTransition(animOff) }
+                    )
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val modpackName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -607,11 +525,7 @@ fun BepInExNavHost(
                     arguments = listOf(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
-                    ),
-                    enterTransition = { secondaryEnterTransition(animOff) },
-                    exitTransition = { secondaryExitTransition(animOff) },
-                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
-                    popExitTransition = { secondaryPopExitTransition(animOff) }
+                    )
                 ) { backStackEntry ->
                     val packageName = backStackEntry.arguments?.getString("packageName")
                         ?: return@composable
@@ -644,98 +558,13 @@ fun BepInExNavHost(
                     )
                 }
 
-                // Settings
-                composable(
-                    route = NavRoutes.SETTINGS,
-                    arguments = listOf(navArgument("packageName") { type = NavType.StringType }),
-                    enterTransition = {
-                        bottomTabEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        ) ?: slideInHorizontally(spring()) { it } + fadeIn(spring())
-                    },
-                    exitTransition = {
-                        topLevelExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popEnterTransition = {
-                        topLevelPopEnterTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        )
-                    },
-                    popExitTransition = {
-                        bottomTabExitTransition(
-                            initialState.destination.route,
-                            targetState.destination.route,
-                            animOff
-                        ) ?: slideOutHorizontally(spring()) { it } + fadeOut(spring())
-                    }
-                ) { backStackEntry ->
-                    val routePackageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
-                    val packageName = selectedGame?.packageName ?: routePackageName
-                    val settingsContext = LocalContext.current
-                    var floatingLogInGame by remember {
-                        mutableStateOf(AppSettings.isFloatingLogInGameEnabled(settingsContext))
-                    }
-                    var useUnstrippedLibUnity by remember {
-                        mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
-                    }
-                    var dynamicColor by remember {
-                        mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
-                    }
-                    var animationDisabled by remember {
-                        mutableStateOf(AppSettings.isAnimationDisabled(settingsContext))
-                    }
-                    SettingsScreen(
-                        packageName = packageName,
-                        themeMode = themeMode,
-                        language = language,
-                        dynamicColor = dynamicColor,
-                        animationDisabled = animationDisabled,
-                        floatingLogInGame = floatingLogInGame,
-                        useUnstrippedLibUnity = useUnstrippedLibUnity,
-                        onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
-                        onThemeChanged = onThemeChanged,
-                        onLanguageChanged = onLanguageChanged,
-                        onDynamicColorChanged = { enabled ->
-                            AppSettings.setDynamicColorEnabled(settingsContext, enabled)
-                            dynamicColor = enabled
-                            onDynamicColorChanged(enabled)
-                        },
-                        onAnimationDisabledChanged = { disabled ->
-                            AppSettings.setAnimationDisabled(settingsContext, disabled)
-                            animationDisabled = disabled
-                        },
-                        onFloatingLogInGameChanged = { enabled ->
-                            AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
-                            floatingLogInGame = enabled
-                        },
-                        onUseUnstrippedLibUnityChanged = { enabled ->
-                            AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)
-                            useUnstrippedLibUnity = enabled
-                        },
-                        onClearBepInEx = { onClearBepInEx(packageName) },
-                        onClearDotnet = { onClearDotnet(packageName) },
-                        onClearLibUnity = { onClearLibUnity(packageName) },
-                        onCopyGameResources = { onCopyGameResources(packageName) }
-                    )
-                }
-
                 // Log Viewer
                 composable(
                     route = NavRoutes.LOG_VIEWER,
                     arguments = listOf(
                         navArgument("packageName") { type = NavType.StringType },
                         navArgument("modpackName") { type = NavType.StringType }
-                    ),
-                    enterTransition = { if (animOff) EnterTransition.None else slideInHorizontally(spring()) { it } + fadeIn(spring()) },
-                    popExitTransition = { if (animOff) ExitTransition.None else slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
+                    )
                 ) { backStackEntry ->
                     val pkg = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val mpName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
@@ -749,9 +578,7 @@ fun BepInExNavHost(
                 // Config Editor
                 composable(
                     route = NavRoutes.CONFIG_EDITOR,
-                    arguments = listOf(navArgument("filePath") { type = NavType.StringType }),
-                    enterTransition = { if (animOff) EnterTransition.None else slideInHorizontally(spring()) { it } + fadeIn(spring()) },
-                    popExitTransition = { if (animOff) ExitTransition.None else slideOutHorizontally(spring()) { it } + fadeOut(spring()) }
+                    arguments = listOf(navArgument("filePath") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
                     val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")
@@ -772,11 +599,7 @@ fun BepInExNavHost(
 
                 // About
                 composable(
-                    route = NavRoutes.ABOUT,
-                    enterTransition = { secondaryEnterTransition(animOff) },
-                    exitTransition = { secondaryExitTransition(animOff) },
-                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
-                    popExitTransition = { secondaryPopExitTransition(animOff) }
+                    route = NavRoutes.ABOUT
                 ) {
                     val context = LocalContext.current
                     val versionName = runCatching {
@@ -791,11 +614,7 @@ fun BepInExNavHost(
 
                 // Credits
                 composable(
-                    route = NavRoutes.CREDITS,
-                    enterTransition = { secondaryEnterTransition(animOff) },
-                    exitTransition = { secondaryExitTransition(animOff) },
-                    popEnterTransition = { secondaryPopEnterTransition(animOff) },
-                    popExitTransition = { secondaryPopExitTransition(animOff) }
+                    route = NavRoutes.CREDITS
                 ) {
                     CreditsScreen(onNavigateBack = { navController.popBackStack() })
                 }

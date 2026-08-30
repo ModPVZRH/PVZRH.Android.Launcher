@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.shortcut.ModpackShortcutHelper
@@ -298,8 +300,10 @@ private fun ModpackCard(
 
     // Reload icon whenever iconRefreshKey changes
     LaunchedEffect(iconRefreshKey, modpack.name) {
-        val file = manager.getModpackIconFile(packageName, modpack.name)
-        iconBitmap = if (file != null && file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        iconBitmap = withContext(Dispatchers.IO) {
+            val file = manager.getModpackIconFile(packageName, modpack.name)
+            if (file != null && file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        }
     }
 
     Card(

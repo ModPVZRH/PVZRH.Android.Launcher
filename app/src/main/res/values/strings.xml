@@ -118,6 +118,9 @@
     <string name="settings_dynamic_color_desc">Color scheme based on the system accent color (Android 12+ only).</string>
     <string name="settings_animation_disabled">Disable Animations</string>
     <string name="settings_animation_disabled_desc">Disabling animations can improve performance on some devices.</string>
+    <string name="animation_restart_title">Restart Required</string>
+    <string name="animation_restart_message">Animations will be disabled after restarting the app. Restart now?</string>
+    <string name="animation_restart_now">Restart</string>
     <string name="settings_about">About</string>
 
     <!-- Confirm Dialogs -->
