@@ -308,10 +308,8 @@ fun BepInExNavHost(
         bottomBar = {
             AnimatedVisibility(
                 visible = showBottomBar,
-                enter = slideInVertically(spring()) { height -> height } +
-                    fadeIn(spring()),
-                // Hide immediately before the secondary destination starts drawing, so the tab bar
-                // cannot temporarily overlap the incoming page.
+                enter = if (animationDisabled) EnterTransition.None
+                    else slideInVertically(spring()) { height -> height } + fadeIn(spring()),
                 exit = ExitTransition.None
             ) {
                 NavigationBar(
