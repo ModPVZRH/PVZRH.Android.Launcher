@@ -92,6 +92,7 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showAnimationRestartDialog by remember { mutableStateOf(false) }
+    var pendingAnimationValue by remember { mutableStateOf(false) }
     var maintenanceAction by remember { mutableStateOf<MaintenanceAction?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -168,20 +169,14 @@ fun SettingsScreen(
                         Switch(
                             checked = animationDisabled,
                             onCheckedChange = { checked ->
-                                if (checked) {
-                                    showAnimationRestartDialog = true
-                                } else {
-                                    onAnimationDisabledChanged(false)
-                                }
+                                pendingAnimationValue = checked
+                                showAnimationRestartDialog = true
                             }
                         )
                     },
                     onClick = {
-                        if (!animationDisabled) {
-                            showAnimationRestartDialog = true
-                        } else {
-                            onAnimationDisabledChanged(false)
-                        }
+                        pendingAnimationValue = !animationDisabled
+                        showAnimationRestartDialog = true
                     }
                 )
             }
@@ -317,7 +312,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showAnimationRestartDialog = false
-                    onAnimationDisabledChanged(true)
+                    onAnimationDisabledChanged(pendingAnimationValue)
                     scope.launch {
                         delay(300)
                         android.os.Process.killProcess(android.os.Process.myPid())
