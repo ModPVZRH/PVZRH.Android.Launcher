@@ -100,23 +100,11 @@ fun SaveImportScreen(
                 if (useShizuku) {
                     shizukuAvailable = SaveDataManager.isShizukuAvailable()
                     shizukuPermission = SaveDataManager.hasShizukuPermission()
-                    gameSavesStatus = if (shizukuAvailable && shizukuPermission) {
-                        SaveDataManager.getGameSavesStatus(context, packageName)
-                    } else if (!shizukuAvailable) {
-                        SaveDataManager.SaveStatus.SHIZUKU_NOT_AVAILABLE
-                    } else {
-                        SaveDataManager.SaveStatus.NEED_PERMISSION
-                    }
-                } else if (useSaf) {
-                    hasSafPermission = SaveDataManager.hasPersistedSafPermission(context, packageName)
-                    gameSavesStatus = if (hasSafPermission) {
-                        SaveDataManager.getSavesStatusViaSaf(context, packageName)
-                    } else {
-                        SaveDataManager.SaveStatus.NEED_PERMISSION
-                    }
-                } else {
-                    gameSavesStatus = SaveDataManager.getGameSavesStatus(context, packageName)
                 }
+                if (useSaf) {
+                    hasSafPermission = SaveDataManager.hasPersistedSafPermission(context, packageName)
+                }
+                gameSavesStatus = SaveDataManager.getGameSavesStatus(context, packageName)
             }
         }
     }
@@ -137,7 +125,7 @@ fun SaveImportScreen(
     val safLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (SaveDataManager.handleSafPickerResult(context, packageName, result.resultCode, result.data)) {
+        if (SaveDataManager.handleSafPickerResult(context, result.resultCode, result.data)) {
             Toast.makeText(context, R.string.save_permission_granted, Toast.LENGTH_SHORT).show()
             refreshStatus()
         } else {
@@ -403,10 +391,7 @@ private fun G2LTab(
                 Card(modifier = Modifier.fillMaxWidth().clickable(enabled = canBackup) {
                     scope.launch {
                         setOperating(true)
-                        val result = when {
-                            useShizuku -> SaveDataManager.g2lBackupViaShizuku(packageName)
-                            else -> SaveDataManager.g2lBackupDirect(packageName)
-                        }
+                        val result = SaveDataManager.g2lBackup(context, packageName)
                         setOperating(false)
                         result.fold(
                             onSuccess = { count ->
@@ -627,10 +612,7 @@ private fun L2GTab(
             Card(modifier = Modifier.fillMaxWidth().clickable(enabled = canRestore) {
                 scope.launch {
                     setOperating(true)
-                    val result = when {
-                        useShizuku -> SaveDataManager.l2gRestoreViaShizuku(packageName)
-                        else -> SaveDataManager.l2gRestoreDirect(packageName)
-                    }
+                    val result = SaveDataManager.l2gRestore(context, packageName)
                     setOperating(false)
                     result.fold(
                         onSuccess = { count ->
