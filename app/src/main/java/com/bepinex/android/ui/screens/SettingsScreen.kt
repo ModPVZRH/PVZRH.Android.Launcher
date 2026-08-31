@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -76,6 +77,7 @@ fun SettingsScreen(
     floatingLogInGame: Boolean,
     useUnstrippedLibUnity: Boolean,
     onNavigateToAbout: () -> Unit,
+    onNavigateToSaveImport: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
@@ -208,6 +210,16 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { onUseUnstrippedLibUnityChanged(!useUnstrippedLibUnity) }
+                )
+            }
+
+            item { SettingsSectionHeader(stringResource(R.string.settings_section_saves)) }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_import_saves),
+                    summary = stringResource(R.string.settings_import_saves_desc),
+                    icon = { Icon(Icons.Outlined.FileDownload, contentDescription = null) },
+                    onClick = { onNavigateToSaveImport() }
                 )
             }
 

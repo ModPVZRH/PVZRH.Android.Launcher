@@ -436,6 +436,7 @@ fun BepInExNavHost(
                                     floatingLogInGame = floatingLogInGame,
                                     useUnstrippedLibUnity = useUnstrippedLibUnity,
                                     onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
+                                    onNavigateToSaveImport = { navController.navigate(NavRoutes.saveImport(packageName)) },
                                     onThemeChanged = onThemeChanged,
                                     onLanguageChanged = onLanguageChanged,
                                     onDynamicColorChanged = { enabled ->
@@ -607,6 +608,20 @@ fun BepInExNavHost(
                                 if (success) navController.popBackStack()
                             }
                         }
+                    )
+                }
+
+                // Save Import
+                composable(
+                    route = NavRoutes.SAVE_IMPORT,
+                    arguments = listOf(
+                        navArgument("packageName") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
+                    SaveImportScreen(
+                        packageName = packageName,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 
