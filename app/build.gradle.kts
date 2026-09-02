@@ -124,5 +124,10 @@ dependencies {
     // Pine — ART Java hook framework (FusionCore approach)
     implementation("top.canyie.pine:core:0.3.0")
 
+    // Shizuku — privileged shell/root access for Android 15+ save management
+    val shizukuVersion = "13.1.5"
+    implementation("dev.rikka.shizuku:api:$shizukuVersion")
+    implementation("dev.rikka.shizuku:provider:$shizukuVersion")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

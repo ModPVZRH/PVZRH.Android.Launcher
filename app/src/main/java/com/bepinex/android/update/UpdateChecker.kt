@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.LocaleList
 import com.bepinex.android.BepInExLog
+import com.bepinex.android.settings.AppSettings
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -34,8 +35,12 @@ object UpdateChecker {
     }
 
     private fun isChinese(context: Context): Boolean {
-        val tag = context.resources.configuration.locales[0]?.toLanguageTag() ?: ""
-        return tag == "zh" || tag == "zh-CN"
+        return when (AppSettings.getLanguage(context)) {
+            AppSettings.Language.CHINESE, AppSettings.Language.CHINESE_TW -> true
+            AppSettings.Language.SYSTEM ->
+                context.resources.configuration.locales[0]?.language?.equals("zh", ignoreCase = true) == true
+            else -> false
+        }
     }
 
     private fun infoJsonUrl(context: Context): String =

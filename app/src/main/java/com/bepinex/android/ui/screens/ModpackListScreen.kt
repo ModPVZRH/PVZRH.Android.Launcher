@@ -506,33 +506,16 @@ private fun EditModpackDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Shortcut toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.modpack_shortcut),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = stringResource(R.string.modpack_shortcut_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = createShortcut,
-                        onCheckedChange = {
-                            if (it && !ModpackShortcutHelper.hasShortcutPermission(context)) {
-                                showPermissionDialog = true
-                            } else {
-                                createShortcut = it
-                            }
+                ShortcutActionButton(
+                    enabled = trimmedName.isNotEmpty(),
+                    onClick = {
+                        if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
+                            showPermissionDialog = true
+                        } else {
+                            onSave(trimmedName, true, if (hasNewIcon) iconBitmap else null)
                         }
-                    )
-                }
+                    }
+                )
             }
         },
         confirmButton = {
@@ -704,33 +687,16 @@ fun CreateModpackDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Shortcut toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.modpack_shortcut),
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            text = stringResource(R.string.modpack_shortcut_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = createShortcut,
-                        onCheckedChange = {
-                            if (it && !ModpackShortcutHelper.hasShortcutPermission(context)) {
-                                showPermissionDialog = true
-                            } else {
-                                createShortcut = it
-                            }
+                ShortcutActionButton(
+                    enabled = trimmedName.isNotEmpty(),
+                    onClick = {
+                        if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
+                            showPermissionDialog = true
+                        } else {
+                            onCreate(trimmedName, true, iconBitmap)
                         }
-                    )
-                }
+                    }
+                )
             }
         },
         confirmButton = {
@@ -771,5 +737,27 @@ fun CreateModpackDialog(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ShortcutActionButton(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.primary
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Filled.AddToHomeScreen,
+            contentDescription = null
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(text = stringResource(R.string.modpack_shortcut_create))
     }
 }

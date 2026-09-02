@@ -68,7 +68,6 @@ private enum class MaintenanceAction {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    packageName: String,
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     dynamicColor: Boolean,

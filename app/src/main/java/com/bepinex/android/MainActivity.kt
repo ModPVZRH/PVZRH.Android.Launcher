@@ -46,6 +46,23 @@ import com.bepinex.android.update.openUpdateUrl
 import kotlinx.coroutines.*
 import java.io.File
 
+private fun isCompleteTranslationLocale(locale: Locale?): Boolean {
+    val language = locale?.language?.lowercase(Locale.ROOT) ?: return false
+    if (language == "en") return true
+    if (language != "zh") return false
+
+    val script = locale.script.lowercase(Locale.ROOT)
+    val country = locale.country.uppercase(Locale.ROOT)
+    return script != "hant" && country !in setOf("TW", "HK", "MO")
+}
+
+private fun usesChineseAnnouncement(language: AppSettings.Language, locale: Locale?): Boolean =
+    when (language) {
+        AppSettings.Language.CHINESE, AppSettings.Language.CHINESE_TW -> true
+        AppSettings.Language.SYSTEM -> locale?.language?.equals("zh", ignoreCase = true) == true
+        else -> false
+    }
+
 /**
  * Main launcher Activity with Compose UI for BepInEx mod management.
  */
@@ -125,11 +142,18 @@ class MainActivity : ComponentActivity() {
 
         fileExtractor = FileExtractor(this)
         
-        val sysTag = resources.configuration.locales[0]?.toLanguageTag() ?: ""
-        val isCompleteLocale = sysTag.startsWith("en") || sysTag == "zh-CN" || sysTag == "zh"
+        val selectedLanguage = AppSettings.getLanguage(this)
+        val systemLocale = resources.configuration.locales[0]
+        val isCompleteLocale = when (selectedLanguage) {
+            AppSettings.Language.SYSTEM -> isCompleteTranslationLocale(systemLocale)
+            else -> AppSettings.Language.isCompleteTranslation(selectedLanguage)
+        }
+        val pendingIncompleteDialog = AppSettings.isPendingIncompleteDialog(this)
         val needsIncompleteDialog = !isCompleteLocale
                 && !AppSettings.isLanguageIncompleteShown(this)
-        if (needsIncompleteDialog || AppSettings.isPendingIncompleteDialog(this)) {
+        if (isCompleteLocale) {
+            if (pendingIncompleteDialog) AppSettings.setPendingIncompleteDialog(this, false)
+        } else if (needsIncompleteDialog || pendingIncompleteDialog) {
             AppSettings.setPendingIncompleteDialog(this, false)
             AppSettings.setLanguageIncompleteShown(this, true)
             showIncompleteTranslation = true
@@ -697,12 +721,11 @@ class MainActivity : ComponentActivity() {
                         if (updateInfo != null) showAnnouncement = true
                     },
                     showIncompleteBanner = run {
-                        val lang = if (language == AppSettings.Language.SYSTEM) {
-                            val tag = resources.configuration.locales[0]?.toLanguageTag() ?: ""
-                            if (tag.startsWith("en") || tag == "zh-CN" || tag == "zh") AppSettings.Language.SYSTEM
-                            else AppSettings.Language.entries.find { it.key == tag } ?: AppSettings.Language.SYSTEM
-                        } else language
-                        !AppSettings.Language.isCompleteTranslation(lang)
+                        val isComplete = when (language) {
+                            AppSettings.Language.SYSTEM -> isCompleteTranslationLocale(resources.configuration.locales[0])
+                            else -> AppSettings.Language.isCompleteTranslation(language)
+                        }
+                        !isComplete
                     }
                     )
                 } else {
@@ -711,7 +734,7 @@ class MainActivity : ComponentActivity() {
 
                 // Update / Announcement dialogs
                 if (showBlocked) {
-                    val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
+                    val isZh = usesChineseAnnouncement(language, resources.configuration.locales[0])
                     val blockedMsg = updateInfo?.let {
                         if (isZh) it.announcementZh else it.announcementEn
                     } ?: ""
@@ -720,7 +743,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showUpdate) {
                     updateInfo?.let { info ->
-                        val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
+                        val isZh = usesChineseAnnouncement(language, resources.configuration.locales[0])
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
                         val currentVersion = try {
                             packageManager.getPackageInfo(packageName, 0).versionName ?: ""
@@ -738,7 +761,7 @@ class MainActivity : ComponentActivity() {
 
                 if (showAnnouncement) {
                     updateInfo?.let { info ->
-                        val isZh = resources.configuration.locales[0]?.toLanguageTag()?.let { it == "zh" || it == "zh-CN" } ?: false
+                        val isZh = usesChineseAnnouncement(language, resources.configuration.locales[0])
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
                         if (announcement.isNotEmpty()) {
                             AnnouncementDialog(
