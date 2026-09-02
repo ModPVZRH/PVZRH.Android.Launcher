@@ -9,10 +9,10 @@
     <string name="nav_settings">设置</string>
     <string name="nav_about">关于</string>
     <!-- Game Detection -->
-    <string name="scan_title">植物大战僵尸融合班版</string>
-    <string name="scanning">正在检查 PlantsVsZombiesRH…</string>
-    <string name="no_games_found">未找到 PlantsVsZombiesRH</string>
-    <string name="no_games_hint">请先安装 PlantsVsZombiesRH</string>
+    <string name="scan_title">植物大战僵尸融合版</string>
+    <string name="scanning">正在检查 植物大战僵尸融合版…</string>
+    <string name="no_games_found">未找到 植物大战僵尸融合版</string>
+    <string name="no_games_hint">请先安装 植物大战僵尸融合版</string>
     <string name="scan_again">重新扫描</string>
     <string name="rescan">刷新</string>
     <!-- Framework Status -->
@@ -237,9 +237,9 @@
     <string name="lang_incomplete_message">您所使用的语言翻译并不完全，若您想获取更好的本地化体验，请前往[这里](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md)来为您的语言贡献翻译。</string>
     <!-- About -->
     <string name="about_title">PVZRH 启动器</string>
-    <string name="about_description">第一个针对 PVZ 融合版的 BepInEx 启动器</string>
+    <string name="about_description">第一个针对植物大战僵尸融合版的 BepInEx 启动器</string>
     <string name="about_version">版本 %1$s (Build %2$d)</string>
-    <string name="about_disclaimer">⚠ PVZRH Launcher 未获得 BepInEx 项目的官方支持。</string>
+    <string name="about_disclaimer">⚠ PVZRH 启动器 未获得 BepInEx 的官方支持。</string>
     <string name="about_projects_section">本项目使用 &amp; 借鉴的项目</string>
     <string name="about_project_bepinex_name">BepInEx</string>
     <string name="about_project_bepinex_desc">Unity IL2CPP 模组框架 — 核心插件加载器。BepInEx 6.0.0-pre.2，由 BepInEx 团队开发。</string>
