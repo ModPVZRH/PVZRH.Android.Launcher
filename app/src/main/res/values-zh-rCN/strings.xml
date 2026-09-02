@@ -118,7 +118,6 @@
     <string name="save_game_not_launched">游戏尚未启动</string>
     <string name="save_grant_permission">授予文件夹访问权限</string>
     <string name="save_grant_permission_desc">点击打开文件选择器，然后选择“使用此文件夹”</string>
-
     <string name="save_g2l_title">备份游戏存档</string>
     <string name="save_g2l_desc">将游戏存档和 playerData.json 复制到安全位置</string>
     <string name="save_g2l_button">备份到启动器</string>
@@ -131,7 +130,6 @@
     <string name="save_g2l_import_desc">将 G2L 备份复制到启动器存储空间</string>
     <string name="save_g2l_import_done">已从 G2L 导入 %d 个项目</string>
     <string name="save_g2l_import_error">导入失败：%s</string>
-
     <string name="save_l2g_title">还原到游戏</string>
     <string name="save_restore_backup_title">还原备份</string>
     <string name="save_restore_backup_desc">将启动器中最近的备份直接还原到该游戏</string>
@@ -147,10 +145,8 @@
     <string name="save_l2g_export_desc">将启动器中的存档复制到 L2G 文件夹</string>
     <string name="save_l2g_export_done">已将 %d 个项目导出到 L2G</string>
     <string name="save_l2g_export_error">导出失败：%s</string>
-
     <string name="save_clear_g2l">清除 G2L 备份</string>
     <string name="save_clear_l2g">清除 L2G 数据</string>
-
     <string name="save_permission_granted">权限已授予</string>
     <string name="save_permission_denied">权限被拒绝</string>
     <string name="save_backup_cleared">备份已清除</string>
