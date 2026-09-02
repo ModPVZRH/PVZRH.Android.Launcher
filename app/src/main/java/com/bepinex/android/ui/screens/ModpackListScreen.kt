@@ -417,7 +417,6 @@ private fun EditModpackDialog(
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
     var name by remember(modpack.name) { mutableStateOf(modpack.name) }
-    var createShortcut by remember(modpack.name) { mutableStateOf(modpack.createShortcut) }
     var renameFailed by remember(modpack.name) { mutableStateOf(false) }
     var iconBitmap by remember(modpack.name) {
         mutableStateOf(
@@ -524,7 +523,7 @@ private fun EditModpackDialog(
                     if (trimmedName.isEmpty()) {
                         renameFailed = true
                     } else {
-                        onSave(trimmedName, createShortcut, if (hasNewIcon) iconBitmap else null)
+                        onSave(trimmedName, false, if (hasNewIcon) iconBitmap else null)
                     }
                 },
                 enabled = trimmedName.isNotEmpty()

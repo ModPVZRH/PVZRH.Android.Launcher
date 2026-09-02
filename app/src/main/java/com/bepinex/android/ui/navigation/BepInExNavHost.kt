@@ -408,21 +408,27 @@ fun BepInExNavHost(
                                         modpacks = modpackManager.listModpacks(packageName)
                                     },
                                     onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
+                                        val existingShortcut = modpackManager.listModpacks(packageName)
+                                            .firstOrNull { it.name == oldName }
+                                            ?.createShortcut == true
                                         val normalizedName = modpackManager.normalizeModpackName(newName)
                                         val success = modpackManager.renameModpack(packageName, oldName, newName)
                                         if (success) {
+                                            val shortcutShouldExist = createShortcut || existingShortcut
                                             if (activeModpackName == oldName) {
                                                 activeModpackName = normalizedName
                                                 AppSettings.setActiveModpack(context, packageName, normalizedName)
                                             }
-                                            modpackManager.updateMeta(packageName, normalizedName, createShortcut)
-                                            if (createShortcut) {
+                                            modpackManager.updateMeta(
+                                                packageName,
+                                                normalizedName,
+                                                shortcutShouldExist
+                                            )
+                                            if (createShortcut || (existingShortcut && oldName != normalizedName)) {
                                                 if (oldName != normalizedName) {
                                                     ModpackShortcutHelper.removeShortcut(context, packageName, oldName)
                                                 }
                                                 ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
-                                            } else {
-                                                ModpackShortcutHelper.removeShortcut(context, packageName, normalizedName)
                                             }
                                             if (iconBitmap != null) {
                                                 val ext = when {
