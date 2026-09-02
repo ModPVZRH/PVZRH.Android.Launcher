@@ -118,11 +118,5 @@
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
-        <!-- Shizuku user service for shell commands -->
-        <service
-            android:name="com.bepinex.android.save.ShizukuService"
-            android:enabled="true"
-            android:exported="false"
-            android:process=":shizuku" />
     </application>
 </manifest>
