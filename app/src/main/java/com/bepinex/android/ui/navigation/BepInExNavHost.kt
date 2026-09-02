@@ -1,7 +1,10 @@
 package com.bepinex.android.ui.navigation
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -74,6 +77,8 @@ private fun isPluginsDll(modpackDirectory: File, target: File): Boolean {
     return relativeSegments.firstOrNull()?.equals("plugins", ignoreCase = true) == true &&
         canonicalTarget.extension.equals("dll", ignoreCase = true)
 }
+
+private fun isSaveImportRoute(route: String?): Boolean = route == NavRoutes.SAVE_IMPORT
 
 private fun deleteModpackFile(modpackDirectory: File, target: File): Boolean {
     val safeTarget = resolveModpackFile(modpackDirectory, target) ?: return false
@@ -285,19 +290,59 @@ fun BepInExNavHost(
             modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
             enterTransition = {
                 if (animationDisabled) EnterTransition.None
-                else slideInHorizontally(spring()) { it } + fadeIn(spring())
+                else if (isSaveImportRoute(targetState.destination.route)) {
+                    fadeIn(animationSpec = tween(durationMillis = 110))
+                } else {
+                    slideInHorizontally(
+                        animationSpec = tween(
+                            durationMillis = 190,
+                            easing = FastOutSlowInEasing
+                        ),
+                        initialOffsetX = { it / 4 }
+                    ) + fadeIn(animationSpec = tween(durationMillis = 150))
+                }
             },
             exitTransition = {
                 if (animationDisabled) ExitTransition.None
-                else slideOutHorizontally(spring()) { -it / 3 } + fadeOut(spring())
+                else if (isSaveImportRoute(targetState.destination.route)) {
+                    fadeOut(animationSpec = tween(durationMillis = 80))
+                } else {
+                    slideOutHorizontally(
+                        animationSpec = tween(
+                            durationMillis = 160,
+                            easing = LinearOutSlowInEasing
+                        ),
+                        targetOffsetX = { -it / 6 }
+                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
+                }
             },
             popEnterTransition = {
                 if (animationDisabled) EnterTransition.None
-                else slideInHorizontally(spring()) { -it / 3 } + fadeIn(spring())
+                else if (isSaveImportRoute(initialState.destination.route)) {
+                    fadeIn(animationSpec = tween(durationMillis = 110))
+                } else {
+                    slideInHorizontally(
+                        animationSpec = tween(
+                            durationMillis = 190,
+                            easing = FastOutSlowInEasing
+                        ),
+                        initialOffsetX = { -it / 6 }
+                    ) + fadeIn(animationSpec = tween(durationMillis = 150))
+                }
             },
             popExitTransition = {
                 if (animationDisabled) ExitTransition.None
-                else slideOutHorizontally(spring()) { it } + fadeOut(spring())
+                else if (isSaveImportRoute(initialState.destination.route)) {
+                    fadeOut(animationSpec = tween(durationMillis = 80))
+                } else {
+                    slideOutHorizontally(
+                        animationSpec = tween(
+                            durationMillis = 160,
+                            easing = LinearOutSlowInEasing
+                        ),
+                        targetOffsetX = { it / 4 }
+                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
+                }
             }
         ) {
                 // Main pager — 3 pages: Games, Modpacks, Settings
@@ -321,6 +366,11 @@ fun BepInExNavHost(
                                 onSelectGame = onSelectGame,
                                 onRescan = onRescan,
                                 onLaunch = { onLaunch(activeModpackName) },
+                                onManageSaves = {
+                                    selectedGame?.let { game ->
+                                        navController.navigate(NavRoutes.saveImport(game.packageName))
+                                    }
+                                },
                                 onExportLogs = onExportLogs,
                                 onShowAnnouncement = onShowAnnouncement,
                                 showIncompleteBanner = showIncompleteBanner
@@ -343,11 +393,11 @@ fun BepInExNavHost(
                                         val created = modpackManager.createModpack(packageName, name)
                                         if (created != null) {
                                             modpackManager.updateMeta(packageName, created.name, createShortcut)
-                                            if (createShortcut) {
-                                                ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
-                                            }
                                             if (iconBitmap != null) {
                                                 modpackManager.saveModpackIcon(packageName, created.name, iconBitmap, "png")
+                                            }
+                                            if (createShortcut) {
+                                                ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
                                             }
                                         }
                                         modpacks = modpackManager.listModpacks(packageName)
@@ -367,6 +417,9 @@ fun BepInExNavHost(
                                             }
                                             modpackManager.updateMeta(packageName, normalizedName, createShortcut)
                                             if (createShortcut) {
+                                                if (oldName != normalizedName) {
+                                                    ModpackShortcutHelper.removeShortcut(context, packageName, oldName)
+                                                }
                                                 ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
                                             } else {
                                                 ModpackShortcutHelper.removeShortcut(context, packageName, normalizedName)
@@ -428,7 +481,6 @@ fun BepInExNavHost(
                                     mutableStateOf(AppSettings.isAnimationDisabled(settingsContext))
                                 }
                                 SettingsScreen(
-                                    packageName = packageName,
                                     themeMode = themeMode,
                                     language = language,
                                     dynamicColor = dynamicColor,
@@ -436,7 +488,6 @@ fun BepInExNavHost(
                                     floatingLogInGame = floatingLogInGame,
                                     useUnstrippedLibUnity = useUnstrippedLibUnity,
                                     onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
-                                    onNavigateToSaveImport = { navController.navigate(NavRoutes.saveImport(packageName)) },
                                     onThemeChanged = onThemeChanged,
                                     onLanguageChanged = onLanguageChanged,
                                     onDynamicColorChanged = { enabled ->

@@ -40,6 +40,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -49,6 +50,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -85,6 +87,7 @@ fun GameScreen(
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
     onRescan: () -> Unit,
     onLaunch: () -> Unit,
+    onManageSaves: () -> Unit,
     onExportLogs: () -> Unit,
     onShowAnnouncement: () -> Unit = {},
     showIncompleteBanner: Boolean = false
@@ -230,25 +233,10 @@ fun GameScreen(
                             isExtracting = isExtracting,
                             extractionStatus = extractionStatus,
                             activeModpackName = activeModpackName,
-                            activeModpackModCount = activeModpackModCount
+                            activeModpackModCount = activeModpackModCount,
+                            onLaunch = onLaunch,
+                            onManageSaves = onManageSaves
                         )
-                    }
-                    item(key = "launch-${game.packageName}") {
-                        Button(
-                            onClick = onLaunch,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            enabled = isFrameworkReady && !isExtracting,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.launch),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
                     }
                 }
             }
@@ -395,7 +383,9 @@ private fun SelectedGameCard(
     isExtracting: Boolean,
     extractionStatus: String,
     activeModpackName: String?,
-    activeModpackModCount: Int
+    activeModpackModCount: Int,
+    onLaunch: () -> Unit,
+    onManageSaves: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -435,12 +425,23 @@ private fun SelectedGameCard(
             }
 
             Spacer(Modifier.height(16.dp))
-            StatusChip(isFrameworkReady = isFrameworkReady)
-            Spacer(Modifier.height(10.dp))
             ModpackChip(
                 activeModpackName = activeModpackName,
                 activeModpackModCount = activeModpackModCount
             )
+
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StatusChip(
+                    isFrameworkReady = isFrameworkReady,
+                    modifier = Modifier.weight(1f)
+                )
+                ManageSavesButton(onClick = onManageSaves)
+            }
 
             AnimatedVisibility(visible = isExtracting) {
                 Column {
@@ -458,13 +459,72 @@ private fun SelectedGameCard(
                     }
                 }
             }
+
+            Spacer(Modifier.height(18.dp))
+            SelectedGameActions(
+                canLaunch = isFrameworkReady && !isExtracting,
+                onLaunch = onLaunch
+            )
         }
     }
 }
 
 @Composable
-private fun StatusChip(isFrameworkReady: Boolean) {
+private fun SelectedGameActions(
+    canLaunch: Boolean,
+    onLaunch: () -> Unit
+) {
+    Button(
+        onClick = onLaunch,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        enabled = canLaunch,
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Icon(Icons.Filled.PlayArrow, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.launch),
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+
+@Composable
+private fun ManageSavesButton(onClick: () -> Unit) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = Modifier.height(40.dp),
+        shape = RoundedCornerShape(50),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Filled.FolderZip,
+            contentDescription = stringResource(R.string.game_manage_saves),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(R.string.game_manage_saves),
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun StatusChip(
+    isFrameworkReady: Boolean,
+    modifier: Modifier = Modifier
+) {
     Surface(
+        modifier = modifier,
         shape = RoundedCornerShape(50),
         color = if (isFrameworkReady) {
             MaterialTheme.colorScheme.primaryContainer

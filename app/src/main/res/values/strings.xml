@@ -27,6 +27,8 @@
     <!-- Actions -->
     <string name="import_mod">Import Mod</string>
     <string name="launch">Launch</string>
+    <string name="game_manage_saves">Manage Saves</string>
+    <string name="game_manage_saves_desc">Manage backups and restores for this game</string>
     <string name="refresh">Refresh</string>
     <string name="delete">Delete</string>
 
@@ -49,6 +51,8 @@
     <string name="modpack_icon_hint">Tap to pick an image</string>
     <string name="modpack_shortcut">Desktop Shortcut</string>
     <string name="modpack_shortcut_desc">Create a shortcut to launch this modpack directly</string>
+    <string name="modpack_shortcut_create">Create Desktop Shortcut</string>
+    <string name="modpack_shortcut_enabled">Desktop Shortcut Enabled</string>
     <string name="shortcut_permission_required">Shortcut permission not granted. Opening settings…</string>
     <string name="shortcut_permission_title">Permission Required</string>
     <string name="shortcut_permission_guide">Creating desktop shortcuts requires the \"Home screen shortcut\" permission. Please enable it in the settings page that opens next.</string>
@@ -105,7 +109,7 @@
     <string name="settings_section_maintenance">Maintenance</string>
     <string name="settings_section_saves">Save Data</string>
     <string name="settings_import_saves">Import Saves</string>
-    <string name="settings_import_saves_desc">Import save data from the original game. Select the game\'s files/ directory when prompted.</string>
+    <string name="settings_import_saves_desc">Import save data from the original game. Select Android/data/&lt;package&gt;/files/ when prompted.</string>
     <string name="save_import_success">Imported %d file(s)</string>
     <string name="save_import_failed">Import failed</string>
     <string name="save_import_nothing">No save data found in the selected directory</string>
@@ -115,10 +119,10 @@
     <string name="save_saf_hint">Android 11-14 requires folder permission</string>
     <string name="save_shizuku_hint">Android 15+ uses privileged shell access</string>
     <string name="save_need_permission">Need permission to access game saves</string>
-    <string name="save_not_found">Saves not found. Launch the game at least once.</string>
-    <string name="save_empty">Saves directory is empty.</string>
+    <string name="save_not_found">Game files directory not found. Launch the game at least once.</string>
+    <string name="save_empty">The game files/ directory is empty.</string>
     <string name="save_found">%d save(s) found</string>
-    <string name="save_launch_game_prompt">Please launch the patched game at least once to generate save data, then return here to backup.</string>
+    <string name="save_launch_game_prompt">Please launch the patched game at least once to create data in its files/ directory, then return here to back it up.</string>
     <string name="save_game_launched">Game has been launched</string>
     <string name="save_game_not_launched">Game not launched yet</string>
     <string name="save_grant_permission">Grant Folder Access</string>
@@ -138,6 +142,9 @@
     <string name="save_g2l_import_error">Import failed: %s</string>
 
     <string name="save_l2g_title">Restore to Game</string>
+    <string name="save_restore_backup_title">Restore Backup</string>
+    <string name="save_restore_backup_desc">Restore the latest launcher backup to this game</string>
+    <string name="save_restore_backup_confirm">The current game save data will be overwritten by the selected backup.</string>
     <string name="save_l2g_desc">Copy saves from PVZRH_Launcher/L2G/ back to game</string>
     <string name="save_l2g_button">Restore to Game</string>
     <string name="save_l2g_desc_detail">PVZRH_Launcher/L2G/ → Game</string>
@@ -158,17 +165,19 @@
     <string name="save_backup_cleared">Backup cleared</string>
     <string name="save_manual_guide">Manual Guide</string>
     <string name="save_manual_direct_title">Direct Access (Android &lt; 11)</string>
-    <string name="save_manual_direct_step1">1. Use a file manager to copy: Android/data/%1$s/files/Saves/</string>
-    <string name="save_manual_direct_step2">2. Also back up: Android/data/%1$s/files/playerData.json</string>
-    <string name="save_manual_direct_step3">3. To restore, copy them back to the same paths</string>
+    <string name="save_manual_direct_step1">1. Use a file manager to copy the entire folder: /sdcard/Android/data/%1$s/files/</string>
+    <string name="save_manual_direct_step2">2. Save data is stored directly in this files/ folder, including playerData.json and any subfolders</string>
+    <string name="save_manual_direct_step3">3. To restore, copy the files and subfolders back to the same files/ folder</string>
     <string name="save_manual_saf_title">Folder Permission (Android 11-14)</string>
     <string name="save_manual_saf_step1">1. Tap \"Grant Folder Access\" and select \"Use this folder\"</string>
     <string name="save_manual_saf_step2">2. Tap \"Backup to Launcher\" to save game data</string>
     <string name="save_manual_saf_step3">3. To restore, place files in L2G folder, then tap \"Restore to Game\"</string>
     <string name="save_manual_adb_alt">Or use ADB from PC:</string>
     <string name="save_adb_step1">1. Connect device to PC via USB</string>
-    <string name="save_adb_backup_cmd">adb pull /sdcard/Android/data/%1$s/files/ ./PVZRH_Saves/</string>
-    <string name="save_adb_restore_cmd">adb push ./PVZRH_Saves/ /sdcard/Android/data/%1$s/files/</string>
+    <string name="save_adb_backup_cmd">adb pull /sdcard/Android/data/%1$s/files/. ./PVZRH_Saves/</string>
+    <string name="save_adb_restore_cmd">adb push ./PVZRH_Saves/. /sdcard/Android/data/%1$s/files/</string>
+    <string name="save_copy_command">Copy command</string>
+    <string name="save_command_copied">Command copied</string>
     <string name="save_manual_shizuku_title">Shizuku / ADB (Android 15+)</string>
     <string name="save_manual_shizuku_step1">Option A: Install Shizuku and grant permission above</string>
     <string name="save_manual_shizuku_step2">Option B: Use ADB from PC</string>

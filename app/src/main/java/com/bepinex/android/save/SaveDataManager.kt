@@ -18,6 +18,7 @@ object SaveDataManager {
 
     private const val TAG = "SaveDataManager"
     private const val DOC_AUTHORITY = "com.android.externalstorage.documents"
+    private const val EXCLUDED_SAVE_DIRECTORY = "il2cpp"
 
     fun needsSafAccess(): Boolean =
         Build.VERSION.SDK_INT in Build.VERSION_CODES.R..34
@@ -25,15 +26,10 @@ object SaveDataManager {
     fun needsShizuku(): Boolean = Build.VERSION.SDK_INT >= 35
 
     fun getGameExternalSavesDir(packageName: String): File =
-        File(Environment.getExternalStorageDirectory(), "Android/data/$packageName/files/Saves")
+        File(Environment.getExternalStorageDirectory(), "Android/data/$packageName/files")
 
     fun getGameExternalFilesDir(packageName: String): File =
         File(Environment.getExternalStorageDirectory(), "Android/data/$packageName/files")
-
-    fun hasGameLaunched(context: Context): Boolean {
-        val savesDir = File(context.getExternalFilesDir(null), "Saves")
-        return savesDir.exists()
-    }
 
     fun getG2LDir(packageName: String): File =
         File(Environment.getExternalStorageDirectory(), "PVZRH_Launcher/$packageName/saves_backup/G2L")
@@ -87,10 +83,11 @@ object SaveDataManager {
             if (!hasShizukuPermission()) return SaveStatus.NEED_PERMISSION
             return withContext(Dispatchers.IO) {
                 try {
-                    val savesPath = "/sdcard/Android/data/$packageName/files/Saves"
-                    val (success, output) = ShizukuShell.exec("ls \"$savesPath\"")
+                    val filesPath = "/sdcard/Android/data/$packageName/files"
+                    val (success, output) = ShizukuShell.exec("ls -A \"$filesPath\"")
                     if (!success) return@withContext SaveStatus.NOT_FOUND
-                    val names = output.trim().split("\n").filter { it.isNotEmpty() }
+                    val names = output.trim().split("\n")
+                        .filter { it.isNotEmpty() && it != EXCLUDED_SAVE_DIRECTORY }
                     if (names.isEmpty()) SaveStatus.EMPTY else SaveStatus.FOUND(names.size, names)
                 } catch (e: Exception) {
                     Log.e(TAG, "Shizuku query failed", e)
@@ -109,7 +106,9 @@ object SaveDataManager {
         if (!dir.exists()) return SaveStatus.NOT_FOUND
         val files = dir.listFiles() ?: return SaveStatus.NOT_FOUND
         if (files.isEmpty()) return SaveStatus.EMPTY
-        return SaveStatus.FOUND(files.size, files.map { it.name })
+        val saveFiles = files.filter { it.name != EXCLUDED_SAVE_DIRECTORY }
+        if (saveFiles.isEmpty()) return SaveStatus.EMPTY
+        return SaveStatus.FOUND(saveFiles.size, saveFiles.map { it.name })
     }
 
     fun getSavesStatusViaSaf(context: Context, packageName: String): SaveStatus {
@@ -130,7 +129,7 @@ object SaveDataManager {
                 while (it.moveToNext()) {
                     val name = it.getString(0)
                     val mime = it.getString(1)
-                    if (mime != DocumentsContract.Document.MIME_TYPE_DIR) names.add(name)
+                    if (name != EXCLUDED_SAVE_DIRECTORY) names.add(name)
                 }
             }
             if (names.isEmpty()) SaveStatus.EMPTY else SaveStatus.FOUND(names.size, names)
@@ -149,14 +148,11 @@ object SaveDataManager {
     }
 
     private fun g2lBackupViaShizuku(packageName: String): Result<Int> = runCatching {
-        val destPath = getG2LDir(packageName).absolutePath
+        val destPath = toShizukuPath(getG2LDir(packageName))
         ShizukuShell.execOrThrow("rm -rf \"$destPath\" && mkdir -p \"$destPath\"")
 
-        val savesSrc = "/sdcard/Android/data/$packageName/files/Saves"
-        ShizukuShell.exec("cp -r \"$savesSrc\" \"$destPath/Saves\"")
-
-        val pdSrc = "/sdcard/Android/data/$packageName/files/playerData.json"
-        ShizukuShell.exec("cp \"$pdSrc\" \"$destPath/playerData.json\"")
+        val filesSrc = "/sdcard/Android/data/$packageName/files"
+        copyTopLevelViaShizuku(filesSrc, destPath)
 
         countFiles(getG2LDir(packageName))
     }
@@ -171,33 +167,17 @@ object SaveDataManager {
 
         var count = 0
 
-        val savesTreeUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
-        val filesTreeUri = DocumentsContract.buildDocumentUriUsingTree(
-            treeUri,
-            DocumentsContract.getTreeDocumentId(treeUri).replace("/Saves", "")
-        )
-
-        count += copySafDirToDir(context, savesTreeUri, File(destDir, "Saves"))
-
-        try {
-            val pdUri = DocumentsContract.buildDocumentUriUsingTree(
-                filesTreeUri,
-                DocumentsContract.getTreeDocumentId(filesTreeUri) + "/playerData.json"
-            )
-            val pfd = context.contentResolver.openFileDescriptor(pdUri, "r")
-            if (pfd != null) {
-                val dest = File(destDir, "playerData.json")
-                FileInputStream(pfd.fileDescriptor).use { input ->
-                    FileOutputStream(dest).use { output -> input.copyTo(output) }
-                }
-                count++
-            }
-        } catch (_: Exception) {}
+        count += copySafDirToDir(context, treeUri, destDir, setOf(EXCLUDED_SAVE_DIRECTORY))
 
         count
     }
 
-    private fun copySafDirToDir(context: Context, treeDocUri: Uri, destDir: File): Int {
+    private fun copySafDirToDir(
+        context: Context,
+        treeDocUri: Uri,
+        destDir: File,
+        excludedNames: Set<String> = emptySet()
+    ): Int {
         var count = 0
         destDir.mkdirs()
 
@@ -214,9 +194,11 @@ object SaveDataManager {
                 val mime = it.getString(1)
                 val docId = it.getString(2)
 
+                if (name in excludedNames) continue
+
                 if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
                     val childTreeUri = DocumentsContract.buildDocumentUriUsingTree(treeDocUri, docId)
-                    count += copySafDirToDir(context, childTreeUri, File(destDir, name))
+                    count += copySafDirToDir(context, childTreeUri, File(destDir, name), excludedNames)
                 } else {
                     val fileUri = DocumentsContract.buildDocumentUriUsingTree(treeDocUri, docId)
                     val pfd = context.contentResolver.openFileDescriptor(fileUri, "r") ?: continue
@@ -236,83 +218,151 @@ object SaveDataManager {
         destDir.deleteRecursively()
         destDir.mkdirs()
 
-        val savesSrc = getGameExternalSavesDir(packageName)
-        if (savesSrc.exists()) {
-            copyFileRecursive(savesSrc, File(destDir, "Saves"))
-        }
-
-        val pdSrc = File(getGameExternalFilesDir(packageName), "playerData.json")
-        if (pdSrc.exists()) {
-            pdSrc.copyTo(File(destDir, "playerData.json"), overwrite = true)
+        val filesSrc = getGameExternalFilesDir(packageName)
+        if (filesSrc.exists()) {
+            copyFileRecursive(filesSrc, destDir, setOf(EXCLUDED_SAVE_DIRECTORY))
         }
 
         countFiles(destDir)
     }
 
     suspend fun l2gRestore(context: Context, packageName: String): Result<Int> = withContext(Dispatchers.IO) {
-        when {
-            needsShizuku() -> l2gRestoreViaShizuku(packageName)
-            needsSafAccess() -> l2gRestoreViaSaf(context, packageName)
-            else -> l2gRestoreDirect(packageName)
+        restoreFromDirectory(context, packageName, getL2GDir(packageName), nestedSaves = false)
+    }
+
+    suspend fun restoreBackup(context: Context, packageName: String): Result<Int> = withContext(Dispatchers.IO) {
+        restoreFromDirectory(context, packageName, getG2LDir(packageName), nestedSaves = false)
+    }
+
+    private fun restoreFromDirectory(
+        context: Context,
+        packageName: String,
+        sourceDir: File,
+        nestedSaves: Boolean
+    ): Result<Int> {
+        if (!sourceDir.exists() || sourceDir.listFiles()?.isNotEmpty() != true) {
+            return Result.failure(IllegalStateException("No save data to restore"))
+        }
+        val payloadDir = resolveRestorePayloadDir(sourceDir, nestedSaves)
+        if (!payloadDir.exists()) {
+            return Result.failure(IllegalStateException("No save data to restore"))
+        }
+        return when {
+            needsShizuku() -> restoreViaShizuku(packageName, sourceDir, payloadDir)
+            needsSafAccess() -> restoreViaSaf(context, packageName, sourceDir, payloadDir)
+            else -> restoreDirect(packageName, sourceDir, payloadDir)
         }
     }
 
-    private fun l2gRestoreViaShizuku(packageName: String): Result<Int> = runCatching {
-        val srcPath = getL2GDir(packageName).absolutePath
-        val savesDest = "/sdcard/Android/data/$packageName/files/Saves"
+    private fun resolveRestorePayloadDir(sourceDir: File, nestedSaves: Boolean): File {
+        val savesDir = File(sourceDir, "Saves")
+        if (nestedSaves) return savesDir
 
-        ShizukuShell.execOrThrow("mkdir -p \"$savesDest\"")
-        ShizukuShell.execOrThrow("cp -r \"$srcPath/Saves\"/. \"$savesDest\"/")
-
-        val pdSrc = "$srcPath/playerData.json"
-        val pdDest = "/sdcard/Android/data/$packageName/files/playerData.json"
-        ShizukuShell.exec("cp \"$pdSrc\" \"$pdDest\"")
-
-        countFiles(getL2GDir(packageName))
+        val rootEntries = sourceDir.listFiles()
+            ?.filter { it.name != "playerData.json" }
+            ?: emptyList()
+        return if (savesDir.isDirectory && rootEntries.size == 1 && rootEntries.first() == savesDir) {
+            savesDir
+        } else {
+            sourceDir
+        }
     }
 
-    private fun l2gRestoreViaSaf(context: Context, packageName: String): Result<Int> = runCatching {
-        val srcDir = getL2GDir(packageName)
+    private fun restoreViaShizuku(
+        packageName: String,
+        sourceDir: File,
+        payloadDir: File
+    ): Result<Int> = runCatching {
+        val srcPath = toShizukuPath(payloadDir)
+        val filesDest = "/sdcard/Android/data/$packageName/files"
 
+        ShizukuShell.execOrThrow("mkdir -p \"$filesDest\"")
+        copyTopLevelViaShizuku(srcPath, filesDest)
+
+        copyLegacyPlayerDataViaShizuku(sourceDir, payloadDir, filesDest)
+
+        countFiles(payloadDir) + if (sourceDir != payloadDir && File(sourceDir, "playerData.json").exists()) 1 else 0
+    }
+
+    private fun copyTopLevelViaShizuku(sourcePath: String, destinationPath: String) {
+        val command =
+            "for item in \"$sourcePath\"/*; do " +
+                "case \"\$item\" in \"$sourcePath/$EXCLUDED_SAVE_DIRECTORY\") continue ;; esac; " +
+                "[ -e \"\$item\" ] || continue; " +
+                "cp -rf \"\$item\" \"$destinationPath/\" || exit 1; " +
+                "done"
+        ShizukuShell.execOrThrow(command)
+    }
+
+    private fun copyLegacyPlayerDataViaShizuku(sourceDir: File, payloadDir: File, filesDest: String) {
+        if (sourceDir == payloadDir) return
+        val playerData = File(sourceDir, "playerData.json")
+        if (playerData.exists()) {
+            ShizukuShell.execOrThrow("cp \"${toShizukuPath(playerData)}\" \"$filesDest/playerData.json\"")
+        }
+    }
+
+    private fun restoreViaSaf(
+        context: Context,
+        packageName: String,
+        sourceDir: File,
+        payloadDir: File
+    ): Result<Int> = runCatching {
         val treeUri = getPersistedSafTreeUri(context, packageName)
             ?: throw IllegalStateException("SAF permission not granted")
 
-        val savesDocId = DocumentsContract.getTreeDocumentId(treeUri)
-        var count = 0
+        val filesDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        var count = copyDirToSafDir(
+            context,
+            treeUri,
+            filesDocId,
+            payloadDir,
+            setOf(EXCLUDED_SAVE_DIRECTORY)
+        )
 
-        val savesSrc = File(srcDir, "Saves")
-        if (savesSrc.exists()) {
-            count += copyDirToSafDir(context, treeUri, savesDocId, savesSrc)
+        if (sourceDir != payloadDir) {
+            count += copyLegacyPlayerDataViaSaf(context, treeUri, filesDocId, sourceDir)
         }
-
-        try {
-            val pdSrc = File(srcDir, "playerData.json")
-            if (pdSrc.exists()) {
-                val filesDocId = savesDocId.replace("/Saves", "")
-                val filesTreeUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, filesDocId)
-                val pdDocId = "$filesDocId/playerData.json"
-                ensureSafFileExists(context, treeUri, pdDocId)
-                val pdUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, pdDocId)
-                val pfd = context.contentResolver.openFileDescriptor(pdUri, "w")
-                if (pfd != null) {
-                    FileOutputStream(pfd.fileDescriptor).use { output ->
-                        FileInputStream(pdSrc).use { input -> input.copyTo(output) }
-                    }
-                    count++
-                }
-            }
-        } catch (_: Exception) {}
 
         count
     }
 
-    private fun copyDirToSafDir(context: Context, treeUri: Uri, parentDocId: String, srcDir: File): Int {
+    private fun copyLegacyPlayerDataViaSaf(
+        context: Context,
+        treeUri: Uri,
+        filesDocId: String,
+        sourceDir: File
+    ): Int {
+        val playerData = File(sourceDir, "playerData.json")
+        if (!playerData.exists()) return 0
+        return try {
+            val playerDataDocId = "$filesDocId/playerData.json"
+            ensureSafFileExists(context, treeUri, playerDataDocId)
+            val playerDataUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, playerDataDocId)
+            val pfd = context.contentResolver.openFileDescriptor(playerDataUri, "w") ?: return 0
+            FileOutputStream(pfd.fileDescriptor).use { output ->
+                FileInputStream(playerData).use { input -> input.copyTo(output) }
+            }
+            1
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    private fun copyDirToSafDir(
+        context: Context,
+        treeUri: Uri,
+        parentDocId: String,
+        srcDir: File,
+        excludedNames: Set<String> = emptySet()
+    ): Int {
         var count = 0
         srcDir.listFiles()?.forEach { child ->
+            if (child.name in excludedNames) return@forEach
             if (child.isDirectory) {
                 val dirDocId = "$parentDocId/${child.name}"
                 ensureSafDirExists(context, treeUri, dirDocId)
-                count += copyDirToSafDir(context, treeUri, dirDocId, child)
+                count += copyDirToSafDir(context, treeUri, dirDocId, child, excludedNames)
             } else {
                 val fileDocId = "$parentDocId/${child.name}"
                 ensureSafFileExists(context, treeUri, fileDocId)
@@ -360,22 +410,34 @@ object SaveDataManager {
         } catch (_: Exception) {}
     }
 
-    private fun l2gRestoreDirect(packageName: String): Result<Int> = runCatching {
-        val srcDir = getL2GDir(packageName)
-        val savesDest = getGameExternalSavesDir(packageName)
+    private fun restoreDirect(
+        packageName: String,
+        sourceDir: File,
+        payloadDir: File
+    ): Result<Int> = runCatching {
+        val filesDest = getGameExternalFilesDir(packageName)
+        copyFileRecursive(payloadDir, filesDest, setOf(EXCLUDED_SAVE_DIRECTORY))
 
-        val savesSrc = File(srcDir, "Saves")
-        if (savesSrc.exists()) {
-            copyFileRecursive(savesSrc, savesDest)
+        if (sourceDir != payloadDir) {
+            val pdSrc = File(sourceDir, "playerData.json")
+            if (pdSrc.exists()) {
+                pdSrc.copyTo(File(filesDest, "playerData.json"), overwrite = true)
+            }
         }
 
-        val pdSrc = File(srcDir, "playerData.json")
-        if (pdSrc.exists()) {
-            val pdDest = File(getGameExternalFilesDir(packageName), "playerData.json")
-            pdSrc.copyTo(pdDest, overwrite = true)
-        }
+        countFiles(filesDest)
+    }
 
-        countFiles(getGameExternalSavesDir(packageName))
+    private fun toShizukuPath(file: File): String {
+        val externalRoot = Environment.getExternalStorageDirectory().absolutePath
+        val absolutePath = file.absolutePath
+        return if (absolutePath == externalRoot) {
+            "/sdcard"
+        } else if (absolutePath.startsWith("$externalRoot/")) {
+            "/sdcard" + absolutePath.removePrefix(externalRoot)
+        } else {
+            absolutePath
+        }
     }
 
     fun getLauncherSavesDir(context: Context): File = File(context.getExternalFilesDir(null), "Saves")
@@ -386,10 +448,14 @@ object SaveDataManager {
         val g2lDir = getG2LDir(packageName)
         var count = 0
 
-        val savesSrc = File(g2lDir, "Saves")
-        if (savesSrc.exists()) {
+        val payloadDir = resolveRestorePayloadDir(g2lDir, nestedSaves = false)
+        if (payloadDir.exists()) {
             val savesDest = getLauncherSavesDir(context)
-            count += copyFileRecursive(savesSrc, savesDest)
+            count += copyFileRecursive(
+                payloadDir,
+                savesDest,
+                setOf(EXCLUDED_SAVE_DIRECTORY, "playerData.json")
+            )
         }
 
         val pdSrc = File(g2lDir, "playerData.json")
@@ -403,13 +469,13 @@ object SaveDataManager {
 
     fun launcherExportToL2g(context: Context, packageName: String): Result<Int> = runCatching {
         val l2gDir = getL2GDir(packageName)
+        l2gDir.deleteRecursively()
         l2gDir.mkdirs()
         var count = 0
 
         val savesSrc = getLauncherSavesDir(context)
         if (savesSrc.exists()) {
-            val savesDest = File(l2gDir, "Saves")
-            count += copyFileRecursive(savesSrc, savesDest)
+            count += copyFileRecursive(savesSrc, l2gDir, setOf(EXCLUDED_SAVE_DIRECTORY))
         }
 
         val pdSrc = getLauncherPlayerDataFile(context)
@@ -427,18 +493,18 @@ object SaveDataManager {
     }
 
     fun getPersistedSafTreeUri(context: Context, packageName: String): Uri? {
-        val expectedDocId = "primary:Android/data/$packageName/files/Saves"
+        val expectedDocId = "primary:Android/data/$packageName/files"
         return context.contentResolver.persistedUriPermissions
             .firstOrNull { it.isReadPermission && it.isWritePermission }
             ?.uri
             ?.takeIf { uri ->
                 val docId = try { DocumentsContract.getTreeDocumentId(uri) } catch (_: Exception) { null }
-                docId == expectedDocId || uri.toString().contains("Android/data/$packageName/files/Saves")
+                docId == expectedDocId
             }
     }
 
     fun buildSafInitialUri(packageName: String): Uri {
-        val docId = "primary:Android/data/$packageName/files/Saves"
+        val docId = "primary:Android/data/$packageName/files"
         return DocumentsContract.buildDocumentUri(DOC_AUTHORITY, docId)
     }
 
@@ -467,12 +533,18 @@ object SaveDataManager {
         }
     }
 
-    private fun copyFileRecursive(source: File, dest: File): Int {
+    private fun copyFileRecursive(
+        source: File,
+        dest: File,
+        excludedNames: Set<String> = emptySet()
+    ): Int {
         var count = 0
         if (source.isDirectory) {
             dest.mkdirs()
             source.listFiles()?.forEach { child ->
-                count += copyFileRecursive(child, File(dest, child.name))
+                if (child.name !in excludedNames) {
+                    count += copyFileRecursive(child, File(dest, child.name), excludedNames)
+                }
             }
         } else {
             FileInputStream(source).use { input ->
@@ -488,6 +560,7 @@ object SaveDataManager {
     private fun countFiles(dir: File): Int {
         var count = 0
         dir.listFiles()?.forEach { child ->
+            if (child.name == EXCLUDED_SAVE_DIRECTORY) return@forEach
             if (child.isDirectory) count += countFiles(child) else count++
         }
         return count
