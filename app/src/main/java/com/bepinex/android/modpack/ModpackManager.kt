@@ -8,7 +8,12 @@ import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
 import org.json.JSONObject
 import java.io.File
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.FileOutputStream
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -23,6 +28,22 @@ data class ModpackMeta(
     val modCount: Int = 0,
     val createShortcut: Boolean = false
 )
+
+data class ModpackExportProgress(
+    val phase: String,
+    val currentFile: String? = null,
+    val completedFiles: Long = 0,
+    val totalFiles: Long = 0,
+    val completedBytes: Long = 0,
+    val totalBytes: Long = 0
+) {
+    val fraction: Float
+        get() = when {
+            totalBytes > 0 -> (completedBytes.toDouble() / totalBytes).coerceIn(0.0, 1.0).toFloat()
+            totalFiles > 0 -> (completedFiles.toDouble() / totalFiles).coerceIn(0.0, 1.0).toFloat()
+            else -> 0f
+        }
+}
 
 /**
  * Manages modpack CRUD operations on the file system.
@@ -380,80 +401,209 @@ class ModpackManager {
 
     // Export / Import
 
-    fun exportModpack(packageName: String, modpackName: String, outputFile: File): Boolean {
+    suspend fun exportModpack(
+        packageName: String,
+        modpackName: String,
+        outputFile: File,
+        onProgress: suspend (ModpackExportProgress) -> Unit = {}
+    ): Boolean {
         val modpackDir = getModpackDir(packageName, modpackName)
         if (!modpackDir.exists()) return false
 
+        val tempFile = File(outputFile.parentFile, ".${outputFile.name}.part")
         return try {
-            ZipOutputStream(FileOutputStream(outputFile)).use { zos ->
-                modpackDir.walkTopDown().filter { file ->
-                    if (!file.isFile) return@filter false
-                    val relativePath = file.relativeTo(modpackDir).path.replace('\\', '/')
-                    !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
-                }.forEach { file ->
-                    val entryName = "$modpackName/${file.relativeTo(modpackDir).path.replace('\\', '/')}"
-                    zos.putNextEntry(ZipEntry(entryName))
-                    file.inputStream().use { it.copyTo(zos) }
-                    zos.closeEntry()
+            tempFile.delete()
+            var totalFiles = 0L
+            var totalBytes = 0L
+            for (file in modpackDir.walkTopDown()) {
+                currentCoroutineContext().ensureActive()
+                if (isExportableFile(modpackDir, file)) {
+                    totalFiles++
+                    totalBytes += file.length()
                 }
             }
+            onProgress(ModpackExportProgress("preparing", totalFiles = totalFiles, totalBytes = totalBytes))
+
+            var completedFiles = 0L
+            var completedBytes = 0L
+            var lastProgressNanos = 0L
+            suspend fun reportProgress(force: Boolean = false, currentFile: String? = null) {
+                val now = System.nanoTime()
+                if (force || now - lastProgressNanos >= 100_000_000L) {
+                    lastProgressNanos = now
+                    onProgress(
+                        ModpackExportProgress(
+                            phase = "exporting",
+                            currentFile = currentFile,
+                            completedFiles = completedFiles,
+                            totalFiles = totalFiles,
+                            completedBytes = completedBytes,
+                            totalBytes = totalBytes
+                        )
+                    )
+                }
+            }
+
+            val zos = ZipOutputStream(BufferedOutputStream(FileOutputStream(tempFile)))
+            try {
+                for (file in modpackDir.walkTopDown()) {
+                    currentCoroutineContext().ensureActive()
+                    if (!isExportableFile(modpackDir, file)) continue
+                    val entryName = "$modpackName/${file.relativeTo(modpackDir).path.replace('\\', '/')}"
+                    zos.putNextEntry(ZipEntry(entryName))
+                    try {
+                        val input = BufferedInputStream(file.inputStream())
+                        try {
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
+                            var read: Int
+                            do {
+                                currentCoroutineContext().ensureActive()
+                                read = input.read(buffer)
+                                if (read > 0) {
+                                    zos.write(buffer, 0, read)
+                                    completedBytes += read
+                                    reportProgress(currentFile = file.name)
+                                }
+                            } while (read >= 0)
+                        } finally {
+                            input.close()
+                        }
+                    } finally {
+                        zos.closeEntry()
+                    }
+                    completedFiles++
+                    reportProgress(force = true, currentFile = file.name)
+                }
+            } finally {
+                zos.close()
+            }
+
+            currentCoroutineContext().ensureActive()
+            if (outputFile.exists() && !outputFile.delete()) {
+                throw java.io.IOException("Unable to replace existing export: ${outputFile.absolutePath}")
+            }
+            if (!tempFile.renameTo(outputFile)) {
+                tempFile.copyTo(outputFile, overwrite = false)
+                tempFile.delete()
+            }
+            onProgress(
+                ModpackExportProgress(
+                    phase = "complete",
+                    completedFiles = totalFiles,
+                    totalFiles = totalFiles,
+                    completedBytes = totalBytes,
+                    totalBytes = totalBytes
+                )
+            )
             BepInExLog.i("Exported modpack: $modpackName  -> ${outputFile.absolutePath}")
             true
+        } catch (e: CancellationException) {
+            tempFile.delete()
+            throw e
         } catch (e: Exception) {
+            tempFile.delete()
             BepInExLog.e("Failed to export modpack", e)
             false
         }
     }
 
-    fun importModpack(packageName: String, uri: Uri, context: Context, zipName: String? = null): ModpackMeta? {
-        try {
-            val tempDir = File(context.cacheDir, "modpack_import_${System.currentTimeMillis()}")
-            tempDir.mkdirs()
+    private fun isExportableFile(modpackDir: File, file: File): Boolean {
+        if (!file.isFile) return false
+        val relativePath = file.relativeTo(modpackDir).invariantSeparatorsPath
+        return !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
+    }
 
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                ZipInputStream(input).use { zis ->
+    suspend fun importModpack(
+        packageName: String,
+        uri: Uri,
+        context: Context,
+        zipName: String? = null
+    ): ModpackMeta? {
+        val requestedName = normalizeModpackName(zipName ?: "imported_${System.currentTimeMillis()}")
+        val resolvedName = requestedName.ifEmpty { "imported_${System.currentTimeMillis()}" }
+        val modpackDir = getModpackDir(packageName, resolvedName)
+        val stagingDir = File(
+            modpackDir.parentFile,
+            ".${resolvedName}.import-${System.currentTimeMillis()}"
+        )
+
+        return try {
+            stagingDir.deleteRecursively()
+            stagingDir.mkdirs()
+            val stagingRoot = stagingDir.canonicalFile.toPath()
+            val input = context.contentResolver.openInputStream(uri)
+                ?: throw java.io.IOException("Unable to open modpack archive")
+            try {
+                val zis = ZipInputStream(BufferedInputStream(input))
+                try {
                     var entry = zis.nextEntry
                     while (entry != null) {
-                        val name = entry.name.trim('/')
-                        val outFile = File(tempDir, name)
-                        if (entry.isDirectory) {
-                            outFile.mkdirs()
-                        } else {
-                            outFile.parentFile?.mkdirs()
-                            FileOutputStream(outFile).use { fos ->
-                                zis.copyTo(fos)
+                        currentCoroutineContext().ensureActive()
+                        val normalizedEntryName = entry.name.replace('\\', '/').trimStart('/')
+                        if (normalizedEntryName.isNotEmpty()) {
+                            val entryFile = File(stagingDir, normalizedEntryName).canonicalFile
+                            if (!entryFile.toPath().startsWith(stagingRoot)) {
+                                throw java.io.IOException("Unsafe archive entry: ${entry.name}")
+                            }
+                            if (entry.isDirectory) {
+                                entryFile.mkdirs()
+                            } else {
+                                entryFile.parentFile?.mkdirs()
+                                val output = BufferedOutputStream(FileOutputStream(entryFile))
+                                try {
+                                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
+                                    var read: Int
+                                    do {
+                                        currentCoroutineContext().ensureActive()
+                                        read = zis.read(buffer)
+                                        if (read > 0) output.write(buffer, 0, read)
+                                    } while (read >= 0)
+                                } finally {
+                                    output.close()
+                                }
                             }
                         }
+                        zis.closeEntry()
                         entry = zis.nextEntry
                     }
+                } finally {
+                    zis.close()
                 }
+            } finally {
+                input.close()
             }
 
-            val resolvedName = zipName ?: "imported_${System.currentTimeMillis()}"
-            val modpackDir = getModpackDir(packageName, resolvedName)
+            currentCoroutineContext().ensureActive()
             if (modpackDir.exists()) modpackDir.deleteRecursively()
-
-            // Find the actual content directory inside temp (skip top-level dir if present)
-            val topDirs = tempDir.listFiles()?.filter { it.isDirectory } ?: emptyList()
-            val sourceDir = if (topDirs.size == 1) topDirs[0] else tempDir
-            sourceDir.copyRecursively(modpackDir, overwrite = true)
-            tempDir.deleteRecursively()
+            modpackDir.parentFile?.mkdirs()
+            val children = stagingDir.listFiles().orEmpty()
+            val sourceDir = if (children.size == 1 && children[0].isDirectory) children[0] else stagingDir
+            if (!sourceDir.renameTo(modpackDir)) {
+                sourceDir.copyRecursively(modpackDir, overwrite = true)
+            }
+            stagingDir.deleteRecursively()
 
             getModpackPluginsDir(packageName, resolvedName).mkdirs()
             getModpackConfigDir(packageName, resolvedName).mkdirs()
             getModpackLogsDir(packageName, resolvedName).mkdirs()
 
-            val meta = ModpackMeta(name = resolvedName, packageName = packageName,
-                modCount = getModCount(packageName, resolvedName))
+            val meta = ModpackMeta(
+                name = resolvedName,
+                packageName = packageName,
+                modCount = getModCount(packageName, resolvedName)
+            )
             writeMeta(meta)
             BepInExLog.i("Imported modpack: $resolvedName")
-            return meta
+            meta
+        } catch (e: CancellationException) {
+            stagingDir.deleteRecursively()
+            throw e
         } catch (e: Exception) {
+            stagingDir.deleteRecursively()
             BepInExLog.e("Failed to import modpack", e)
-            return null
+            null
         }
     }
-
     // Metadata persistence
 
     private fun readMeta(packageName: String, name: String): ModpackMeta? {

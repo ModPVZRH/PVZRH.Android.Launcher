@@ -6,6 +6,10 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import com.bepinex.android.shortcut.ModpackShortcutHelper
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -31,6 +35,7 @@ import com.bepinex.android.BepInExPaths
 import com.bepinex.android.GameDetector
 import com.bepinex.android.R
 import com.bepinex.android.log.BepInExLogReader
+import com.bepinex.android.modpack.ModpackExportProgress
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
@@ -38,6 +43,8 @@ import com.bepinex.android.ui.components.ConfigEditorDialog
 import com.bepinex.android.ui.screens.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -130,18 +137,74 @@ fun BepInExNavHost(
     var activeModpackName by remember { mutableStateOf<String?>(null) }
     var modpackRefreshKey by remember { mutableStateOf(0) }
     var modpackIconRefreshKey by remember { mutableStateOf(0) }
+    var exportProgress by remember { mutableStateOf<ModpackExportProgress?>(null) }
+    var exportJob by remember { mutableStateOf<Job?>(null) }
+    var importJob by remember { mutableStateOf<Job?>(null) }
 
-    // Load active modpack on game selection
-    LaunchedEffect(selectedGame?.packageName) {
-        selectedGame?.let { game ->
-            activeModpackName = AppSettings.getActiveModpack(context, game.packageName)
+    fun startModpackExport(targetPackageName: String, targetModpackName: String) {
+        if (exportJob?.isActive == true) return
+        val outputFile = java.io.File(context.cacheDir, "$targetModpackName.zip")
+        outputFile.parentFile?.mkdirs()
+        exportProgress = ModpackExportProgress("preparing")
+        exportJob = composeScope.launch(Dispatchers.IO) {
+            try {
+                val success = modpackManager.exportModpack(
+                    targetPackageName,
+                    targetModpackName,
+                    outputFile
+                ) { progress ->
+                    withContext(Dispatchers.Main) {
+                        exportProgress = progress
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.provider",
+                            outputFile
+                        )
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "application/zip"
+                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                            putExtra(android.content.Intent.EXTRA_SUBJECT, targetModpackName)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Modpack"))
+                    } else {
+                        android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+            } catch (error: Exception) {
+                com.bepinex.android.BepInExLog.e("Export failed", error)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                withContext(NonCancellable + Dispatchers.Main) {
+                    exportProgress = null
+                    exportJob = null
+                }
+            }
         }
     }
 
-    // Refresh modpack list when game changes or refresh key bumps
+    // Refresh modpack list and validate the persisted active modpack.
     LaunchedEffect(selectedGame?.packageName, modpackRefreshKey) {
         selectedGame?.let { game ->
-            modpacks = modpackManager.listModpacks(game.packageName)
+            val loadedModpacks = withContext(Dispatchers.IO) {
+                modpackManager.listModpacks(game.packageName)
+            }
+            modpacks = loadedModpacks
+            val savedActiveName = AppSettings.getActiveModpack(context, game.packageName)
+            val validActiveName = savedActiveName?.takeIf { savedName ->
+                loadedModpacks.any { it.name == savedName }
+            }
+            activeModpackName = validActiveName
+            if (savedActiveName != validActiveName) {
+                AppSettings.setActiveModpack(context, game.packageName, validActiveName)
+            }
         }
     }
 
@@ -153,24 +216,37 @@ fun BepInExNavHost(
     val importModpackLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) {
-            val game = selectedGame
-            if (game != null) {
-                kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
+        val game = selectedGame
+        if (uri != null && game != null && importJob?.isActive != true) {
+            importJob = composeScope.launch(Dispatchers.IO) {
+                try {
                     val cursor = context.contentResolver.query(uri, null, null, null, null)
                     val displayName = cursor?.use {
-                        if (it.moveToFirst()) it.getString(it.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME)) else null
+                        if (it.moveToFirst()) {
+                            it.getString(it.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME))
+                        } else {
+                            null
+                        }
                     }
                     val zipName = displayName?.removeSuffix(".zip")?.removeSuffix(".ZIP")
                     modpackManager.importModpack(game.packageName, uri, context, zipName)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
                         modpackRefreshKey++
+                    }
+                } catch (_: kotlinx.coroutines.CancellationException) {
+                } catch (error: Exception) {
+                    com.bepinex.android.BepInExLog.e("Import failed", error)
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } finally {
+                    withContext(NonCancellable + Dispatchers.Main) {
+                        importJob = null
                     }
                 }
             }
         }
     }
-
     // Add mod to modpack file picker — inline import to avoid navigation reset
     val addModLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -377,12 +453,7 @@ fun BepInExNavHost(
                             )
                             1 -> {
                                 val packageName = selectedGame?.packageName ?: ""
-                                LaunchedEffect(packageName, modpackRefreshKey) {
-                                    if (packageName.isNotEmpty()) {
-                                        modpacks = withContext(Dispatchers.IO) { modpackManager.listModpacks(packageName) }
-                                        activeModpackName = AppSettings.getActiveModpack(context, packageName)
-                                    }
-                                }
+
                                 ModpackListScreen(
                                     packageName = packageName,
                                     targetGameLabel = selectedGame?.label ?: packageName,
@@ -400,12 +471,21 @@ fun BepInExNavHost(
                                                 ModpackShortcutHelper.createShortcut(context, packageName, created.name, created.name)
                                             }
                                         }
-                                        modpacks = modpackManager.listModpacks(packageName)
+                                        modpackRefreshKey++
                                     },
                                     onDeleteModpack = { name ->
-                                        modpackManager.deleteModpack(packageName, name)
-                                        if (activeModpackName == name) activeModpackName = null
-                                        modpacks = modpackManager.listModpacks(packageName)
+                                        val deleted = modpackManager.deleteModpack(packageName, name)
+                                        if (deleted) {
+                                            modpacks = modpacks.filterNot { it.name == name }
+                                            if (activeModpackName == name) {
+                                                AppSettings.setActiveModpack(context, packageName, null)
+                                                activeModpackName = null
+                                                composeScope.launch(Dispatchers.IO) {
+                                                    modpackManager.clearActiveMods(packageName)
+                                                }
+                                            }
+                                            modpackRefreshKey++
+                                        }
                                     },
                                     onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
                                         val existingShortcut = modpackManager.listModpacks(packageName)
@@ -461,12 +541,7 @@ fun BepInExNavHost(
                                         navController.navigate(NavRoutes.modpackDetail(packageName, name))
                                     },
                                     onExportModpack = { name ->
-                                        val outputFile = java.io.File(
-                                            android.os.Environment.getExternalStorageDirectory(),
-                                            "PVZRH_Launcher/export/${name}.zip"
-                                        )
-                                        outputFile.parentFile?.mkdirs()
-                                        modpackManager.exportModpack(packageName, name, outputFile)
+                                        startModpackExport(packageName, name)
                                     },
                                     onImportModpack = { importModpackTrigger = true }
                                 )
@@ -563,28 +638,7 @@ fun BepInExNavHost(
                             navController.navigate(NavRoutes.modFileBrowser(packageName, modpackName))
                         },
                         onExportModpack = {
-                            val outputFile = java.io.File(
-                                context.cacheDir,
-                                "${modpackName}.zip"
-                            )
-                            outputFile.parentFile?.mkdirs()
-                            val success = modpackManager.exportModpack(packageName, modpackName, outputFile)
-                            if (success) {
-                                val uri = androidx.core.content.FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.provider",
-                                    outputFile
-                                )
-                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                    type = "application/zip"
-                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                    putExtra(android.content.Intent.EXTRA_SUBJECT, modpackName)
-                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Modpack"))
-                            } else {
-                                android.widget.Toast.makeText(context, "Export failed", android.widget.Toast.LENGTH_SHORT).show()
-                            }
+                            startModpackExport(packageName, modpackName)
                         }
                     )
 
@@ -704,5 +758,57 @@ fun BepInExNavHost(
                     CreditsScreen(onNavigateBack = { navController.popBackStack() })
                 }
             }
+                exportProgress?.let { progress ->
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text(stringResource(R.string.modpack_export)) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (progress.phase == "preparing") {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    Text(stringResource(R.string.modpack_export_preparing))
+                                } else {
+                                    LinearProgressIndicator(
+                                        progress = { progress.fraction },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Text(
+                                        stringResource(
+                                            R.string.modpack_export_progress,
+                                            progress.completedFiles,
+                                            progress.totalFiles
+                                        )
+                                    )
+                                    progress.currentFile?.let {
+                                        Text(it, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { exportJob?.cancel() }) {
+                                Text(stringResource(R.string.modpack_export_cancel))
+                            }
+                        }
+                    )
+                }
+                if (importJob?.isActive == true) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text(stringResource(R.string.modpack_import)) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                Text(stringResource(R.string.modpack_importing))
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { importJob?.cancel() }) {
+                                Text(stringResource(R.string.modpack_import_cancel))
+                            }
+                        }
+                    )
+                }
+
     }
 }
