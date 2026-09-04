@@ -58,6 +58,9 @@ class ModpackManager {
 
         fun isModpackFileName(fileName: String?): Boolean =
             fileName?.substringAfterLast('.', "")?.lowercase() in SUPPORTED_MODPACK_EXTENSIONS
+
+        fun isModFileName(fileName: String?): Boolean =
+            fileName?.substringAfterLast('.', "")?.equals("dll", ignoreCase = true) == true
     }
 
     fun normalizeModpackName(name: String): String =
@@ -192,6 +195,10 @@ class ModpackManager {
     }
 
     fun addMod(packageName: String, modpackName: String, sourceFile: File): File? {
+        if (!isModFileName(sourceFile.name)) {
+            BepInExLog.w("Rejected mod with unsupported extension: ${sourceFile.name}")
+            return null
+        }
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
         pluginsDir.mkdirs()
         val dest = File(pluginsDir, sourceFile.name)
@@ -208,7 +215,11 @@ class ModpackManager {
 
     fun addModFromUri(context: Context, packageName: String, modpackName: String, uri: Uri): File? {
         // Resolve real file name from content URI (lastPathSegment is just a numeric ID)
-        val fileName = resolveFileName(context, uri) ?: "mod_${System.currentTimeMillis()}.dll"
+        val fileName = resolveFileName(context, uri)
+        if (!isModFileName(fileName)) {
+            BepInExLog.w("Rejected mod URI with unsupported extension: $fileName")
+            return null
+        }
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
         pluginsDir.mkdirs()
         val dest = File(pluginsDir, fileName)

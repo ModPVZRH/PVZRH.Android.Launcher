@@ -79,6 +79,8 @@
     <string name="modpack_imported">Imported: %s</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Add Mod</string>
+    <string name="modpack_invalid_mod_file">Only .dll mod files can be added</string>
+    <string name="modpack_add_mod_archive_hint">ZIP/RHP files are modpacks. Use Import Modpack on the modpack page instead</string>
     <string name="modpack_browse_mod_files">Browse Mod Files</string>
     <string name="modpack_browse_mod_files_desc">View all files and directories in this modpack</string>
     <string name="modpack_target_game">For: %s</string>

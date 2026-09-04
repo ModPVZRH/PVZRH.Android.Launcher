@@ -277,11 +277,52 @@ fun BepInExNavHost(
         if (uri != null && targetModpack != null) {
             val game = selectedGame
             if (game != null) {
-                kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
-                    // Must use Activity context — URI permission is on the Activity
-                    modpackManager.addModFromUri(context, game.packageName, targetModpack, uri)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        modpackRefreshKey++
+                val displayName = runCatching {
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameColumn = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            nameColumn.takeIf { it >= 0 }?.let(cursor::getString)
+                        } else {
+                            null
+                        }
+                    }
+                }.getOrNull()
+                when {
+                    ModpackManager.isModpackFileName(displayName) -> {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.modpack_add_mod_archive_hint),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    !ModpackManager.isModFileName(displayName) -> {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.modpack_invalid_mod_file),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    else -> {
+                        composeScope.launch(Dispatchers.IO) {
+                            // Must use Activity context — URI permission is on the Activity
+                            val added = modpackManager.addModFromUri(
+                                context,
+                                game.packageName,
+                                targetModpack,
+                                uri
+                            )
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                if (added != null) {
+                                    modpackRefreshKey++
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        context.getString(R.string.import_failed),
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
                     }
                 }
             }
