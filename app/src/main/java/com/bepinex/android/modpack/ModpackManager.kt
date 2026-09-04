@@ -50,6 +50,16 @@ data class ModpackExportProgress(
  */
 class ModpackManager {
 
+    companion object {
+        const val MODPACK_EXTENSION = "rhp"
+        const val MODPACK_MIME_TYPE = "application/octet-stream"
+
+        private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
+
+        fun isModpackFileName(fileName: String?): Boolean =
+            fileName?.substringAfterLast('.', "")?.lowercase() in SUPPORTED_MODPACK_EXTENSIONS
+    }
+
     fun normalizeModpackName(name: String): String =
         name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
 
@@ -517,9 +527,15 @@ class ModpackManager {
         packageName: String,
         uri: Uri,
         context: Context,
-        zipName: String? = null
+        archiveName: String? = null
     ): ModpackMeta? {
-        val requestedName = normalizeModpackName(zipName ?: "imported_${System.currentTimeMillis()}")
+        if (!isModpackFileName(archiveName)) {
+            BepInExLog.w("Rejected modpack import with unsupported extension: $archiveName")
+            return null
+        }
+        val requestedName = normalizeModpackName(
+            archiveName!!.substringBeforeLast('.')
+        )
         val resolvedName = requestedName.ifEmpty { "imported_${System.currentTimeMillis()}" }
         val modpackDir = getModpackDir(packageName, resolvedName)
         val stagingDir = File(
@@ -574,12 +590,19 @@ class ModpackManager {
             }
 
             currentCoroutineContext().ensureActive()
-            if (modpackDir.exists()) modpackDir.deleteRecursively()
             modpackDir.parentFile?.mkdirs()
             val children = stagingDir.listFiles().orEmpty()
             val sourceDir = if (children.size == 1 && children[0].isDirectory) children[0] else stagingDir
-            if (!sourceDir.renameTo(modpackDir)) {
-                sourceDir.copyRecursively(modpackDir, overwrite = true)
+            val metadataFile = sourceDir.walkTopDown().firstOrNull { file ->
+                file.isFile && file.name.equals("modpack.json", ignoreCase = true)
+            } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
+            JSONObject(metadataFile.readText())
+            val contentRoot = metadataFile.parentFile
+                ?: throw java.io.IOException("Invalid modpack metadata location")
+
+            if (modpackDir.exists()) modpackDir.deleteRecursively()
+            if (!contentRoot.renameTo(modpackDir)) {
+                contentRoot.copyRecursively(modpackDir, overwrite = true)
             }
             stagingDir.deleteRecursively()
 

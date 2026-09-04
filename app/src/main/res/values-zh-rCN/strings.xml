@@ -60,6 +60,8 @@
     <string name="modpack_import">导入整合包</string>
     <string name="modpack_importing">正在导入整合包…</string>
     <string name="modpack_import_cancel">取消</string>
+    <string name="modpack_invalid_file">只能导入 .rhp 或 .zip 后缀的整合包文件</string>
+    <string name="modpack_invalid_archive">整合包压缩文件必须包含 modpack.json</string>
     <string name="modpack_select_active">激活</string>
     <string name="modpack_vanilla">纯净模式（无模组）</string>
     <string name="modpack_name_hint">整合包名称</string>

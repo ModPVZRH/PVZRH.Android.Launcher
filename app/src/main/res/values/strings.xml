@@ -66,6 +66,8 @@
     <string name="modpack_import">Import Modpack</string>
     <string name="modpack_importing">Importing modpack…</string>
     <string name="modpack_import_cancel">Cancel</string>
+    <string name="modpack_invalid_file">Only .rhp or .zip modpack files can be imported</string>
+    <string name="modpack_invalid_archive">The archive must contain modpack.json</string>
     <string name="modpack_select_active">Activate</string>
     <string name="modpack_vanilla">Vanilla (No Mods)</string>
     <string name="modpack_name_hint">Modpack name</string>
