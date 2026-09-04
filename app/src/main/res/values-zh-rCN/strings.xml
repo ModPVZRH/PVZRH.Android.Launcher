@@ -54,7 +54,12 @@
     <string name="modpack_vanilla_desc">未加载模组</string>
     <string name="modpack_empty">暂无整合包</string>
     <string name="modpack_export">导出</string>
+    <string name="modpack_export_preparing">正在准备导出…</string>
+    <string name="modpack_export_progress">正在导出：%1$d / %2$d 个文件</string>
+    <string name="modpack_export_cancel">取消</string>
     <string name="modpack_import">导入整合包</string>
+    <string name="modpack_importing">正在导入整合包…</string>
+    <string name="modpack_import_cancel">取消</string>
     <string name="modpack_select_active">激活</string>
     <string name="modpack_vanilla">纯净模式（无模组）</string>
     <string name="modpack_name_hint">整合包名称</string>

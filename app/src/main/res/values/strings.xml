@@ -60,7 +60,12 @@
     <string name="modpack_vanilla_desc">No mods loaded</string>
     <string name="modpack_empty">No modpacks installed</string>
     <string name="modpack_export">Export</string>
+    <string name="modpack_export_preparing">Preparing export…</string>
+    <string name="modpack_export_progress">Exporting %1$d / %2$d files</string>
+    <string name="modpack_export_cancel">Cancel</string>
     <string name="modpack_import">Import Modpack</string>
+    <string name="modpack_importing">Importing modpack…</string>
+    <string name="modpack_import_cancel">Cancel</string>
     <string name="modpack_select_active">Activate</string>
     <string name="modpack_vanilla">Vanilla (No Mods)</string>
     <string name="modpack_name_hint">Modpack name</string>
