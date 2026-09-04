@@ -143,7 +143,7 @@ fun BepInExNavHost(
 
     fun startModpackExport(targetPackageName: String, targetModpackName: String) {
         if (exportJob?.isActive == true) return
-        val outputFile = java.io.File(context.cacheDir, "$targetModpackName.zip")
+        val outputFile = java.io.File(context.cacheDir, "$targetModpackName.${com.bepinex.android.modpack.ModpackManager.MODPACK_EXTENSION}")
         outputFile.parentFile?.mkdirs()
         exportProgress = ModpackExportProgress("preparing")
         exportJob = composeScope.launch(Dispatchers.IO) {
@@ -165,7 +165,7 @@ fun BepInExNavHost(
                             outputFile
                         )
                         val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                            type = "application/zip"
+                            type = com.bepinex.android.modpack.ModpackManager.MODPACK_MIME_TYPE
                             putExtra(android.content.Intent.EXTRA_STREAM, uri)
                             putExtra(android.content.Intent.EXTRA_SUBJECT, targetModpackName)
                             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -218,20 +218,42 @@ fun BepInExNavHost(
     ) { uri ->
         val game = selectedGame
         if (uri != null && game != null && importJob?.isActive != true) {
+            val displayName = runCatching {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameColumn = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        nameColumn.takeIf { it >= 0 }?.let(cursor::getString)
+                    } else {
+                        null
+                    }
+                }
+            }.getOrNull()
+            if (!com.bepinex.android.modpack.ModpackManager.isModpackFileName(displayName)) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(R.string.modpack_invalid_file),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return@rememberLauncherForActivityResult
+            }
             importJob = composeScope.launch(Dispatchers.IO) {
                 try {
-                    val cursor = context.contentResolver.query(uri, null, null, null, null)
-                    val displayName = cursor?.use {
-                        if (it.moveToFirst()) {
-                            it.getString(it.getColumnIndexOrThrow(android.provider.OpenableColumns.DISPLAY_NAME))
-                        } else {
-                            null
-                        }
-                    }
-                    val zipName = displayName?.removeSuffix(".zip")?.removeSuffix(".ZIP")
-                    modpackManager.importModpack(game.packageName, uri, context, zipName)
+                    val imported = modpackManager.importModpack(
+                        game.packageName,
+                        uri,
+                        context,
+                        displayName
+                    )
                     withContext(Dispatchers.Main) {
-                        modpackRefreshKey++
+                        if (imported != null) {
+                            modpackRefreshKey++
+                        } else {
+                            android.widget.Toast.makeText(
+                                context,
+                                context.getString(R.string.modpack_invalid_archive),
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 } catch (_: kotlinx.coroutines.CancellationException) {
                 } catch (error: Exception) {
@@ -255,11 +277,52 @@ fun BepInExNavHost(
         if (uri != null && targetModpack != null) {
             val game = selectedGame
             if (game != null) {
-                kotlinx.coroutines.MainScope().launch(kotlinx.coroutines.Dispatchers.IO) {
-                    // Must use Activity context — URI permission is on the Activity
-                    modpackManager.addModFromUri(context, game.packageName, targetModpack, uri)
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        modpackRefreshKey++
+                val displayName = runCatching {
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameColumn = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            nameColumn.takeIf { it >= 0 }?.let(cursor::getString)
+                        } else {
+                            null
+                        }
+                    }
+                }.getOrNull()
+                when {
+                    ModpackManager.isModpackFileName(displayName) -> {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.modpack_add_mod_archive_hint),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    !ModpackManager.isModFileName(displayName) -> {
+                        android.widget.Toast.makeText(
+                            context,
+                            context.getString(R.string.modpack_invalid_mod_file),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    else -> {
+                        composeScope.launch(Dispatchers.IO) {
+                            // Must use Activity context — URI permission is on the Activity
+                            val added = modpackManager.addModFromUri(
+                                context,
+                                game.packageName,
+                                targetModpack,
+                                uri
+                            )
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                if (added != null) {
+                                    modpackRefreshKey++
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        context.getString(R.string.import_failed),
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -269,7 +332,7 @@ fun BepInExNavHost(
 
     LaunchedEffect(importModpackTrigger) {
         if (importModpackTrigger) {
-            importModpackLauncher.launch(arrayOf("application/zip", "*/*"))
+            importModpackLauncher.launch(arrayOf("application/zip", com.bepinex.android.modpack.ModpackManager.MODPACK_MIME_TYPE))
             importModpackTrigger = false
         }
     }

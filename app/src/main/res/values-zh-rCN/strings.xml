@@ -60,6 +60,8 @@
     <string name="modpack_import">导入整合包</string>
     <string name="modpack_importing">正在导入整合包…</string>
     <string name="modpack_import_cancel">取消</string>
+    <string name="modpack_invalid_file">只能导入 .rhp 或 .zip 后缀的整合包文件</string>
+    <string name="modpack_invalid_archive">整合包压缩文件必须包含 modpack.json</string>
     <string name="modpack_select_active">激活</string>
     <string name="modpack_vanilla">纯净模式（无模组）</string>
     <string name="modpack_name_hint">整合包名称</string>
@@ -71,6 +73,8 @@
     <string name="modpack_imported">已导入: %s</string>
     <string name="modpack_no_mods">此整合包中暂无模组</string>
     <string name="modpack_add_mod">添加模组</string>
+    <string name="modpack_invalid_mod_file">只能添加 .dll 格式的模组文件</string>
+    <string name="modpack_add_mod_archive_hint">ZIP/RHP 是整合包文件，请到整合包页面使用“导入整合包”功能添加</string>
     <string name="modpack_browse_mod_files">浏览模组文件</string>
     <string name="modpack_browse_mod_files_desc">查看此整合包中的所有文件和目录</string>
     <string name="modpack_target_game">目标游戏：%s</string>
