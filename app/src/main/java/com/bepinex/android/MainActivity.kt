@@ -588,7 +588,7 @@ class MainActivity : ComponentActivity() {
                 val extDir = getExternalFilesDir(null) ?: filesDir
                 val launcherLog = File(extDir, "bepinex_launcher.log")
 
-                // Capture current process logcat
+                // Capture launcher process logcat
                 val logcatFile = File(extDir, "logcat.txt")
                 try {
                     val pid = android.os.Process.myPid()
@@ -600,7 +600,113 @@ class MainActivity : ComponentActivity() {
                     logcatFile.writeText("Failed to capture logcat: ${e.message}")
                 }
 
-                // Zip both logs
+                // Capture game process logcat (Unity, BepInEx, crash)
+                val gameLogcatFile = File(extDir, "game_logcat.txt")
+                try {
+                    val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime"))
+                    val output = process.inputStream.bufferedReader().readText()
+                    process.waitFor()
+                    val filtered = output.lines().filter { line ->
+                        line.contains("Unity") || line.contains("BepInEx") ||
+                        line.contains("FATAL") || line.contains("DEBUG") ||
+                        line.contains("ActivityManager") || line.contains("CRASH") ||
+                        line.contains("libunity") || line.contains("il2cpp") ||
+                        line.contains("signal") || line.contains("backtrace")
+                    }.joinToString("\n")
+                    gameLogcatFile.writeText(filtered.ifEmpty { "No game-related logs found" })
+                } catch (e: Exception) {
+                    gameLogcatFile.writeText("Failed to capture game logcat: ${e.message}")
+                }
+
+                // Capture crash logcat
+                val crashLogcatFile = File(extDir, "crash_logcat.txt")
+                try {
+                    val process = Runtime.getRuntime().exec(arrayOf("logcat", "-b", "crash", "-d", "-v", "threadtime"))
+                    val output = process.inputStream.bufferedReader().readText()
+                    process.waitFor()
+                    crashLogcatFile.writeText(output)
+                } catch (e: Exception) {
+                    crashLogcatFile.writeText("Failed to capture crash logcat: ${e.message}")
+                }
+
+                // Capture Unity log files from game directory
+                val unityLogFile = File(extDir, "unity_logs.txt")
+                try {
+                    val gamePackages = listOf(
+                        "com.LanPiaoPiao.PlantsVsZombiesRH",
+                        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
+                    )
+                    val logNames = setOf(
+                        "main.log", "il2cpp.log", "LogOutput.log", "bepinexlogoutput.log",
+                        "BepInExLogOutput.log", "output_log.txt", "player.log"
+                    )
+                    val sb = StringBuilder()
+                    for (pkg in gamePackages) {
+                        val gameRoot = java.io.File("/storage/emulated/0/PVZRH_Launcher/$pkg")
+                        if (gameRoot.exists()) {
+                            gameRoot.walkTopDown()
+                                .filter { it.isFile && it.length() <= 1024 * 1024 && logNames.contains(it.name) }
+                                .forEach { file ->
+                                    sb.appendLine("=== ${file.absolutePath} ===")
+                                    try { sb.appendLine(file.readText()) } catch (_: Exception) {}
+                                    sb.appendLine()
+                                }
+                        }
+                    }
+                    unityLogFile.writeText(sb.toString().ifEmpty { "No Unity log files found" })
+                } catch (e: Exception) {
+                    unityLogFile.writeText("Failed to capture Unity logs: ${e.message}")
+                }
+
+                // Capture tombstones
+                val tombstoneFile = File(extDir, "tombstones.txt")
+                try {
+                    val process = Runtime.getRuntime().exec(arrayOf("ls", "-lt", "/data/tombstones/"))
+                    val output = process.inputStream.bufferedReader().readText()
+                    process.waitFor()
+                    val sb = StringBuilder()
+                    sb.appendLine(output)
+                    val lines = output.lines().filter { it.contains("tombstone") }
+                    for (line in lines.take(3)) {
+                        val parts = line.trim().split("\\s+".toRegex())
+                        if (parts.isNotEmpty()) {
+                            val name = parts.last()
+                            try {
+                                val pull = Runtime.getRuntime().exec(arrayOf("cat", "/data/tombstones/$name"))
+                                val content = pull.inputStream.bufferedReader().readText()
+                                pull.waitFor()
+                                sb.appendLine("\n=== $name ===")
+                                sb.appendLine(content)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    tombstoneFile.writeText(sb.toString())
+                } catch (e: Exception) {
+                    tombstoneFile.writeText("Failed to capture tombstones: ${e.message}")
+                }
+
+                // Capture BepInEx plugin logs
+                val bepinexLogFile = File(extDir, "bepinex_plugin_logs.txt")
+                try {
+                    val gamePackages = listOf(
+                        "com.LanPiaoPiao.PlantsVsZombiesRH",
+                        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
+                    )
+                    val sb = StringBuilder()
+                    for (pkg in gamePackages) {
+                        val logFile = java.io.File("/storage/emulated/0/PVZRH_Launcher/$pkg/BepInEx/LogOutput.log")
+                        if (logFile.exists() && logFile.length() <= 2 * 1024 * 1024) {
+                            sb.appendLine("=== ${logFile.absolutePath} ===")
+                            try { sb.appendLine(logFile.readText()) } catch (_: Exception) {}
+                            sb.appendLine()
+                        }
+                    }
+                    bepinexLogFile.writeText(sb.toString().ifEmpty { "No BepInEx LogOutput.log found" })
+                } catch (e: Exception) {
+                    bepinexLogFile.writeText("Failed to capture BepInEx logs: ${e.message}")
+                }
+
+                // Zip all logs
                 val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
                     .format(java.util.Date())
                 val zipFile = File(cacheDir, "pvzrh_logs_$timestamp.zip")
@@ -613,6 +719,31 @@ class MainActivity : ComponentActivity() {
                     if (logcatFile.exists()) {
                         zos.putNextEntry(java.util.zip.ZipEntry("logcat.txt"))
                         logcatFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (gameLogcatFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("game_logcat.txt"))
+                        gameLogcatFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (crashLogcatFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("crash_logcat.txt"))
+                        crashLogcatFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (unityLogFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("unity_logs.txt"))
+                        unityLogFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (tombstoneFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("tombstones.txt"))
+                        tombstoneFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    if (bepinexLogFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("bepinex_plugin_logs.txt"))
+                        bepinexLogFile.inputStream().copyTo(zos)
                         zos.closeEntry()
                     }
                 }

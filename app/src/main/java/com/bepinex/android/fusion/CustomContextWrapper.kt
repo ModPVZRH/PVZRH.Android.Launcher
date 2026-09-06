@@ -29,8 +29,17 @@ class CustomContextWrapper(
     override fun getExternalFilesDirs(type: String?): Array<File> = filesContext.getExternalFilesDirs(type)
 
     override fun getSystemService(name: String): Any? = windowContext.getSystemService(name)
-    override fun getDisplay(): Display? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) windowContext.display else null
+    override fun getDisplay(): Display? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val display = windowContext.display
+            if (display != null) return display
+            val activityDisplay = (getBaseContext() as? android.app.Activity)?.display
+            if (activityDisplay != null) return activityDisplay
+            val dm = windowContext.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            return dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        }
+        return null
+    }
     override fun getApplicationContext(): Context = filesContext.applicationContext
     override fun getObbDir(): File? = filesContext.obbDir
     override fun getObbDirs(): Array<File> = filesContext.obbDirs
