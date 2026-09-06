@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">PVZRH Launcher</string>
-    <string name="app_tagline">PVZRH Launcher</string>
+    <string name="app_name">PVZRH Lancher</string>
+    <string name="app_tagline"></string>
     <!-- Navigation -->
-    <string name="nav_games">Games</string>
-    <string name="nav_modpacks">Modpacks</string>
-    <string name="nav_settings">Settings</string>
-    <string name="nav_about">About</string>
+    <string name="nav_games"></string>
+    <string name="nav_modpacks"></string>
+    <string name="nav_settings">Docs/Translating</string>
+    <string name="nav_about">Docs/Translating</string>
     <!-- Game Detection -->
-    <string name="scan_title">PlantsVsZombiesRH</string>
-    <string name="scanning">Checking PlantsVsZombiesRH…</string>
+    <string name="scan_title">Docs/Translating</string>
+    <string name="scanning">Docs/Translating…</string>
     <string name="no_games_found">PlantsVsZombiesRH Not Found</string>
     <string name="no_games_hint">Install PlantsVsZombiesRH to get started</string>
-    <string name="scan_again">Scan Again</string>
-    <string name="rescan">Rescan</string>
+    <string name="scan_again">Docs/Translating</string>
+    <string name="rescan">Docs/Translating</string>
     <!-- Framework Status -->
-    <string name="framework_ready">BepInEx Ready</string>
+    <string name="framework_ready">Docs/Translating</string>
     <string name="framework_setting_up">Setting up…</string>
     <string name="extracting">Extracting BepInEx…</string>
     <string name="mod_count">%d mod(s)</string>
@@ -31,19 +31,19 @@
     <string name="installed_mods">Installed Mods</string>
     <string name="no_mods_installed">No Mods Installed</string>
     <string name="no_mods_hint">Tap Import Mod to add a .dll file</string>
-    <string name="mod_deleted">Deleted: %s</string>
-    <string name="mod_imported">Imported: %s</string>
+    <string name="mod_deleted">Docs/Translating. %s</string>
+    <string name="mod_imported">Docs/Translating. %s</string>
     <string name="import_failed">Import failed</string>
     <!-- Modpacks -->
-    <string name="modpack_title">Modpacks</string>
+    <string name="modpack_title">Docs/Translating</string>
     <string name="modpack_create">Create Modpack</string>
-    <string name="modpack_delete">Delete Modpack</string>
+    <string name="modpack_delete">Docs/Translating</string>
     <string name="modpack_rename">Rename</string>
-    <string name="modpack_rename_failed">The name is invalid or already exists</string>
+    <string name="modpack_rename_failed">Docs/Translating</string>
     <string name="modpack_edit">Edit Modpack</string>
     <string name="modpack_icon">Icon</string>
-    <string name="modpack_icon_hint">Tap to pick an image</string>
-    <string name="modpack_shortcut">Desktop Shortcut</string>
+    <string name="modpack_icon_hint">Docs/Translating</string>
+    <string name="modpack_shortcut">Docs/Translating</string>
     <string name="modpack_shortcut_desc">Create a shortcut to launch this modpack directly</string>
     <string name="modpack_shortcut_create">Create Desktop Shortcut</string>
     <string name="modpack_shortcut_enabled">Desktop Shortcut Enabled</string>
