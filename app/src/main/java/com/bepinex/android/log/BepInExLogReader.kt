@@ -4,7 +4,9 @@ import com.bepinex.android.BepInExPaths
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.io.RandomAccessFile
 
 /**
@@ -94,18 +96,25 @@ object BepInExLogReader {
             val currentSize = logFile.length()
             if (currentSize <= lastFileSize) return
 
+            val newLines = mutableListOf<LogLine>()
             RandomAccessFile(logFile, "r").use { raf ->
                 raf.seek(lastFileSize)
-                val newBytes = ByteArray((currentSize - lastFileSize).toInt())
-                raf.readFully(newBytes)
-                val newContent = String(newBytes, Charsets.UTF_8)
-                val newLines = newContent.lines().filter { it.isNotBlank() }.mapNotNull { parseLine(it) }
-                if (newLines.isNotEmpty()) {
-                    val combined = _lines.value + newLines
-                    _lines.value = if (combined.size > MAX_LINES) combined.takeLast(MAX_LINES) else combined
+                val stream = java.io.FileInputStream(raf.fd)
+                BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
+                    var line = reader.readLine()
+                    while (line != null) {
+                        if (line.isNotBlank()) {
+                            parseLine(line)?.let { newLines.add(it) }
+                        }
+                        line = reader.readLine()
+                    }
                 }
-                lastFileSize = currentSize
             }
+            if (newLines.isNotEmpty()) {
+                val combined = _lines.value + newLines
+                _lines.value = if (combined.size > MAX_LINES) combined.takeLast(MAX_LINES) else combined
+            }
+            lastFileSize = currentSize
         } catch (_: Exception) {
             // File may be locked or not yet written
         }
