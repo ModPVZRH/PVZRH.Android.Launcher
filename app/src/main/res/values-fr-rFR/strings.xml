@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">PVZRH Launcher</string>
+    <string name="app_name">PVZRH</string>
     <string name="app_tagline">PVZRH Launcher</string>
     <!-- Navigation -->
     <string name="nav_games">Games</string>
@@ -215,7 +215,7 @@
     <string name="confirm_copy_resources_msg">This will copy the game\'s asset data from the APK to local storage.</string>
     <string name="confirm_yes">Yes</string>
     <string name="confirm_no">No</string>
-    <string name="confirm_ok">موافق</string>
+    <string name="confirm_ok">OK</string>
     <string name="confirm_cancel">Cancel</string>
     <string name="confirm_delete">Delete</string>
     <!-- Theme -->
@@ -243,8 +243,8 @@
     <string name="lang_malay">Bahasa Melayu</string>
     <string name="lang_thai">ไทย</string>
     <string name="lang_venetian">Vèneto</string>
-    <string name="lang_incomplete_title">الترجمة غير مُساهم بها</string>
-    <string name="lang_incomplete_message">ترجمة لغتك غير مكتملة. إذا كنت تساعد في تحسين الترجمة، يرجى زيارة [هنا](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
+    <string name="lang_incomplete_title">Localisation non contribuée</string>
+    <string name="lang_incomplete_message">La traduction de votre langue n\'est pas complète. Si vous souhaitez aider à améliorer la localisation, veuillez visiter [ici](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
     <!-- About -->
     <string name="about_title">PVZRH Launcher</string>
     <string name="about_description">A BepInEx loader supporting Android for PVZRH</string>
