@@ -44,6 +44,8 @@ object BepInExLogReader {
     /** BepInEx log format: [LogLevel :Source] message */
     private val LOG_PATTERN = Regex("^\\[([A-Za-z]+)\\s*:?(\\S+)?\\]\\s?(.*)")
 
+    private const val MAX_LINES = 1000
+
     private val _lines = MutableStateFlow<List<LogLine>>(emptyList())
     val lines: StateFlow<List<LogLine>> = _lines
 
@@ -99,7 +101,8 @@ object BepInExLogReader {
                 val newContent = String(newBytes, Charsets.UTF_8)
                 val newLines = newContent.lines().filter { it.isNotBlank() }.mapNotNull { parseLine(it) }
                 if (newLines.isNotEmpty()) {
-                    _lines.value = _lines.value + newLines
+                    val combined = _lines.value + newLines
+                    _lines.value = if (combined.size > MAX_LINES) combined.takeLast(MAX_LINES) else combined
                 }
                 lastFileSize = currentSize
             }
