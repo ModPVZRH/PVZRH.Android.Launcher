@@ -347,6 +347,7 @@
     <string name="crash_signal">Signal: %1$s</string>
     <string name="crash_hint">Please send the exported log to the developer for investigation.</string>
     <string name="crash_export_logs">Export Logs</string>
+    <string name="crash_copy">Copy</string>
 
     <!-- Generic -->
     <string name="ok">OK</string>
