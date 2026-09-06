@@ -289,10 +289,11 @@ fun SettingsScreen(
                 AppSettings.Language.FRENCH to stringResource(R.string.lang_french),
                 AppSettings.Language.ITALIAN to stringResource(R.string.lang_italian),
                 AppSettings.Language.DUTCH to stringResource(R.string.lang_dutch),
-                AppSettings.Language.TURKISH to stringResource(R.string.lang_turkish),
                 AppSettings.Language.ARABIC to stringResource(R.string.lang_arabic),
-                AppSettings.Language.UKRAINIAN to stringResource(R.string.lang_ukrainian),
-                AppSettings.Language.MALAYAML to stringResource(R.string.lang_malayalam),
+                AppSettings.Language.ARABIC_EG to stringResource(R.string.lang_arabic_eg),
+                AppSettings.Language.INDONESIAN to stringResource(R.string.lang_indonesian),
+                AppSettings.Language.MALAY to stringResource(R.string.lang_malay),
+                AppSettings.Language.THAI to stringResource(R.string.lang_thai),
                 AppSettings.Language.VENETIAN to stringResource(R.string.lang_venetian)
             ),
             onDismiss = { showLanguageDialog = false },
@@ -388,10 +389,11 @@ private fun languageLabel(language: AppSettings.Language) = when (language) {
     AppSettings.Language.FRENCH -> stringResource(R.string.lang_french)
     AppSettings.Language.ITALIAN -> stringResource(R.string.lang_italian)
     AppSettings.Language.DUTCH -> stringResource(R.string.lang_dutch)
-    AppSettings.Language.TURKISH -> stringResource(R.string.lang_turkish)
     AppSettings.Language.ARABIC -> stringResource(R.string.lang_arabic)
-    AppSettings.Language.UKRAINIAN -> stringResource(R.string.lang_ukrainian)
-    AppSettings.Language.MALAYAML -> stringResource(R.string.lang_malayalam)
+    AppSettings.Language.ARABIC_EG -> stringResource(R.string.lang_arabic_eg)
+    AppSettings.Language.INDONESIAN -> stringResource(R.string.lang_indonesian)
+    AppSettings.Language.MALAY -> stringResource(R.string.lang_malay)
+    AppSettings.Language.THAI -> stringResource(R.string.lang_thai)
     AppSettings.Language.VENETIAN -> stringResource(R.string.lang_venetian)
 }
 

@@ -8,7 +8,9 @@ import androidx.compose.animation.core.tween
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -365,9 +368,13 @@ fun BepInExNavHost(
 
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
 
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
+            if (!isTablet) {
             AnimatedVisibility(
                 visible = showBottomBar,
                 enter = if (animationDisabled) EnterTransition.None
@@ -421,12 +428,15 @@ fun BepInExNavHost(
                     )
                 }
             }
+            }
         }
     ) { innerPadding ->
+        val navContent: @Composable () -> Unit = {
         NavHost(
             navController = navController,
             startDestination = NavRoutes.MAIN,
-            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            modifier = if (isTablet) Modifier.fillMaxSize()
+                else Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
             enterTransition = {
                 if (animationDisabled) EnterTransition.None
                 else if (isSaveImportRoute(targetState.destination.route)) {
@@ -872,6 +882,42 @@ fun BepInExNavHost(
                         }
                     )
                 }
+        } // navContent
+
+        if (isTablet && showBottomBar) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                NavigationRail(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    NavigationRailItem(
+                        selected = pagerState.currentPage == 0,
+                        onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(0) else pagerState.animateScrollToPage(0) } },
+                        icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
+                        label = { Text(stringResource(R.string.nav_games)) }
+                    )
+                    NavigationRailItem(
+                        selected = pagerState.currentPage == 1,
+                        onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(1) else pagerState.animateScrollToPage(1) } },
+                        enabled = selectedGame != null,
+                        icon = { Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks)) },
+                        label = { Text(stringResource(R.string.nav_modpacks)) }
+                    )
+                    NavigationRailItem(
+                        selected = pagerState.currentPage == 2,
+                        onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(2) else pagerState.animateScrollToPage(2) } },
+                        enabled = selectedGame != null,
+                        icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
+                        label = { Text(stringResource(R.string.nav_settings)) }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    navContent()
+                }
+            }
+        } else {
+            navContent()
+        }
 
     }
 }
