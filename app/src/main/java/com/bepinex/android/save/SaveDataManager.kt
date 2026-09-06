@@ -20,10 +20,9 @@ object SaveDataManager {
     private const val DOC_AUTHORITY = "com.android.externalstorage.documents"
     private const val EXCLUDED_SAVE_DIRECTORY = "il2cpp"
 
-    fun needsSafAccess(): Boolean =
-        Build.VERSION.SDK_INT in Build.VERSION_CODES.R..34
+    fun needsSafAccess(): Boolean = Build.VERSION.SDK_INT == Build.VERSION_CODES.R
 
-    fun needsShizuku(): Boolean = Build.VERSION.SDK_INT >= 35
+    fun needsShizuku(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     fun getGameExternalSavesDir(packageName: String): File =
         File(Environment.getExternalStorageDirectory(), "Android/data/$packageName/files")
