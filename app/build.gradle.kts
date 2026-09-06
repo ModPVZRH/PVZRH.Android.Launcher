@@ -115,6 +115,10 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.8.4")
 
+    // Window Size Class — adaptive layout breakpoints
+    implementation("androidx.compose.material3.adaptive:adaptive:1.0.0")
+    implementation("androidx.window:window:1.3.0")
+
     // AppCompat (DayNight theme support)
     implementation("androidx.appcompat:appcompat:1.7.0")
 
