@@ -55,10 +55,11 @@ object AppSettings {
         FRENCH("fr"),
         ITALIAN("it"),
         DUTCH("nl"),
-        TURKISH("tr"),
         ARABIC("ar"),
-        UKRAINIAN("uk"),
-        MALAYAML("ml"),
+        ARABIC_EG("ar-EG"),
+        INDONESIAN("id"),
+        MALAY("ms"),
+        THAI("th"),
         VENETIAN("vec");
 
         companion object {
