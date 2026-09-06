@@ -150,15 +150,38 @@ class BootstrapActivity : Activity() {
         if (baseHooksInstalled.compareAndSet(false, true)) {
             updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 70)
             BepInExLog.i("Installing Pine hooks...")
+
+            val watchdog = Thread({
+                Thread.sleep(30_000)
+                if (!baseHooksInstalled.get()) return@Thread
+                BepInExLog.e("Pine hook installation timed out after 30s — device may be incompatible")
+                failAndFinish("Hook installation timed out. Your device may not be compatible with the hook framework.")
+            }, "HookWatchdog").also { it.isDaemon = true; it.start() }
+
             try {
+                val t0 = System.currentTimeMillis()
+                BepInExLog.i("  [1/4] ClassLoaderHooks...")
                 ClassLoaderHooks.installHooks(gameContext.classLoader)
+                BepInExLog.i("  [1/4] done (${System.currentTimeMillis() - t0}ms)")
+
+                BepInExLog.i("  [2/4] PackageManagerHooks...")
                 PackageManagerHooks.installHooks(packageManager)
+                BepInExLog.i("  [2/4] done (${System.currentTimeMillis() - t0}ms)")
+
+                BepInExLog.i("  [3/4] InstrumentationHooks...")
                 InstrumentationHooks.install()
+                BepInExLog.i("  [3/4] done (${System.currentTimeMillis() - t0}ms)")
+
+                BepInExLog.i("  [4/4] UnityPlayerHooks...")
                 UnityPlayerHooks.installHooks(gameContext, applicationContext)
-                BepInExLog.i("Base hooks installed")
+                BepInExLog.i("  [4/4] done (${System.currentTimeMillis() - t0}ms)")
+
+                BepInExLog.i("Base hooks installed (${System.currentTimeMillis() - t0}ms total)")
             } catch (e: Exception) {
                 baseHooksInstalled.set(false)
                 throw IllegalStateException("Failed to install base hooks", e)
+            } finally {
+                watchdog.interrupt()
             }
         } else {
             BepInExLog.i("Base hooks already installed, skipping")
