@@ -237,10 +237,11 @@
     <string name="lang_french">Français</string>
     <string name="lang_italian">Italiano</string>
     <string name="lang_dutch">Nederlands</string>
-    <string name="lang_turkish">Türkçe</string>
     <string name="lang_arabic">العربية</string>
-    <string name="lang_ukrainian">Українська</string>
-    <string name="lang_malayalam">മലയാളം</string>
+    <string name="lang_arabic_eg">العربية (مصر)</string>
+    <string name="lang_indonesian">Bahasa Indonesia</string>
+    <string name="lang_malay">Bahasa Melayu</string>
+    <string name="lang_thai">ไทย</string>
     <string name="lang_venetian">Vèneto</string>
     <string name="lang_incomplete_title">الترجمة غير مُساهم بها</string>
     <string name="lang_incomplete_message">ترجمة لغتك غير مكتملة. إذا كنت تساعد في تحسين الترجمة، يرجى زيارة [هنا](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
@@ -324,6 +325,7 @@
     <string name="crash_signal">Signal: %1$s</string>
     <string name="crash_hint">Please send the exported log to the developer for investigation.</string>
     <string name="crash_export_logs">Export Logs</string>
+    <string name="crash_copy">Copy</string>
     <!-- Generic -->
     <string name="ok">OK</string>
     <string name="back">Back</string>
