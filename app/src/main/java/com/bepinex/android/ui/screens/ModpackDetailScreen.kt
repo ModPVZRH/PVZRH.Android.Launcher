@@ -451,10 +451,6 @@ private fun ModItemCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (!mod.enabled) {
-                        Spacer(Modifier.height(6.dp))
-                        StatusBadge(text = stringResource(R.string.modpack_mod_disabled))
-                    }
                 }
                 Spacer(Modifier.width(8.dp))
                 Switch(
