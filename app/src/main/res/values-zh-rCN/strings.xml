@@ -85,6 +85,9 @@
     <string name="modpack_mod_display_name_hint">仅在启动器中显示，不会修改 DLL 文件名</string>
     <string name="modpack_mod_file_name">文件：%s</string>
     <string name="modpack_mod_rename_failed">显示名称不能为空</string>
+    <string name="modpack_mod_enable">加载此模组</string>
+    <string name="modpack_mod_disabled">已关闭</string>
+    <string name="modpack_mod_disabled_count">已关闭 %d 个</string>
     <!-- Config Editor -->
     <string name="config_editor_title">配置编辑器</string>
     <string name="config_editor_save">保存</string>

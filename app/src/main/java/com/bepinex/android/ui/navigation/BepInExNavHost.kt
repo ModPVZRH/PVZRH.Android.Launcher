@@ -710,6 +710,15 @@ fun BepInExNavHost(
                             )
                             mods = modpackManager.listModEntries(packageName, modpackName)
                         },
+                        onToggleMod = { mod, enabled ->
+                            modpackManager.setDllEnabled(
+                                packageName,
+                                modpackName,
+                                mod.relativePath,
+                                enabled
+                            )
+                            mods = modpackManager.listModEntries(packageName, modpackName)
+                        },
                         onOpenConfig = { configFile ->
                             navController.navigate(NavRoutes.configEditor(configFile.absolutePath))
                         },
