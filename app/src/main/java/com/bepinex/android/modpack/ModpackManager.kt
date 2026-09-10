@@ -20,13 +20,24 @@ import java.util.zip.ZipOutputStream
 
 /**
  * Metadata for a modpack.
+ *
+ * [dllNames] maps a plugin-relative DLL path to a display name. Older
+ * modpack.json files omit this field; missing entries fall back to the file name.
  */
 data class ModpackMeta(
     val name: String,
     val packageName: String,
     val createdAt: Long = System.currentTimeMillis(),
     val modCount: Int = 0,
-    val createShortcut: Boolean = false
+    val createShortcut: Boolean = false,
+    val dllNames: Map<String, String> = emptyMap()
+)
+
+/** A plugin DLL inside a modpack, with its saved display name. */
+data class ModpackMod(
+    val file: File,
+    val relativePath: String,
+    val displayName: String
 )
 
 data class ModpackExportProgress(
@@ -55,6 +66,7 @@ class ModpackManager {
         const val MODPACK_MIME_TYPE = "application/octet-stream"
 
         private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
+        private const val DLL_NAMES_KEY = "dllNames"
 
         fun isModpackFileName(fileName: String?): Boolean =
             fileName?.substringAfterLast('.', "")?.lowercase() in SUPPORTED_MODPACK_EXTENSIONS
@@ -167,13 +179,9 @@ class ModpackManager {
         return name
     }
 
-    /** Re-sync modpack.json modCount with actual file system count */
+    /** Re-sync modpack.json modCount and DLL display-name mappings. */
     private fun syncModpackMeta(packageName: String, modpackName: String) {
-        val current = readMeta(packageName, modpackName) ?: return
-        val real = getModCount(packageName, modpackName)
-        if (current.modCount != real) {
-            writeMeta(current.copy(modCount = real))
-        }
+        readMeta(packageName, modpackName)
     }
 
     fun listMods(packageName: String, modpackName: String): List<File> {
@@ -187,6 +195,39 @@ class ModpackManager {
         } else {
             emptyList()
         }
+    }
+
+    fun listModEntries(packageName: String, modpackName: String): List<ModpackMod> {
+        val pluginsDir = getModpackPluginsDir(packageName, modpackName)
+        val mappings = readMeta(packageName, modpackName)?.dllNames.orEmpty()
+        return listMods(packageName, modpackName).map { file ->
+            val relativePath = dllRelativePath(pluginsDir, file)
+            ModpackMod(
+                file = file,
+                relativePath = relativePath,
+                displayName = resolveDllDisplayName(mappings, relativePath, file.name)
+            )
+        }
+    }
+
+    fun setDllDisplayName(
+        packageName: String,
+        modpackName: String,
+        relativePath: String,
+        displayName: String
+    ): Boolean {
+        val name = displayName.trim()
+        if (name.isEmpty()) return false
+        val current = readMeta(packageName, modpackName) ?: return false
+        val dllNames = syncedDllNames(packageName, modpackName, current.dllNames).toMutableMap()
+        dllNames[normalizeDllKey(relativePath)] = name
+        writeMeta(
+            current.copy(
+                modCount = getModCount(packageName, modpackName),
+                dllNames = dllNames
+            )
+        )
+        return true
     }
 
     fun listConfigs(packageName: String, modpackName: String): List<File> {
@@ -607,7 +648,8 @@ class ModpackManager {
             val metadataFile = sourceDir.walkTopDown().firstOrNull { file ->
                 file.isFile && file.name.equals("modpack.json", ignoreCase = true)
             } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
-            JSONObject(metadataFile.readText())
+            val importedJson = JSONObject(metadataFile.readText())
+            val importedDllNames = parseDllNames(importedJson)
             val contentRoot = metadataFile.parentFile
                 ?: throw java.io.IOException("Invalid modpack metadata location")
 
@@ -624,7 +666,10 @@ class ModpackManager {
             val meta = ModpackMeta(
                 name = resolvedName,
                 packageName = packageName,
-                modCount = getModCount(packageName, resolvedName)
+                createdAt = importedJson.optLong("createdAt", System.currentTimeMillis()),
+                modCount = getModCount(packageName, resolvedName),
+                createShortcut = importedJson.optBoolean("createShortcut", false),
+                dllNames = syncedDllNames(packageName, resolvedName, importedDllNames)
             )
             writeMeta(meta)
             BepInExLog.i("Imported modpack: $resolvedName")
@@ -652,14 +697,18 @@ class ModpackManager {
         }
         return try {
             val json = JSONObject(file.readText())
+            val dllNames = syncedDllNames(packageName, name, parseDllNames(json))
             val meta = ModpackMeta(
                 name = name,
                 packageName = packageName,
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
                 modCount = actualModCount,
-                createShortcut = json.optBoolean("createShortcut", false)
+                createShortcut = json.optBoolean("createShortcut", false),
+                dllNames = dllNames
             )
-            if (json.optInt("modCount", -1) != actualModCount) {
+            val storedModCount = json.optInt("modCount", -1)
+            val storedDllNames = parseDllNames(json)
+            if (storedModCount != actualModCount || storedDllNames != dllNames) {
                 writeMeta(meta)
             }
             meta
@@ -676,8 +725,60 @@ class ModpackManager {
             put("createdAt", meta.createdAt)
             put("modCount", meta.modCount)
             put("createShortcut", meta.createShortcut)
+            put(DLL_NAMES_KEY, JSONObject().apply {
+                meta.dllNames.toSortedMap().forEach { (path, displayName) ->
+                    put(path, displayName)
+                }
+            })
         }
         getMetaFile(meta.packageName, meta.name).writeText(json.toString(2))
+    }
+
+    private fun parseDllNames(json: JSONObject): Map<String, String> {
+        val names = json.optJSONObject(DLL_NAMES_KEY) ?: return emptyMap()
+        val result = linkedMapOf<String, String>()
+        names.keys().forEach { key ->
+            val displayName = names.optString(key).trim()
+            if (key.isNotBlank() && displayName.isNotEmpty()) {
+                result[normalizeDllKey(key)] = displayName
+            }
+        }
+        return result
+    }
+
+    private fun syncedDllNames(
+        packageName: String,
+        modpackName: String,
+        existing: Map<String, String>
+    ): Map<String, String> {
+        val pluginsDir = getModpackPluginsDir(packageName, modpackName)
+        val knownFiles = listMods(packageName, modpackName).associate { file ->
+            val relativePath = dllRelativePath(pluginsDir, file)
+            relativePath to file.name
+        }
+        if (knownFiles.isEmpty()) return emptyMap()
+
+        val result = linkedMapOf<String, String>()
+        knownFiles.forEach { (relativePath, fileName) ->
+            result[relativePath] = resolveDllDisplayName(existing, relativePath, fileName)
+        }
+        return result
+    }
+
+    private fun dllRelativePath(pluginsDir: File, file: File): String =
+        normalizeDllKey(file.relativeTo(pluginsDir).invariantSeparatorsPath)
+
+    private fun normalizeDllKey(path: String): String =
+        path.replace('\\', '/').trimStart('/')
+
+    private fun resolveDllDisplayName(
+        mappings: Map<String, String>,
+        relativePath: String,
+        fileName: String
+    ): String {
+        mappings[relativePath]?.takeIf { it.isNotBlank() }?.let { return it }
+        mappings[fileName]?.takeIf { it.isNotBlank() }?.let { return it }
+        return fileName
     }
 
     fun updateMeta(packageName: String, modpackName: String, createShortcut: Boolean): ModpackMeta? {

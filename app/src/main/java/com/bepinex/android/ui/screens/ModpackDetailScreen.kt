@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
@@ -34,6 +35,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,6 +55,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.modpack.ModpackMod
 import java.io.File
 
 /**
@@ -62,17 +65,19 @@ import java.io.File
 @Composable
 fun ModpackDetailScreen(
     modpackName: String,
-    mods: List<File>,
+    mods: List<ModpackMod>,
     configFiles: List<File>,
     onNavigateBack: () -> Unit,
     onAddMod: () -> Unit,
-    onDeleteMod: (File) -> Unit,
+    onDeleteMod: (ModpackMod) -> Unit,
+    onRenameMod: (ModpackMod, String) -> Unit,
     onOpenConfig: (File) -> Unit,
     onViewLog: () -> Unit,
     onExportModpack: () -> Unit,
     onBrowseModFiles: () -> Unit = {}
 ) {
-    var modPendingDelete by remember { mutableStateOf<File?>(null) }
+    var modPendingDelete by remember { mutableStateOf<ModpackMod?>(null) }
+    var modPendingRename by remember { mutableStateOf<ModpackMod?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -182,15 +187,17 @@ fun ModpackDetailScreen(
             } else {
                 items(
                     items = mods,
-                    key = { it.absolutePath },
+                    key = { it.file.absolutePath },
                     contentType = { "mod" }
                 ) { mod ->
+                    val showsMappedName = mod.displayName != mod.file.name
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        ),
+                        onClick = { modPendingRename = mod }
                     ) {
                         Row(
                             modifier = Modifier
@@ -220,16 +227,34 @@ fun ModpackDetailScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = mod.name,
+                                    text = mod.displayName,
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = formatFileSize(mod.length()),
+                                    text = buildString {
+                                        if (showsMappedName || mod.relativePath.contains('/')) {
+                                            append(mod.relativePath)
+                                            append(" · ")
+                                        }
+                                        append(formatFileSize(mod.file.length()))
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = { modPendingRename = mod }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = stringResource(
+                                        R.string.modpack_mod_rename
+                                    ) + ": " + mod.displayName
                                 )
                             }
                             IconButton(
@@ -239,7 +264,7 @@ fun ModpackDetailScreen(
                                     imageVector = Icons.Outlined.Delete,
                                     contentDescription = stringResource(
                                         R.string.delete
-                                    ) + ": " + mod.name,
+                                    ) + ": " + mod.displayName,
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -311,7 +336,7 @@ fun ModpackDetailScreen(
                 Text(
                     stringResource(
                         R.string.mod_file_browser_delete_message,
-                        mod.name
+                        mod.displayName
                     )
                 )
             },
@@ -335,6 +360,71 @@ fun ModpackDetailScreen(
             }
         )
     }
+
+    modPendingRename?.let { mod ->
+        RenameDllDialog(
+            mod = mod,
+            onDismiss = { modPendingRename = null },
+            onConfirm = { newName ->
+                onRenameMod(mod, newName)
+                modPendingRename = null
+            }
+        )
+    }
+}
+
+@Composable
+private fun RenameDllDialog(
+    mod: ModpackMod,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by remember(mod.relativePath) { mutableStateOf(mod.displayName) }
+    val trimmed = name.trim()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.modpack_mod_rename)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.modpack_mod_file_name, mod.relativePath),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.modpack_mod_display_name)) },
+                    supportingText = {
+                        Text(
+                            if (trimmed.isEmpty()) {
+                                stringResource(R.string.modpack_mod_rename_failed)
+                            } else {
+                                stringResource(R.string.modpack_mod_display_name_hint)
+                            }
+                        )
+                    },
+                    singleLine = true,
+                    isError = trimmed.isEmpty(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(trimmed) },
+                enabled = trimmed.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.confirm_cancel))
+            }
+        }
+    )
 }
 
 @Composable

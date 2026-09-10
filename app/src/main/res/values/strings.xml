@@ -86,6 +86,11 @@
     <string name="modpack_target_game">For: %s</string>
     <string name="modpack_mod_count">%d mod(s)</string>
     <string name="modpack_active">Active</string>
+    <string name="modpack_mod_rename">Rename Mod</string>
+    <string name="modpack_mod_display_name">Display name</string>
+    <string name="modpack_mod_display_name_hint">Shown in this launcher only. The DLL file name is unchanged.</string>
+    <string name="modpack_mod_file_name">File: %s</string>
+    <string name="modpack_mod_rename_failed">Display name cannot be empty</string>
 
     <!-- Config Editor -->
     <string name="config_editor_title">Config Editor</string>

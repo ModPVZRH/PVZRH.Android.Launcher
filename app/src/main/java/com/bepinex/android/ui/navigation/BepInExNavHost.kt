@@ -685,7 +685,7 @@ fun BepInExNavHost(
                     val modpackName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
 
                     var mods by remember(packageName, modpackName, modpackRefreshKey) {
-                        mutableStateOf(modpackManager.listMods(packageName, modpackName))
+                        mutableStateOf(modpackManager.listModEntries(packageName, modpackName))
                     }
                     val configFiles = remember(packageName, modpackName, modpackRefreshKey) {
                         modpackManager.listConfigs(packageName, modpackName)
@@ -697,9 +697,18 @@ fun BepInExNavHost(
                         configFiles = configFiles,
                         onNavigateBack = { navController.popBackStack() },
                         onAddMod = { addModTrigger = modpackName },
-                        onDeleteMod = { file ->
-                            modpackManager.removeMod(file)
-                            mods = modpackManager.listMods(packageName, modpackName)
+                        onDeleteMod = { mod ->
+                            modpackManager.removeMod(mod.file)
+                            mods = modpackManager.listModEntries(packageName, modpackName)
+                        },
+                        onRenameMod = { mod, displayName ->
+                            modpackManager.setDllDisplayName(
+                                packageName,
+                                modpackName,
+                                mod.relativePath,
+                                displayName
+                            )
+                            mods = modpackManager.listModEntries(packageName, modpackName)
                         },
                         onOpenConfig = { configFile ->
                             navController.navigate(NavRoutes.configEditor(configFile.absolutePath))
