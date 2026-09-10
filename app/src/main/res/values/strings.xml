@@ -85,6 +85,7 @@
     <string name="modpack_browse_mod_files_desc">View all files and directories in this modpack</string>
     <string name="modpack_target_game">For: %s</string>
     <string name="modpack_mod_count">%d mod(s)</string>
+    <string name="modpack_mod_count_ratio">%1$d / %2$d mods</string>
     <string name="modpack_active">Active</string>
     <string name="modpack_mod_rename">Rename Mod</string>
     <string name="modpack_mod_display_name">Display name</string>

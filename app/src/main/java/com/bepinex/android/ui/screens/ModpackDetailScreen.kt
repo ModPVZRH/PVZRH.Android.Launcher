@@ -154,12 +154,12 @@ fun ModpackDetailScreen(
                             .weight(1f)
                             .semantics { heading() }
                     )
-                    val disabledCount = mods.count { !it.enabled }
-                    if (disabledCount > 0) {
+                    if (mods.isNotEmpty()) {
                         StatusBadge(
                             text = stringResource(
-                                R.string.modpack_mod_disabled_count,
-                                disabledCount
+                                R.string.modpack_mod_count_ratio,
+                                mods.count { it.enabled },
+                                mods.size
                             )
                         )
                     }

@@ -510,6 +510,8 @@ fun BepInExNavHost(
                                 isExtracting = isExtracting,
                                 extractionStatus = extractionStatus,
                                 activeModpackName = activeModpackName,
+                                activeModpackEnabledCount = if (activeModpackName != null)
+                                    modpacks.find { it.name == activeModpackName }?.enabledModCount ?: 0 else 0,
                                 activeModpackModCount = if (activeModpackName != null)
                                     modpacks.find { it.name == activeModpackName }?.modCount ?: 0 else 0,
                                 onSelectGame = onSelectGame,
@@ -616,7 +618,11 @@ fun BepInExNavHost(
                                     onExportModpack = { name ->
                                         startModpackExport(packageName, name)
                                     },
-                                    onImportModpack = { importModpackTrigger = true }
+                                    onImportModpack = { importModpackTrigger = true },
+                                    onRefresh = {
+                                        modpackRefreshKey++
+                                        modpackIconRefreshKey++
+                                    }
                                 )
                             }
                             2 -> {
@@ -700,6 +706,7 @@ fun BepInExNavHost(
                         onDeleteMod = { mod ->
                             modpackManager.removeMod(mod.file)
                             mods = modpackManager.listModEntries(packageName, modpackName)
+                            modpackRefreshKey++
                         },
                         onRenameMod = { mod, displayName ->
                             modpackManager.setDllDisplayName(
@@ -718,6 +725,7 @@ fun BepInExNavHost(
                                 enabled
                             )
                             mods = modpackManager.listModEntries(packageName, modpackName)
+                            modpackRefreshKey++
                         },
                         onOpenConfig = { configFile ->
                             navController.navigate(NavRoutes.configEditor(configFile.absolutePath))

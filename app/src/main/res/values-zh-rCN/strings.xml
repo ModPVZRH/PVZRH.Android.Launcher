@@ -79,6 +79,7 @@
     <string name="modpack_browse_mod_files_desc">查看此整合包中的所有文件和目录</string>
     <string name="modpack_target_game">目标游戏：%s</string>
     <string name="modpack_mod_count">%d 个模组</string>
+    <string name="modpack_mod_count_ratio">%1$d / %2$d 个模组</string>
     <string name="modpack_active">已激活</string>
     <string name="modpack_mod_rename">重命名模组</string>
     <string name="modpack_mod_display_name">显示名称</string>

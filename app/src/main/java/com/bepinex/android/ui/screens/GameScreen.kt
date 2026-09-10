@@ -83,6 +83,7 @@ fun GameScreen(
     isExtracting: Boolean,
     extractionStatus: String,
     activeModpackName: String?,
+    activeModpackEnabledCount: Int,
     activeModpackModCount: Int,
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
     onRescan: () -> Unit,
@@ -233,6 +234,7 @@ fun GameScreen(
                             isExtracting = isExtracting,
                             extractionStatus = extractionStatus,
                             activeModpackName = activeModpackName,
+                            activeModpackEnabledCount = activeModpackEnabledCount,
                             activeModpackModCount = activeModpackModCount,
                             onLaunch = onLaunch,
                             onManageSaves = onManageSaves
@@ -383,6 +385,7 @@ private fun SelectedGameCard(
     isExtracting: Boolean,
     extractionStatus: String,
     activeModpackName: String?,
+    activeModpackEnabledCount: Int,
     activeModpackModCount: Int,
     onLaunch: () -> Unit,
     onManageSaves: () -> Unit
@@ -427,6 +430,7 @@ private fun SelectedGameCard(
             Spacer(Modifier.height(16.dp))
             ModpackChip(
                 activeModpackName = activeModpackName,
+                activeModpackEnabledCount = activeModpackEnabledCount,
                 activeModpackModCount = activeModpackModCount
             )
 
@@ -563,7 +567,11 @@ private fun StatusChip(
     }
 }
 @Composable
-private fun ModpackChip(activeModpackName: String?, activeModpackModCount: Int) {
+private fun ModpackChip(
+    activeModpackName: String?,
+    activeModpackEnabledCount: Int,
+    activeModpackModCount: Int
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
@@ -590,7 +598,11 @@ private fun ModpackChip(activeModpackName: String?, activeModpackModCount: Int) 
             Spacer(Modifier.width(8.dp))
             Text(
                 text = if (activeModpackName != null) {
-                    "$activeModpackName · $activeModpackModCount mod(s)"
+                    "$activeModpackName · " + stringResource(
+                        R.string.modpack_mod_count_ratio,
+                        activeModpackEnabledCount,
+                        activeModpackModCount
+                    )
                 } else {
                     stringResource(R.string.modpack_vanilla)
                 },

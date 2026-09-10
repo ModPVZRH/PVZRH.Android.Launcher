@@ -36,7 +36,10 @@ data class ModpackMeta(
     val createShortcut: Boolean = false,
     val dllNames: Map<String, String> = emptyMap(),
     val disabledDlls: Set<String> = emptySet()
-)
+) {
+    val enabledModCount: Int
+        get() = (modCount - disabledDlls.size).coerceAtLeast(0)
+}
 
 /** A plugin DLL inside a modpack, with its saved display name and load switch. */
 data class ModpackMod(

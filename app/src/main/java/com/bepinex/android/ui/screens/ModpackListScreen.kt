@@ -48,7 +48,8 @@ fun ModpackListScreen(
     onSelectModpack: (String?) -> Unit,
     onOpenModpack: (String) -> Unit,
     onExportModpack: (String) -> Unit,
-    onImportModpack: () -> Unit
+    onImportModpack: () -> Unit,
+    onRefresh: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
@@ -104,6 +105,12 @@ fun ModpackListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.refresh)
+                        )
+                    }
                     IconButton(onClick = onImportModpack) {
                         Icon(
                             imageVector = Icons.Filled.FileOpen,
@@ -371,7 +378,11 @@ private fun ModpackCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.modpack_mod_count, modpack.modCount),
+                        text = stringResource(
+                            R.string.modpack_mod_count_ratio,
+                            modpack.enabledModCount,
+                            modpack.modCount
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
