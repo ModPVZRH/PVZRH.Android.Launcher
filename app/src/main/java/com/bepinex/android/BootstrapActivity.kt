@@ -151,9 +151,14 @@ class BootstrapActivity : Activity() {
             updateProgress(getString(R.string.bootstrap_status_installing_hooks), "", 70)
             BepInExLog.i("Installing Pine hooks...")
 
+            val hooksFinished = AtomicBoolean(false)
             val watchdog = Thread({
-                Thread.sleep(30_000)
-                if (!baseHooksInstalled.get()) return@Thread
+                try {
+                    Thread.sleep(30_000)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                }
+                if (hooksFinished.get()) return@Thread
                 BepInExLog.e("Pine hook installation timed out after 30s — device may be incompatible")
                 failAndFinish("Hook installation timed out. Your device may not be compatible with the hook framework.")
             }, "HookWatchdog").also { it.isDaemon = true; it.start() }
@@ -181,6 +186,7 @@ class BootstrapActivity : Activity() {
                 baseHooksInstalled.set(false)
                 throw IllegalStateException("Failed to install base hooks", e)
             } finally {
+                hooksFinished.set(true)
                 watchdog.interrupt()
             }
         } else {
