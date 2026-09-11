@@ -23,7 +23,9 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -32,6 +34,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -83,6 +87,9 @@ fun ModpackDetailScreen(
 ) {
     var modPendingDelete by remember { mutableStateOf<ModpackMod?>(null) }
     var modPendingRename by remember { mutableStateOf<ModpackMod?>(null) }
+    var sortMode by remember { mutableStateOf(ModSortMode.DISPLAY_NAME) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
+    val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -162,6 +169,38 @@ fun ModpackDetailScreen(
                                 mods.size
                             )
                         )
+                        Box {
+                            IconButton(onClick = { sortMenuOpen = true }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Sort,
+                                    contentDescription = stringResource(R.string.modpack_mod_sort)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuOpen,
+                                onDismissRequest = { sortMenuOpen = false }
+                            ) {
+                                ModSortMode.entries.forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(mode.labelRes)) },
+                                        onClick = {
+                                            sortMode = mode
+                                            sortMenuOpen = false
+                                        },
+                                        trailingIcon = if (sortMode == mode) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Check,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        } else {
+                                            null
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -207,7 +246,7 @@ fun ModpackDetailScreen(
                 }
             } else {
                 items(
-                    items = mods,
+                    items = sortedMods,
                     key = { it.file.absolutePath },
                     contentType = { "mod" }
                 ) { mod ->
@@ -318,6 +357,25 @@ fun ModpackDetailScreen(
             }
         )
     }
+}
+
+private enum class ModSortMode(val labelRes: Int) {
+    DISPLAY_NAME(R.string.modpack_mod_sort_name),
+    FILE_NAME(R.string.modpack_mod_sort_file),
+    ENABLED_FIRST(R.string.modpack_mod_sort_enabled_first),
+    DISABLED_FIRST(R.string.modpack_mod_sort_disabled_first);
+
+    val comparator: Comparator<ModpackMod>
+        get() = when (this) {
+            DISPLAY_NAME -> compareBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::displayName)
+                .thenBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::relativePath)
+            FILE_NAME -> compareBy(String.CASE_INSENSITIVE_ORDER) { mod: ModpackMod -> mod.file.name }
+                .thenBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::relativePath)
+            ENABLED_FIRST -> compareByDescending(ModpackMod::enabled)
+                .thenBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::displayName)
+            DISABLED_FIRST -> compareBy(ModpackMod::enabled)
+                .thenBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::displayName)
+        }
 }
 
 @Composable

@@ -95,6 +95,11 @@
     <string name="modpack_mod_enable">Load this mod</string>
     <string name="modpack_mod_disabled">Disabled</string>
     <string name="modpack_mod_disabled_count">%d disabled</string>
+    <string name="modpack_mod_sort">Sort</string>
+    <string name="modpack_mod_sort_name">Display name</string>
+    <string name="modpack_mod_sort_file">File name</string>
+    <string name="modpack_mod_sort_enabled_first">Enabled first</string>
+    <string name="modpack_mod_sort_disabled_first">Disabled first</string>
 
     <!-- Config Editor -->
     <string name="config_editor_title">Config Editor</string>

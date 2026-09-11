@@ -89,6 +89,11 @@
     <string name="modpack_mod_enable">加载此模组</string>
     <string name="modpack_mod_disabled">已关闭</string>
     <string name="modpack_mod_disabled_count">已关闭 %d 个</string>
+    <string name="modpack_mod_sort">排序</string>
+    <string name="modpack_mod_sort_name">显示名称</string>
+    <string name="modpack_mod_sort_file">文件名</string>
+    <string name="modpack_mod_sort_enabled_first">已启用优先</string>
+    <string name="modpack_mod_sort_disabled_first">已关闭优先</string>
     <!-- Config Editor -->
     <string name="config_editor_title">配置编辑器</string>
     <string name="config_editor_save">保存</string>
