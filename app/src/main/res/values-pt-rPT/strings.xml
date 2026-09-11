@@ -89,6 +89,11 @@
     <string name="modpack_mod_enable">Load this mod</string>
     <string name="modpack_mod_disabled">Disabled</string>
     <string name="modpack_mod_disabled_count">%d disabled</string>
+    <string name="modpack_mod_sort">Sort</string>
+    <string name="modpack_mod_sort_name">Display name</string>
+    <string name="modpack_mod_sort_file">File name</string>
+    <string name="modpack_mod_sort_enabled_first">Enabled first</string>
+    <string name="modpack_mod_sort_disabled_first">Disabled first</string>
     <!-- Config Editor -->
     <string name="config_editor_title">Config Editor</string>
     <string name="config_editor_save">Save</string>
@@ -332,6 +337,7 @@
     <string name="crash_title">Runtime Error Detected</string>
     <string name="crash_game_info">%1$s has exited unexpectedly</string>
     <string name="crash_signal">Signal: %1$s</string>
+    <string name="crash_bepinex">BepInEx error</string>
     <string name="crash_hint">Please send the exported log to the developer for investigation.</string>
     <string name="crash_export_logs">Export Logs</string>
     <string name="crash_copy">Copy</string>
