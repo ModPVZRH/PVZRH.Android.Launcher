@@ -16,6 +16,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.bepinex.android.fusion.*
+import com.bepinex.android.log.GameLogcatCapture
 import com.bepinex.android.settings.AppSettings
 import top.canyie.pine.Pine
 import top.canyie.pine.callback.MethodHook
@@ -98,6 +99,7 @@ class BootstrapActivity : Activity() {
         }
 
         BepInExLog.i("=== Bootstrap: $targetPackage ===")
+        GameLogcatCapture.start(targetPackage)
 
         Thread({
             try { runBootstrapFlow(targetPackage) }

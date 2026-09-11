@@ -32,6 +32,10 @@ object BepInExPaths {
     fun getLogFile(packageName: String): File =
         File(getBepInExDir(packageName), "LogOutput.log")
 
+    /** Sidecar written by the :game process so MainActivity can read logcat after a crash. */
+    fun getLogcatCaptureFile(packageName: String): File =
+        File(getBepInExDir(packageName), "logcat-capture.txt")
+
     fun getLogsDir(packageName: String): File =
         File(getBepInExDir(packageName), "logs")
 

@@ -45,6 +45,7 @@ import com.bepinex.android.update.CrashDialog
 import com.bepinex.android.update.openUpdateUrl
 import kotlinx.coroutines.*
 import java.io.File
+import java.io.RandomAccessFile
 
 private fun isCompleteTranslationLocale(locale: Locale?): Boolean {
     val language = locale?.language?.lowercase(Locale.ROOT) ?: return false
@@ -303,6 +304,7 @@ class MainActivity : ComponentActivity() {
                             .persistRuntimeState(game.packageName, active)
                     } catch (_: Exception) { }
                 }
+                maybeReportGameCrash(game.packageName)
             }
         }
     }
@@ -453,16 +455,12 @@ class MainActivity : ComponentActivity() {
         gameProcessAlive = true
         crashMonitorJob = scope.launch(Dispatchers.IO) {
             delay(3000L)
+            var sawGameProcess = false
             while (isActive && gameProcessAlive) {
-                if (!isGameProcessRunning(packageName)) {
-                    gameProcessAlive = false
-                    val info = captureCrashInfo()
-                    if (info != null) {
-                        withContext(Dispatchers.Main) {
-                            crashInfo = info
-                            showCrashDialog = true
-                        }
-                    }
+                val running = isLauncherGameProcessRunning()
+                if (running) sawGameProcess = true
+                if (sawGameProcess && !running) {
+                    reportGameCrash(packageName)
                     break
                 }
                 delay(2000L)
@@ -470,43 +468,228 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun isGameProcessRunning(packageName: String): Boolean {
-        return try {
-            val processName = "$packageName:game"
-            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val procs = am.runningAppProcesses ?: return true
-            procs.any { it.processName == processName }
-        } catch (_: Exception) { true }
+    private fun maybeReportGameCrash(packageName: String) {
+        if (!gameProcessAlive) return
+        if (isLauncherGameProcessRunning()) return
+        scope.launch(Dispatchers.IO) {
+            reportGameCrash(packageName)
+        }
     }
 
-    private fun captureCrashInfo(): CrashInfo? {
-        return try {
-            val timestamp = android.os.SystemClock.elapsedRealtime()
-            val logcat = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime", "-t", "100"))
-                .inputStream.bufferedReader().use { it.readText() }
+    private suspend fun reportGameCrash(packageName: String) {
+        if (!gameProcessAlive) return
+        gameProcessAlive = false
+        crashMonitorJob?.cancel()
+        delay(400L)
+        val info = captureCrashInfo(packageName) ?: return
+        withContext(Dispatchers.Main) {
+            crashInfo = info
+            showCrashDialog = true
+        }
+    }
 
+    private fun isLauncherGameProcessRunning(): Boolean {
+        val expected = "$packageName:game"
+        try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            if (am.runningAppProcesses?.any { it.processName == expected } == true) return true
+        } catch (_: Exception) { }
+
+        return try {
+            val dirs = File("/proc").listFiles { file ->
+                file.isDirectory && file.name.all { it.isDigit() }
+            } ?: return true
+            dirs.any { dir ->
+                val cmdline = File(dir, "cmdline")
+                if (!cmdline.canRead()) return@any false
+                val text = cmdline.readBytes().toString(Charsets.UTF_8)
+                    .replace('\u0000', ' ')
+                    .trim()
+                text == expected || text.startsWith("$expected ")
+            }
+        } catch (_: Exception) {
+            true
+        }
+    }
+
+    private fun captureCrashInfo(packageName: String): CrashInfo? {
+        return try {
+            val bepinexLog = extractLatestErrorsFromText(readLogTail(BepInExPaths.getLogFile(packageName)))
+            val capturedLogcat = extractLatestErrorsFromText(
+                readLogTail(BepInExPaths.getLogcatCaptureFile(packageName))
+            )
+            val liveLogcat = dumpGameLogcat()
+            val liveErrors = extractLatestErrorsFromText(liveLogcat)
+            val logcatInfo = captureLogcatCrash(liveLogcat)
+
+            val logcatText = listOfNotNull(capturedLogcat, liveErrors, logcatInfo?.log)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .joinToString("\n\n")
+
+            if (bepinexLog.isNullOrBlank() && logcatText.isEmpty()) return null
+
+            val log = buildString {
+                if (!bepinexLog.isNullOrBlank()) {
+                    appendLine("--- BepInEx ---")
+                    append(bepinexLog.trim())
+                }
+                if (logcatText.isNotEmpty()) {
+                    if (isNotEmpty()) appendLine().appendLine()
+                    appendLine("--- logcat ---")
+                    append(logcatText)
+                }
+            }.trim()
+            if (log.isEmpty()) return null
+
+            val signal = logcatInfo?.signal
+                ?: if (!bepinexLog.isNullOrBlank() || capturedLogcat != null || liveErrors != null) {
+                    getString(R.string.crash_bepinex)
+                } else {
+                    null
+                }
+            CrashInfo(signal = signal, log = log)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun extractLatestErrorsFromText(text: String): String? {
+        if (text.isBlank()) return null
+        val lines = text.lines()
+        var lastErrorIdx = -1
+        for (i in lines.indices) {
+            if (isCrashLogLine(lines[i])) lastErrorIdx = i
+        }
+        if (lastErrorIdx < 0) return null
+
+        var start = lastErrorIdx
+        while (start > 0) {
+            val previous = lines[start - 1]
+            if (isCrashLogLine(previous) || !looksLikeNewLogEntry(previous)) {
+                start--
+            } else {
+                break
+            }
+        }
+
+        var end = lastErrorIdx
+        while (end + 1 < lines.size) {
+            val next = lines[end + 1]
+            if (looksLikeNewLogEntry(next) && !isCrashLogLine(next)) break
+            end++
+        }
+
+        return lines.subList(start, end + 1)
+            .takeLast(80)
+            .joinToString("\n")
+            .take(8000)
+            .ifBlank { null }
+    }
+
+    private fun isCrashLogLine(line: String): Boolean {
+        val lower = line.lowercase()
+        if (lower.contains("fatal exception")) return true
+        if (lower.contains("[error") || lower.contains("[fatal")) return true
+        if (lower.contains("notsupportedexception")) return true
+        if (lower.contains("il2cppinterop") &&
+            (lower.contains("error") || lower.contains("exception"))
+        ) {
+            return true
+        }
+        if (lower.contains("signal") &&
+            (lower.contains("sigsegv") || lower.contains("sigabrt") ||
+                lower.contains("sigbus") || lower.contains("sigfpe"))
+        ) {
+            return true
+        }
+        return Regex("\\sE\\s+Unity\\b").containsMatchIn(line)
+    }
+
+    private fun looksLikeNewLogEntry(line: String): Boolean {
+        if (line.startsWith("[") && line.contains(":")) return true
+        return line.length >= 18 && line[2] == '-' && line[5] == ' '
+    }
+
+    private fun readLogTail(file: File, maxBytes: Int = 256 * 1024): String {
+        if (!file.isFile) return ""
+        val length = file.length()
+        if (length <= 0L) return ""
+        return RandomAccessFile(file, "r").use { raf ->
+            val start = (length - maxBytes).coerceAtLeast(0L)
+            raf.seek(start)
+            val bytes = ByteArray((length - start).toInt())
+            raf.readFully(bytes)
+            var text = String(bytes, Charsets.UTF_8)
+            if (start > 0L) {
+                val newline = text.indexOf('\n')
+                if (newline >= 0) text = text.substring(newline + 1)
+            }
+            text
+        }
+    }
+
+    private fun dumpGameLogcat(): String {
+        val pid = findLauncherGamePid()
+        val command = if (pid != null) {
+            arrayOf("logcat", "-d", "-v", "threadtime", "--pid", pid, "-t", "200")
+        } else {
+            arrayOf("logcat", "-d", "-v", "threadtime", "-t", "200")
+        }
+        return try {
+            Runtime.getRuntime().exec(command)
+                .inputStream.bufferedReader().use { it.readText() }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun findLauncherGamePid(): String? {
+        val expected = "$packageName:game"
+        return try {
+            File("/proc").listFiles { file ->
+                file.isDirectory && file.name.all { it.isDigit() }
+            }?.firstOrNull { dir ->
+                val cmdline = File(dir, "cmdline")
+                if (!cmdline.canRead()) return@firstOrNull false
+                val text = cmdline.readBytes().toString(Charsets.UTF_8)
+                    .replace('\u0000', ' ')
+                    .trim()
+                text == expected || text.startsWith("$expected ")
+            }?.name
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun captureLogcatCrash(logcat: String = dumpGameLogcat()): CrashInfo? {
+        if (logcat.isBlank()) return null
+        return try {
             val fatalLine = logcat.lines().firstOrNull { it.contains("FATAL EXCEPTION") }
             val signalLine = logcat.lines().firstOrNull { line ->
                 line.contains("signal") && (line.contains("SIGSEGV") || line.contains("SIGABRT")
                     || line.contains("SIGBUS") || line.contains("SIGFPE"))
             }
-
-            if (fatalLine == null && signalLine == null) return null
+            val unityError = logcat.lines().any { isCrashLogLine(it) }
+            if (fatalLine == null && signalLine == null && !unityError) return null
 
             val signal = signalLine?.let { sig ->
                 Regex("signal\\s+(\\d+)\\s+\\((\\w+)\\)").find(sig)?.let {
                     "${it.groupValues[2]} (${it.groupValues[1]})"
                 }
             }
-
             val crashLog = logcat.lines().filter { line ->
-                line.contains("FATAL EXCEPTION") || line.contains("AndroidRuntime")
-                    || line.contains("signal") || line.contains("backtrace")
-                    || line.contains("#0") || line.contains("#1") || line.contains("#2")
-            }.take(25).joinToString("\n")
-
+                isCrashLogLine(line) ||
+                    line.contains("FATAL EXCEPTION") || line.contains("AndroidRuntime")
+                    || line.contains("backtrace")
+                    || line.contains("#00") || line.contains("#0 ") || line.contains("#1 ")
+                    || line.contains("#2 ")
+            }.takeLast(40).joinToString("\n")
             CrashInfo(signal = signal, log = crashLog)
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // Settings actions

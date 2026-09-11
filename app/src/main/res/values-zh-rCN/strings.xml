@@ -337,6 +337,7 @@
     <string name="crash_title">检测到运行时错误</string>
     <string name="crash_game_info">%1$s 异常退出</string>
     <string name="crash_signal">信号: %1$s</string>
+    <string name="crash_bepinex">BepInEx 报错</string>
     <string name="crash_hint">建议将导出的日志发送给开发者以便排查问题。</string>
     <string name="crash_export_logs">导出日志</string>
     <string name="crash_copy">Copy</string>
