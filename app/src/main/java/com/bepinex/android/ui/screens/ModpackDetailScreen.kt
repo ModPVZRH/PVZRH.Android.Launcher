@@ -1,20 +1,28 @@
 package com.bepinex.android.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -51,17 +59,29 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.bepinex.android.R
 import com.bepinex.android.modpack.ModpackMod
 import java.io.File
@@ -90,6 +110,7 @@ fun ModpackDetailScreen(
     var sortMode by remember { mutableStateOf(ModSortMode.DISPLAY_NAME) }
     var sortMenuOpen by remember { mutableStateOf(false) }
     val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
+    val listState = rememberLazyListState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -136,12 +157,17 @@ fun ModpackDetailScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp),
+        ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
@@ -312,6 +338,28 @@ fun ModpackDetailScreen(
                 }
             }
         }
+            ListScrollbar(
+                listState = listState,
+                itemLabels = remember(sortedMods, configFiles) {
+                    buildList {
+                        add("")
+                        add("")
+                        if (sortedMods.isEmpty()) {
+                            add("")
+                        } else {
+                            addAll(sortedMods.map { it.displayName })
+                        }
+                        if (configFiles.isNotEmpty()) {
+                            add("")
+                            addAll(configFiles.map { it.name })
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(top = 12.dp, bottom = 12.dp, end = 2.dp)
+            )
+        }
     }
 
     modPendingDelete?.let { mod ->
@@ -357,6 +405,155 @@ fun ModpackDetailScreen(
             }
         )
     }
+}
+
+@Composable
+private fun ListScrollbar(
+    listState: LazyListState,
+    itemLabels: List<String>,
+    modifier: Modifier = Modifier
+) {
+    val scope = rememberCoroutineScope()
+    val scrollbarLabel = stringResource(R.string.modpack_scrollbar)
+    val density = LocalDensity.current
+    val layoutInfo = listState.layoutInfo
+    val total = layoutInfo.totalItemsCount
+    val visible = layoutInfo.visibleItemsInfo
+    if (total <= 1 || visible.isEmpty()) return
+    if (!listState.canScrollForward && !listState.canScrollBackward) return
+
+    val scrollFraction = listState.scrollFraction()
+    var dragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+    var lastTargetIndex by remember { mutableIntStateOf(-1) }
+    val fraction = if (dragging) dragFraction else scrollFraction
+    val maxIndex = (total - 1).coerceAtLeast(1)
+    val targetIndex = if (dragging) {
+        (dragFraction * maxIndex).roundToInt().coerceIn(0, total - 1)
+    } else {
+        listState.firstVisibleItemIndex.coerceIn(0, total - 1)
+    }
+    val hint = hintLabel(itemLabels, targetIndex)
+
+    var trackHeightPx by remember { mutableFloatStateOf(0f) }
+    val thumbHeight = 48.dp
+    val thumbHeightPx = with(density) { thumbHeight.toPx() }
+    val travelPx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1f)
+    val hintSize = 72.dp
+    val hintSizePx = with(density) { hintSize.toPx() }
+    val scrollJob = remember { ScrollJobHolder() }
+
+    fun jumpTo(rawFraction: Float) {
+        val clamped = rawFraction.coerceIn(0f, 1f)
+        dragFraction = clamped
+        val index = (clamped * maxIndex).roundToInt().coerceIn(0, total - 1)
+        if (index == lastTargetIndex) return
+        lastTargetIndex = index
+        scrollJob.job?.cancel()
+        scrollJob.job = scope.launch {
+            listState.scrollToItem(index)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(96.dp)
+            .onSizeChanged { trackHeightPx = it.height.toFloat() }
+            .semantics { contentDescription = scrollbarLabel }
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(28.dp)
+                .pointerInput(total, travelPx) {
+                    detectVerticalDragGestures(
+                        onDragStart = { offset ->
+                            dragging = true
+                            lastTargetIndex = -1
+                            jumpTo((offset.y - thumbHeightPx / 2f) / travelPx)
+                        },
+                        onDragEnd = { dragging = false },
+                        onDragCancel = { dragging = false },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            jumpTo(dragFraction + dragAmount / travelPx)
+                        }
+                    )
+                }
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 6.dp)
+                .fillMaxHeight()
+                .width(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 4.dp)
+                .offset { IntOffset(0, (travelPx * fraction).roundToInt()) }
+                .width(8.dp)
+                .height(thumbHeight)
+                .clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        if (dragging && hint.isNotEmpty()) {
+            val hintOffsetY = (travelPx * fraction - (hintSizePx - thumbHeightPx) / 2f)
+                .coerceIn(0f, (trackHeightPx - hintSizePx).coerceAtLeast(0f))
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 22.dp)
+                    .offset { IntOffset(0, hintOffsetY.roundToInt()) }
+                    .size(hintSize),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                shadowElevation = 6.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = hint,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun hintLabel(itemLabels: List<String>, index: Int): String {
+    fun labelAt(i: Int): String = itemLabels.getOrNull(i)?.trim().orEmpty()
+    fun letterOf(label: String): String =
+        label.firstOrNull()?.uppercaseChar()?.toString().orEmpty()
+    letterOf(labelAt(index)).takeIf { it.isNotEmpty() }?.let { return it }
+    for (i in index + 1 until itemLabels.size) {
+        letterOf(labelAt(i)).takeIf { it.isNotEmpty() }?.let { return it }
+    }
+    for (i in index - 1 downTo 0) {
+        letterOf(labelAt(i)).takeIf { it.isNotEmpty() }?.let { return it }
+    }
+    return ""
+}
+
+private class ScrollJobHolder {
+    var job: Job? = null
+}
+
+private fun LazyListState.scrollFraction(): Float {
+    val info = layoutInfo
+    val visible = info.visibleItemsInfo
+    if (visible.isEmpty()) return 0f
+    if (!canScrollForward) return 1f
+    if (!canScrollBackward) return 0f
+    val maxIndex = (info.totalItemsCount - 1).coerceAtLeast(1)
+    return (firstVisibleItemIndex.toFloat() / maxIndex).coerceIn(0f, 0.999f)
 }
 
 private enum class ModSortMode(val labelRes: Int) {

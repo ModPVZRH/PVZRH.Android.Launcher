@@ -100,6 +100,7 @@
     <string name="modpack_mod_sort_file">File name</string>
     <string name="modpack_mod_sort_enabled_first">Enabled first</string>
     <string name="modpack_mod_sort_disabled_first">Disabled first</string>
+    <string name="modpack_scrollbar">Scroll list</string>
 
     <!-- Config Editor -->
     <string name="config_editor_title">Config Editor</string>
