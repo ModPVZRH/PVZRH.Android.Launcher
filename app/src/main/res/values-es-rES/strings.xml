@@ -79,7 +79,16 @@
     <string name="modpack_browse_mod_files_desc">Docs/Translating</string>
     <string name="modpack_target_game">Docs/Translating%s</string>
     <string name="modpack_mod_count">%ddocs/Translating\"()\"</string>
+    <string name="modpack_mod_count_ratio">%1$d / %2$d mods</string>
     <string name="modpack_active">Docs/Translating</string>
+    <string name="modpack_mod_rename">Rename Mod</string>
+    <string name="modpack_mod_display_name">Display name</string>
+    <string name="modpack_mod_display_name_hint">Shown in this launcher only. The DLL file name is unchanged.</string>
+    <string name="modpack_mod_file_name">File: %s</string>
+    <string name="modpack_mod_rename_failed">Display name cannot be empty</string>
+    <string name="modpack_mod_enable">Load this mod</string>
+    <string name="modpack_mod_disabled">Disabled</string>
+    <string name="modpack_mod_disabled_count">%d disabled</string>
     <!-- Config Editor -->
     <string name="config_editor_title">Docs/Translating</string>
     <string name="config_editor_save">Docs/Translating</string>
