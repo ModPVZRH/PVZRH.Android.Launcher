@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">PVZRH Lancher</string>
-    <string name="app_tagline"></string>
+    <string name="app_name">Lanzador PVZRH</string>
+    <string name="app_tagline">Lanzador PVZRH</string>
     <!-- Navigation -->
-    <string name="nav_games"></string>
-    <string name="nav_modpacks"></string>
-    <string name="nav_settings">Docs/Translating</string>
-    <string name="nav_about">Docs/Translating</string>
+    <string name="nav_games">Juegos</string>
+    <string name="nav_modpacks">Modos</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="nav_about">Acerca de</string>
     <!-- Game Detection -->
-    <string name="scan_title">Docs/Translating</string>
-    <string name="scanning">Docs/Translating…</string>
-    <string name="no_games_found">Spanish</string>
-    <string name="no_games_hint"></string>
-    <string name="scan_again">Docs/Translating</string>
-    <string name="rescan">Docs/Translating</string>
+    <string name="scan_title">PlantsVsZombiesRH</string>
+    <string name="scanning">Comprobando PlantsVsZombiesRH…</string>
+    <string name="no_games_found">PlantsVsZombiesRH no encontrado</string>
+    <string name="no_games_hint">Instalar PlantsVsZombiesRH para empezar</string>
+    <string name="scan_again">Escanear de nuevo</string>
+    <string name="rescan">Reescanear</string>
     <!-- Framework Status -->
-    <string name="framework_ready">Docs/Translating</string>
+    <string name="framework_ready">BepInEx listo</string>
     <string name="framework_setting_up">Setting up…</string>
     <string name="extracting">Extracting BepInEx…</string>
     <string name="mod_count">%d mod(s)</string>
@@ -31,62 +31,62 @@
     <string name="installed_mods">Installed Mods</string>
     <string name="no_mods_installed">No Mods Installed</string>
     <string name="no_mods_hint">Tap Import Mod to add a .dll file</string>
-    <string name="mod_deleted">Docs/Translating. %s</string>
-    <string name="mod_imported">Docs/Translating. %s</string>
+    <string name="mod_deleted">Eliminado: %s</string>
+    <string name="mod_imported">Importado: %s</string>
     <string name="import_failed">Import failed</string>
     <!-- Modpacks -->
-    <string name="modpack_title">Docs/Translating</string>
+    <string name="modpack_title">Modos</string>
     <string name="modpack_create">Create Modpack</string>
-    <string name="modpack_delete">Docs/Translating</string>
+    <string name="modpack_delete">Eliminar Modpack</string>
     <string name="modpack_rename">Rename</string>
-    <string name="modpack_rename_failed">Docs/Translating</string>
+    <string name="modpack_rename_failed">El nombre no es válido o ya existe</string>
     <string name="modpack_edit">Edit Modpack</string>
     <string name="modpack_icon">Icon</string>
-    <string name="modpack_icon_hint">Docs/Translating</string>
-    <string name="modpack_shortcut">Docs/Translating</string>
+    <string name="modpack_icon_hint">Toca para elegir una imagen</string>
+    <string name="modpack_shortcut">Acceso directo de escritorio</string>
     <string name="modpack_shortcut_desc">Create a shortcut to launch this modpack directly</string>
     <string name="modpack_shortcut_create">Create Desktop Shortcut</string>
     <string name="modpack_shortcut_enabled">Desktop Shortcut Enabled</string>
-    <string name="shortcut_permission_required">Docs/Translating…</string>
-    <string name="shortcut_permission_title">Docs/Translating</string>
+    <string name="shortcut_permission_required">Permiso de acceso directo no concedido. Abriendo ajustes…</string>
+    <string name="shortcut_permission_title">Permiso requerido</string>
     <string name="shortcut_permission_guide">Creating desktop shortcuts requires the \"Home screen shortcut\" permission. Please enable it in the settings page that opens next.</string>
-    <string name="shortcut_permission_open_settings">Docs/Translating</string>
-    <string name="modpack_vanilla_desc">Docs/Translating</string>
-    <string name="modpack_empty">Docs/Translating</string>
+    <string name="shortcut_permission_open_settings">Abrir ajustes</string>
+    <string name="modpack_vanilla_desc">No hay mods cargados</string>
+    <string name="modpack_empty">No hay modpacks instalados</string>
     <string name="modpack_export">Export</string>
-    <string name="modpack_export_preparing">Docs/Translating…</string>
-    <string name="modpack_export_progress">Docs/Translating%1$d / %2$d</string>
-    <string name="modpack_export_cancel">Docs/Translating</string>
-    <string name="modpack_import">Docs/Translating</string>
+    <string name="modpack_export_preparing">Preparando exportación…</string>
+    <string name="modpack_export_progress">Exportando archivos %1$d / %2$d</string>
+    <string name="modpack_export_cancel">Cancelar</string>
+    <string name="modpack_import">Importar Modpack</string>
     <string name="modpack_importing">Importing modpack…</string>
-    <string name="modpack_import_cancel">Docs/Translating</string>
-    <string name="modpack_invalid_file">Docs/Translating.md</string>
-    <string name="modpack_invalid_archive">Docs/Translating.md</string>
-    <string name="modpack_select_active">Docs/Translating</string>
-    <string name="modpack_vanilla">Docs/Translating\"()\"</string>
-    <string name="modpack_name_hint">Docs/Translating</string>
-    <string name="modpack_confirm_delete_title">Docs/Translating</string>
-    <string name="modpack_confirm_delete_msg">Docs/Translating.%s.</string>
-    <string name="modpack_created">Docs/Translating%s</string>
-    <string name="modpack_deleted">Docs/Translating%s</string>
+    <string name="modpack_import_cancel">Cancelar</string>
+    <string name="modpack_invalid_file">Sólo los archivos .rhp o .zip modpack pueden ser importados</string>
+    <string name="modpack_invalid_archive">El archivo debe contener modpack.json</string>
+    <string name="modpack_select_active">Activar</string>
+    <string name="modpack_vanilla">Vanilla (Sin Modos)</string>
+    <string name="modpack_name_hint">Modpack name</string>
+    <string name="modpack_confirm_delete_title">Eliminar Modpack</string>
+    <string name="modpack_confirm_delete_msg">¿Eliminar \"%s\" y todos sus mods? Esto no se puede deshacer.</string>
+    <string name="modpack_created">Creó modpack: %s</string>
+    <string name="modpack_deleted">Eliminó modpack: %s</string>
     <string name="modpack_exported">Exported: %s</string>
-    <string name="modpack_imported">Docs/Translating%s</string>
+    <string name="modpack_imported">Importado: %s</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
-    <string name="modpack_add_mod">Docs/Translating</string>
+    <string name="modpack_add_mod">Add Mod</string>
     <string name="modpack_invalid_mod_file">Only .dll mod files can be added</string>
     <string name="modpack_add_mod_archive_hint">ZIP/RHP files are modpacks. Use Import Modpack on the modpack page instead</string>
     <string name="modpack_browse_mod_files">Browse Mod Files</string>
-    <string name="modpack_browse_mod_files_desc">Docs/Translating</string>
-    <string name="modpack_target_game">Docs/Translating%s</string>
-    <string name="modpack_mod_count">%ddocs/Translating\"()\"</string>
-    <string name="modpack_active">Docs/Translating</string>
+    <string name="modpack_browse_mod_files_desc">Ver todos los archivos y directorios de este modpack</string>
+    <string name="modpack_target_game">Para: %s</string>
+    <string name="modpack_mod_count">%d mod(s)</string>
+    <string name="modpack_active">Activo</string>
     <!-- Config Editor -->
-    <string name="config_editor_title">Docs/Translating</string>
-    <string name="config_editor_save">Docs/Translating</string>
-    <string name="config_editor_save_failed">Docs/Translating</string>
-    <string name="config_editor_unsaved">Docs/Translating</string>
+    <string name="config_editor_title">Editor de configuración</string>
+    <string name="config_editor_save">Guardar</string>
+    <string name="config_editor_save_failed">Error al guardar el archivo</string>
+    <string name="config_editor_unsaved">Cambios sin guardar</string>
     <string name="config_editor_discard_title">Discard Changes?</string>
-    <string name="config_editor_discard_msg">Docs/Translating¿?</string>
+    <string name="config_editor_discard_msg">Tienes cambios sin guardar. ¿Descartarlos?</string>
     <string name="config_editor_no_configs">No config files</string>
     <!-- Mod File Browser -->
     <string name="mod_file_browser_title">Mod Files</string>
@@ -109,8 +109,8 @@
     <string name="settings_section_maintenance">Maintenance</string>
     <string name="settings_section_saves">Save Data</string>
     <string name="settings_import_saves">Import Saves</string>
-    <string name="settings_import_saves_desc">Import save data from the original game. Select Android/data/&lt;package&gt;/files/ when prompted.</string>
-    <string name="save_import_success">,</string>
+    <string name="settings_import_saves_desc">Importar datos guardados desde el juego original. Seleccione Android/data/&lt;package&gt;/files/ cuando se le solicite.</string>
+    <string name="save_import_success">Importados archivo(s) %d</string>
     <string name="save_import_failed">Import failed</string>
     <string name="save_import_nothing">No save data found in the selected directory</string>
     <string name="save_saf_title">Game Saves (via SAF)</string>
@@ -215,7 +215,7 @@
     <string name="confirm_copy_resources_msg">This will copy the game\'s asset data from the APK to local storage.</string>
     <string name="confirm_yes">Yes</string>
     <string name="confirm_no">No</string>
-    <string name="confirm_ok">Aceptar</string>
+    <string name="confirm_ok">Ok</string>
     <string name="confirm_cancel">Cancel</string>
     <string name="confirm_delete">Delete</string>
     <!-- Theme -->
@@ -243,8 +243,8 @@
     <string name="lang_malay">Bahasa Melayu</string>
     <string name="lang_thai">ไทย</string>
     <string name="lang_venetian">Vèneto</string>
-    <string name="lang_incomplete_title">Localización no contribuida</string>
-    <string name="lang_incomplete_message">La traducción a su idioma no está completa. Si desea ayudar a mejorar la localización, visite [aquí](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md) para contribuir.</string>
+    <string name="lang_incomplete_title">Localización No Contribuida</string>
+    <string name="lang_incomplete_message">La traducción para tu idioma no está completa. Si deseas ayudar a mejorar la localización, por favor visita [here](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md) para contribuir.</string>
     <!-- About -->
     <string name="about_title">PVZRH Launcher</string>
     <string name="about_description">A BepInEx loader supporting Android for PVZRH</string>
