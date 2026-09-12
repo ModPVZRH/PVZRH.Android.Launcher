@@ -25,11 +25,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
@@ -75,7 +79,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -109,8 +115,16 @@ fun ModpackDetailScreen(
     var modPendingRename by remember { mutableStateOf<ModpackMod?>(null) }
     var sortMode by remember { mutableStateOf(ModSortMode.DISPLAY_NAME) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
     val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
+    val filteredMods = remember(sortedMods, searchQuery) {
+        sortedMods.filter { it.matchesSearch(searchQuery) }
+    }
+    val filteredConfigs = remember(configFiles, searchQuery) {
+        configFiles.filter { it.matchesSearch(searchQuery) }
+    }
     val listState = rememberLazyListState()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -231,6 +245,40 @@ fun ModpackDetailScreen(
                 }
             }
 
+            if (mods.isNotEmpty()) {
+                item {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.modpack_search_mods)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = null
+                            )
+                        },
+                        trailingIcon = if (searchQuery.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = stringResource(R.string.modpack_search_clear)
+                                    )
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { keyboardController?.hide() }
+                        )
+                    )
+                }
+            }
+
             if (mods.isEmpty()) {
                 item {
                     Card(
@@ -270,9 +318,28 @@ fun ModpackDetailScreen(
                         }
                     }
                 }
+            } else if (filteredMods.isEmpty() && filteredConfigs.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.modpack_search_no_results),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 28.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             } else {
                 items(
-                    items = sortedMods,
+                    items = filteredMods,
                     key = { it.file.absolutePath },
                     contentType = { "mod" }
                 ) { mod ->
@@ -285,7 +352,7 @@ fun ModpackDetailScreen(
                 }
             }
 
-            if (configFiles.isNotEmpty()) {
+            if (filteredConfigs.isNotEmpty()) {
                 item {
                     Text(
                         text = stringResource(R.string.settings_section_config),
@@ -296,7 +363,7 @@ fun ModpackDetailScreen(
                     )
                 }
                 items(
-                    items = configFiles,
+                    items = filteredConfigs,
                     key = { it.absolutePath },
                     contentType = { "config" }
                 ) { cfg ->
@@ -340,18 +407,19 @@ fun ModpackDetailScreen(
         }
             ListScrollbar(
                 listState = listState,
-                itemLabels = remember(sortedMods, configFiles) {
+                itemLabels = remember(filteredMods, filteredConfigs, mods, searchQuery) {
                     buildList {
                         add("")
                         add("")
-                        if (sortedMods.isEmpty()) {
+                        if (mods.isNotEmpty()) add("")
+                        if (mods.isEmpty() || filteredMods.isEmpty()) {
                             add("")
                         } else {
-                            addAll(sortedMods.map { it.displayName })
+                            addAll(filteredMods.map { it.displayName })
                         }
-                        if (configFiles.isNotEmpty()) {
+                        if (filteredConfigs.isNotEmpty()) {
                             add("")
-                            addAll(configFiles.map { it.name })
+                            addAll(filteredConfigs.map { it.name })
                         }
                     }
                 },
@@ -554,6 +622,20 @@ private fun LazyListState.scrollFraction(): Float {
     if (!canScrollBackward) return 0f
     val maxIndex = (info.totalItemsCount - 1).coerceAtLeast(1)
     return (firstVisibleItemIndex.toFloat() / maxIndex).coerceIn(0f, 0.999f)
+}
+
+private fun ModpackMod.matchesSearch(query: String): Boolean {
+    val needle = query.trim()
+    if (needle.isEmpty()) return true
+    return displayName.contains(needle, ignoreCase = true) ||
+        file.name.contains(needle, ignoreCase = true) ||
+        relativePath.contains(needle, ignoreCase = true)
+}
+
+private fun File.matchesSearch(query: String): Boolean {
+    val needle = query.trim()
+    if (needle.isEmpty()) return true
+    return name.contains(needle, ignoreCase = true)
 }
 
 private enum class ModSortMode(val labelRes: Int) {

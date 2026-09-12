@@ -113,6 +113,9 @@
     <string name="modpack_mod_sort_file">File name</string>
     <string name="modpack_mod_sort_enabled_first">Enabled first</string>
     <string name="modpack_mod_sort_disabled_first">Disabled first</string>
+    <string name="modpack_search_mods">Search mods</string>
+    <string name="modpack_search_clear">Clear search</string>
+    <string name="modpack_search_no_results">No matching mods</string>
     <string name="modpack_scrollbar">Scroll list</string>
 
     <!-- Config Editor -->
