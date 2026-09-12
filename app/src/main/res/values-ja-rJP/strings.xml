@@ -12,7 +12,7 @@
     <string name="scan_title">PlantsVsZombiesRH</string>
     <string name="scanning">Checking PlantsVsZombiesRH…</string>
     <string name="no_games_found">PlantsVsZombiesRH Not Found</string>
-    <string name="no_games_hint">Install PlantsVsZombiesRH to get started</string>
+    <string name="no_games_hint">Install Plants vs. Zombies: Fusion, then tap Rescan. The package name is com.LanPiaoPiao.PlantsVsZombiesRH.</string>
     <string name="scan_again">Scan Again</string>
     <string name="rescan">Rescan</string>
     <!-- Framework Status -->
@@ -53,6 +53,7 @@
     <string name="shortcut_permission_open_settings">Open Settings</string>
     <string name="modpack_vanilla_desc">No mods loaded</string>
     <string name="modpack_empty">No modpacks installed</string>
+    <string name="modpack_empty_hint">Import a .rhp or .zip modpack here. Don\'t add archive files as a single mod DLL.</string>
     <string name="modpack_export">Export</string>
     <string name="modpack_export_preparing">Preparing export…</string>
     <string name="modpack_export_progress">Exporting %1$d / %2$d files</string>
@@ -217,6 +218,35 @@
     <string name="animation_restart_message">Animations will be disabled after restarting the app. Restart now?</string>
     <string name="animation_restart_now">Restart</string>
     <string name="settings_about">About</string>
+    <string name="settings_onboarding">Beginner guide</string>
+    <string name="settings_onboarding_desc">Review launch, modpacks, and permission steps</string>
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_later">Later</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_done">Get started</string>
+    <string name="onboarding_step_of">%1$d / %2$d</string>
+    <string name="onboarding_welcome_title">Launch from this app</string>
+    <string name="onboarding_welcome_body">Mods are injected by the launcher. Start the game here — don\'t tap the original game icon on your home screen.</string>
+    <string name="onboarding_game_title">Install the game first</string>
+    <string name="onboarding_game_body_missing">Plants vs. Zombies: Fusion was not detected. Install it, then tap Scan again.</string>
+    <string name="onboarding_game_body_found">Found %s. You can continue.</string>
+    <string name="onboarding_game_scanning">Looking for the game…</string>
+    <string name="onboarding_permission_title">File access is required</string>
+    <string name="onboarding_permission_body">The launcher extracts the mod framework to storage. Grant All files access to continue.</string>
+    <string name="onboarding_permission_granted">All files access is granted</string>
+    <string name="onboarding_first_launch_title">The first launch takes a moment</string>
+    <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
+    <string name="coach_next">Next</string>
+    <string name="coach_skip">Skip tips</string>
+    <string name="coach_done">Got it</string>
+    <string name="coach_launch_title">Launch</string>
+    <string name="coach_launch_body">Tap here to start Fusion. The first run prepares the runtime — wait for the progress to finish.</string>
+    <string name="coach_modpacks_title">Modpacks</string>
+    <string name="coach_modpacks_body">Enable mods from a modpack. Import .rhp or .zip on the Modpacks tab — don\'t treat those archives as a single DLL.</string>
+    <string name="coach_saves_title">Saves</string>
+    <string name="coach_saves_body">Back up and restore saves in the launcher. Uninstalling the game does not keep these backups by itself.</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">Clear BepInEx Files?</string>
     <string name="confirm_clear_bepinex_msg">This will delete all BepInEx files and interop assemblies for this game. You will need to re-extract on next launch.</string>
