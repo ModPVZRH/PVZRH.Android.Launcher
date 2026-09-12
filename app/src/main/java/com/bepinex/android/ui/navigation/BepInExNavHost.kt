@@ -49,10 +49,12 @@ import com.bepinex.android.ui.onboarding.CoachMarkOverlay
 import com.bepinex.android.ui.onboarding.CoachMarkTargets
 import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
 import com.bepinex.android.ui.screens.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -114,6 +116,7 @@ fun BepInExNavHost(
     isFrameworkReady: Boolean,
     isExtracting: Boolean,
     extractionStatus: String,
+    extractionError: String? = null,
     // Settings state
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
@@ -149,6 +152,42 @@ fun BepInExNavHost(
     var exportProgress by remember { mutableStateOf<ModpackExportProgress?>(null) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
     var importJob by remember { mutableStateOf<Job?>(null) }
+    var appliedModpackName by remember { mutableStateOf<String?>(null) }
+    var isSwitchingModpack by remember { mutableStateOf(false) }
+    var modpackSwitchJob by remember { mutableStateOf<Job?>(null) }
+
+    fun enqueueModpackSwitch(packageName: String, target: String?) {
+        if (target == activeModpackName && appliedModpackName == target && !isSwitchingModpack) return
+        activeModpackName = target
+        isSwitchingModpack = true
+        if (modpackSwitchJob?.isActive == true) return
+        modpackSwitchJob = composeScope.launch {
+            try {
+                while (isActive) {
+                    val targetName = activeModpackName
+                    val from = appliedModpackName
+                    if (targetName == from) break
+                    val ok = withContext(Dispatchers.IO) {
+                        modpackManager.switchRuntime(packageName, from, targetName)
+                    }
+                    if (!ok) {
+                        com.bepinex.android.BepInExLog.e("Failed to switch modpack to ${targetName ?: "vanilla"}")
+                        activeModpackName = appliedModpackName
+                        break
+                    }
+                    appliedModpackName = targetName
+                    AppSettings.setActiveModpack(context, packageName, targetName)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                com.bepinex.android.BepInExLog.e("Modpack switch failed", error)
+                activeModpackName = appliedModpackName
+            } finally {
+                isSwitchingModpack = false
+            }
+        }
+    }
 
     fun startModpackExport(targetPackageName: String, targetModpackName: String) {
         if (exportJob?.isActive == true) return
@@ -210,7 +249,10 @@ fun BepInExNavHost(
             val validActiveName = savedActiveName?.takeIf { savedName ->
                 loadedModpacks.any { it.name == savedName }
             }
-            activeModpackName = validActiveName
+            if (!isSwitchingModpack) {
+                activeModpackName = validActiveName
+                appliedModpackName = validActiveName
+            }
             if (savedActiveName != validActiveName) {
                 AppSettings.setActiveModpack(context, game.packageName, validActiveName)
             }
@@ -364,6 +406,13 @@ fun BepInExNavHost(
             // If active modpack log doesn't exist yet, fall back to active runtime log
             val targetLog = if (logFile.exists()) logFile else BepInExPaths.getLogFile(game.packageName)
             BepInExLogReader.startWatchingFile(targetLog, scope)
+        }
+    }
+
+    DisposableEffect(selectedGame?.packageName) {
+        onDispose {
+            modpackSwitchJob?.cancel()
+            isSwitchingModpack = false
         }
     }
 
@@ -528,6 +577,7 @@ fun BepInExNavHost(
                                 isFrameworkReady = isFrameworkReady,
                                 isExtracting = isExtracting,
                                 extractionStatus = extractionStatus,
+                                extractionError = extractionError,
                                 activeModpackName = activeModpackName,
                                 activeModpackEnabledCount = if (activeModpackName != null)
                                     modpacks.find { it.name == activeModpackName }?.enabledModCount ?: 0 else 0,
@@ -535,7 +585,18 @@ fun BepInExNavHost(
                                     modpacks.find { it.name == activeModpackName }?.modCount ?: 0 else 0,
                                 onSelectGame = onSelectGame,
                                 onRescan = onRescan,
-                                onLaunch = { onLaunch(activeModpackName) },
+                                onLaunch = {
+                                    if (isSwitchingModpack) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.launch_wait_modpack_switch),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        onLaunch(activeModpackName)
+                                    }
+                                },
+                                isSwitchingModpack = isSwitchingModpack,
                                 onManageSaves = {
                                     selectedGame?.let { game ->
                                         navController.navigate(NavRoutes.saveImport(game.packageName))
@@ -553,6 +614,7 @@ fun BepInExNavHost(
                                     targetGameLabel = selectedGame?.label ?: packageName,
                                     modpacks = modpacks,
                                     activeModpackName = activeModpackName,
+                                    isSwitching = isSwitchingModpack,
                                     iconRefreshKey = modpackIconRefreshKey,
                                     onCreateModpack = { name, createShortcut, iconBitmap ->
                                         val created = modpackManager.createModpack(packageName, name)
@@ -568,17 +630,24 @@ fun BepInExNavHost(
                                         modpackRefreshKey++
                                     },
                                     onDeleteModpack = { name ->
-                                        val deleted = modpackManager.deleteModpack(packageName, name)
-                                        if (deleted) {
-                                            modpacks = modpacks.filterNot { it.name == name }
-                                            if (activeModpackName == name) {
-                                                AppSettings.setActiveModpack(context, packageName, null)
-                                                activeModpackName = null
-                                                composeScope.launch(Dispatchers.IO) {
-                                                    modpackManager.clearActiveMods(packageName)
+                                        composeScope.launch {
+                                            modpackSwitchJob?.join()
+                                            val wasActive = activeModpackName == name || appliedModpackName == name
+                                            val deleted = withContext(Dispatchers.IO) {
+                                                if (wasActive) {
+                                                    modpackManager.switchRuntime(packageName, name, null)
                                                 }
+                                                modpackManager.deleteModpack(packageName, name)
                                             }
-                                            modpackRefreshKey++
+                                            if (deleted) {
+                                                modpacks = modpacks.filterNot { it.name == name }
+                                                if (wasActive) {
+                                                    AppSettings.setActiveModpack(context, packageName, null)
+                                                    activeModpackName = null
+                                                    appliedModpackName = null
+                                                }
+                                                modpackRefreshKey++
+                                            }
                                         }
                                     },
                                     onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
@@ -618,18 +687,7 @@ fun BepInExNavHost(
                                         success
                                     },
                                     onSelectModpack = { name ->
-                                        val previous = activeModpackName
-                                        if (previous != name) {
-                                            modpackManager.persistRuntimeState(packageName, previous)
-                                            if (name == null) {
-                                                modpackManager.clearActiveMods(packageName)
-                                            } else {
-                                                modpackManager.applyModpack(packageName, name)
-                                            }
-                                            AppSettings.setActiveModpack(context, packageName, name)
-                                            activeModpackName = name
-                                            modpackRefreshKey++
-                                        }
+                                        enqueueModpackSwitch(packageName, name)
                                     },
                                     onOpenModpack = { name ->
                                         navController.navigate(NavRoutes.modpackDetail(packageName, name))
@@ -641,6 +699,48 @@ fun BepInExNavHost(
                                     onRefresh = {
                                         modpackRefreshKey++
                                         modpackIconRefreshKey++
+                                    },
+                                    onImportDownloadFiles = { files ->
+                                        val game = selectedGame ?: return@ModpackListScreen
+                                        if (importJob?.isActive == true) return@ModpackListScreen
+                                        importJob = composeScope.launch(Dispatchers.IO) {
+                                            var importedCount = 0
+                                            try {
+                                                files.forEach { file ->
+                                                    val imported = modpackManager.importModpack(
+                                                        game.packageName,
+                                                        file
+                                                    )
+                                                    if (imported != null) importedCount++
+                                                }
+                                                withContext(Dispatchers.Main) {
+                                                    modpackRefreshKey++
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        context.getString(
+                                                            R.string.modpack_scan_downloads_imported,
+                                                            importedCount,
+                                                            files.size
+                                                        ),
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            } catch (_: kotlinx.coroutines.CancellationException) {
+                                            } catch (error: Exception) {
+                                                com.bepinex.android.BepInExLog.e("Download import failed", error)
+                                                withContext(Dispatchers.Main) {
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.import_failed),
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            } finally {
+                                                withContext(NonCancellable + Dispatchers.Main) {
+                                                    importJob = null
+                                                }
+                                            }
+                                        }
                                     }
                                 )
                             }

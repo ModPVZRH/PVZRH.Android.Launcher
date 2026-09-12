@@ -78,7 +78,9 @@ class MainActivity : ComponentActivity() {
     private var selectedGame by mutableStateOf<GameDetector.DetectedGame?>(null)
     private var isScanning by mutableStateOf(true)
     private var isExtracting by mutableStateOf(false)
+    private var isFrameworkReady by mutableStateOf(false)
     private var extractionStatus by mutableStateOf("")
+    private var extractionError by mutableStateOf<String?>(null)
     private var storagePermissionGranted by mutableStateOf(false)
     private var hasPaused = false
 
@@ -323,20 +325,33 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val permissionNow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+        val permissionChanged = permissionNow != storagePermissionGranted
+        storagePermissionGranted = permissionNow
+        if (permissionChanged && permissionNow) {
+            startGameDetection()
+        }
         if (hasPaused) {
             hasPaused = false
             // Persist runtime logs/config to active modpack when returning from game
             selectedGame?.let { game ->
-                val active = AppSettings.getActiveModpack(this, game.packageName)
-                if (!active.isNullOrEmpty()) {
-                    try {
-                        com.bepinex.android.modpack.ModpackManager()
-                            .persistRuntimeState(game.packageName, active)
-                    } catch (_: Exception) { }
+                if (!com.bepinex.android.modpack.ModpackManager.runtimeSwitchInProgress) {
+                    val active = AppSettings.getActiveModpack(this, game.packageName)
+                    if (!active.isNullOrEmpty()) {
+                        try {
+                            com.bepinex.android.modpack.ModpackManager()
+                                .persistRuntimeState(game.packageName, active)
+                        } catch (_: Exception) { }
+                    }
                 }
                 maybeReportGameCrash(game.packageName)
             }
         }
+        selectedGame?.let { ensureFramework(it.packageName) }
     }
 
     override fun onDestroy() {
@@ -408,9 +423,16 @@ class MainActivity : ComponentActivity() {
 
                 savedPackageName = null
                 when {
-                    refreshedSelection != null -> selectedGame = refreshedSelection
+                    refreshedSelection != null -> {
+                        selectedGame = refreshedSelection
+                        ensureFramework(refreshedSelection.packageName)
+                    }
                     detectedGames.isNotEmpty() -> selectGame(detectedGames.first())
-                    else -> selectedGame = null
+                    else -> {
+                        selectedGame = null
+                        isFrameworkReady = false
+                        extractionError = null
+                    }
                 }
             } catch (e: Exception) {
                 BepInExLog.e("Game detection failed", e)
@@ -423,16 +445,31 @@ class MainActivity : ComponentActivity() {
     private fun selectGame(game: GameDetector.DetectedGame) {
         selectedGame = game
         BepInExLog.i("Selected: ${game.label} (${game.packageName})")
+        ensureFramework(game.packageName)
+    }
 
-        if (!fileExtractor.isFrameworkReady(game.packageName)) {
-            startExtraction(game.packageName)
+    private fun refreshFrameworkReady(packageName: String?) {
+        isFrameworkReady = packageName != null && fileExtractor.isFrameworkReady(packageName)
+        if (isFrameworkReady) extractionError = null
+    }
+
+    private fun ensureFramework(packageName: String, requestPermissionIfMissing: Boolean = false) {
+        refreshFrameworkReady(packageName)
+        if (isFrameworkReady || isExtracting) return
+        if (!storagePermissionGranted) {
+            extractionError = getString(R.string.framework_setup_failed_permission)
+            if (requestPermissionIfMissing) requestStoragePermission()
+            return
         }
+        startExtraction(packageName)
     }
 
     // Framework extraction
 
     private fun startExtraction(packageName: String) {
+        if (isExtracting) return
         isExtracting = true
+        extractionError = null
         extractionStatus = getString(R.string.extracting)
 
         scope.launch(Dispatchers.IO) {
@@ -444,8 +481,22 @@ class MainActivity : ComponentActivity() {
                     scope.launch(Dispatchers.Main.immediate) { extractionStatus = status }
                 }
                 BepInExLog.i("Framework extraction complete for $packageName")
+                withContext(Dispatchers.Main) {
+                    refreshFrameworkReady(packageName)
+                    if (!isFrameworkReady) {
+                        extractionError = getString(R.string.framework_setup_failed)
+                    }
+                }
             } catch (e: Exception) {
                 BepInExLog.e("Extraction failed", e)
+                withContext(Dispatchers.Main) {
+                    refreshFrameworkReady(packageName)
+                    extractionError = if (!storagePermissionGranted) {
+                        getString(R.string.framework_setup_failed_permission)
+                    } else {
+                        getString(R.string.framework_setup_failed)
+                    }
+                }
             }
             withContext(Dispatchers.Main) {
                 isExtracting = false
@@ -459,9 +510,16 @@ class MainActivity : ComponentActivity() {
     private fun launchGame(modpackName: String? = null) {
         val game = selectedGame ?: return
 
-        if (!fileExtractor.isFrameworkReady(game.packageName)) {
-            Toast.makeText(this, getString(R.string.launch_wait_extraction), Toast.LENGTH_SHORT).show()
-            if (!isExtracting) startExtraction(game.packageName)
+        if (!isFrameworkReady) {
+            Toast.makeText(
+                this,
+                getString(
+                    if (isExtracting) R.string.launch_wait_extraction
+                    else R.string.framework_retry
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+            ensureFramework(game.packageName, requestPermissionIfMissing = true)
             return
         }
 
@@ -744,6 +802,7 @@ class MainActivity : ComponentActivity() {
             BepInExLog.i("Cleared BepInEx: ${dir.absolutePath}")
             Toast.makeText(this, getString(R.string.done), Toast.LENGTH_SHORT).show()
         }
+        ensureFramework(packageName)
     }
 
     private fun onClearDotnet(packageName: String) {
@@ -753,6 +812,7 @@ class MainActivity : ComponentActivity() {
         if (dataDir.exists()) dataDir.deleteRecursively()
         BepInExLog.i("Cleared .NET data for $packageName")
         Toast.makeText(this, getString(R.string.done), Toast.LENGTH_SHORT).show()
+        ensureFramework(packageName)
     }
 
     private fun onClearLibUnity(packageName: String) {
@@ -1045,11 +1105,10 @@ class MainActivity : ComponentActivity() {
                     detectedGames = detectedGames,
                     selectedGame = selectedGame,
                     isScanning = isScanning,
-                    isFrameworkReady = selectedGame?.let {
-                        fileExtractor.isFrameworkReady(it.packageName)
-                    } ?: false,
+                    isFrameworkReady = isFrameworkReady,
                     isExtracting = isExtracting,
                     extractionStatus = extractionStatus,
+                    extractionError = extractionError,
                     themeMode = themeMode,
                     language = language,
                     dynamicColor = dynamicColor,

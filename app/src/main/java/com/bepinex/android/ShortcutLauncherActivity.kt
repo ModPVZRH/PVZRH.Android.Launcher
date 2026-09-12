@@ -42,20 +42,25 @@ class ShortcutLauncherActivity : Activity() {
         }
 
         val modpackManager = ModpackManager()
-
-        // Apply the modpack
         val previous = AppSettings.getActiveModpack(this, packageName)
-        modpackManager.persistRuntimeState(packageName, previous)
-        modpackManager.applyModpack(packageName, modpackName)
-        AppSettings.setActiveModpack(this, packageName, modpackName)
 
-        // Launch the game
-        val launchIntent = Intent(this, BootstrapActivity::class.java).apply {
-            putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, packageName)
-            putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, modpackName)
-        }
-        startActivity(launchIntent)
-
-        finish()
+        Thread {
+            try {
+                kotlinx.coroutines.runBlocking {
+                    modpackManager.switchRuntime(packageName, previous, modpackName)
+                }
+                AppSettings.setActiveModpack(this, packageName, modpackName)
+            } catch (error: Exception) {
+                BepInExLog.e("Shortcut modpack switch failed", error)
+            }
+            runOnUiThread {
+                val launchIntent = Intent(this, BootstrapActivity::class.java).apply {
+                    putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, packageName)
+                    putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, modpackName)
+                }
+                startActivity(launchIntent)
+                finish()
+            }
+        }.start()
     }
 }
