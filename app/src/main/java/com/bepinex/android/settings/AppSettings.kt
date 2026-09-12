@@ -25,6 +25,11 @@ object AppSettings {
     private const val KEY_ONBOARDING_VERSION = "onboarding_version"
     private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     private const val KEY_ONBOARDING_COACH_SHOWN = "onboarding_coach_shown"
+    private const val KEY_VIEWER_WORD_WRAP = "viewer_word_wrap"
+    private const val KEY_VIEWER_LINE_NUMBERS = "viewer_line_numbers"
+    private const val KEY_LOG_AUTO_SCROLL = "log_auto_scroll"
+    private const val KEY_LOG_WORD_WRAP = "log_word_wrap"
+    private const val KEY_LOG_LINE_NUMBERS = "log_line_numbers"
 
     const val ONBOARDING_VERSION = 1
 
@@ -192,6 +197,43 @@ object AppSettings {
 
     fun setCoachMarksShown(context: Context, shown: Boolean) {
         prefs(context).edit().putBoolean(KEY_ONBOARDING_COACH_SHOWN, shown).apply()
+    }
+
+    // Viewer Settings
+
+    fun isViewerWordWrapEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_VIEWER_WORD_WRAP, true)
+
+    fun setViewerWordWrapEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_VIEWER_WORD_WRAP, enabled).apply()
+    }
+
+    fun isViewerLineNumbersEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_VIEWER_LINE_NUMBERS, true)
+
+    fun setViewerLineNumbersEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_VIEWER_LINE_NUMBERS, enabled).apply()
+    }
+
+    fun isLogAutoScrollEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LOG_AUTO_SCROLL, true)
+
+    fun setLogAutoScrollEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LOG_AUTO_SCROLL, enabled).apply()
+    }
+
+    fun isLogWordWrapEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LOG_WORD_WRAP, false)
+
+    fun setLogWordWrapEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LOG_WORD_WRAP, enabled).apply()
+    }
+
+    fun isLogLineNumbersEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LOG_LINE_NUMBERS, false)
+
+    fun setLogLineNumbersEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LOG_LINE_NUMBERS, enabled).apply()
     }
 
     // Initialize on startup

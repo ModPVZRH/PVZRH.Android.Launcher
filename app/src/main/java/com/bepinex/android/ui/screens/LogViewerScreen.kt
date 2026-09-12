@@ -3,14 +3,16 @@ package com.bepinex.android.ui.screens
 import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,7 +61,14 @@ private suspend fun readLogFile(path: String): LogReadResult = withContext(Dispa
 @Composable
 fun LogViewerScreen(
     logFilePath: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSettingsClick: () -> Unit = {},
+    autoScroll: Boolean = true,
+    wordWrap: Boolean = false,
+    showLineNumbers: Boolean = false,
+    onAutoScrollChange: (Boolean) -> Unit = {},
+    onWordWrapChange: (Boolean) -> Unit = {},
+    onLineNumbersChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val refreshScope = rememberCoroutineScope()
@@ -68,7 +77,6 @@ fun LogViewerScreen(
     var readResult by remember(logFilePath) {
         mutableStateOf(LogReadResult(content = "", exists = false))
     }
-    var autoScroll by remember(logFilePath) { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
 
     suspend fun refreshLog() {
@@ -148,6 +156,9 @@ fun LogViewerScreen(
                     IconButton(onClick = shareLog) {
                         Icon(Icons.Filled.Share, stringResource(R.string.log_share))
                     }
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Filled.Settings, stringResource(R.string.viewer_settings))
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -162,24 +173,6 @@ fun LogViewerScreen(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = stringResource(R.string.log_auto_scroll),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(8.dp))
-                Switch(
-                    checked = autoScroll,
-                    onCheckedChange = { autoScroll = it },
-                    modifier = Modifier.height(32.dp)
-                )
-            }
-
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 shape = MaterialTheme.shapes.medium,
@@ -208,19 +201,183 @@ fun LogViewerScreen(
                     }
                     else -> {
                         SelectionContainer {
+                            val logLines = remember(readResult.content) { readResult.content.split("\n") }
+                            var logVisualLineCount by remember { mutableIntStateOf(logLines.size) }
+                            val logLineNumberWidth = remember(logVisualLineCount) { "${logVisualLineCount}".length * 8 + 4 }
+
+                            if (wordWrap) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(verticalScrollState)
+                                ) {
+                                    if (showLineNumbers) {
+                                        Column(
+                                            modifier = Modifier
+                                                .width(logLineNumberWidth.dp)
+                                                .padding(top = 12.dp, bottom = 12.dp)
+                                        ) {
+                                            for (i in 1..logVisualLineCount) {
+                                                Text(
+                                                    text = "$i",
+                                                    fontSize = 11.sp,
+                                                    lineHeight = 16.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    modifier = Modifier.padding(end = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = readResult.content,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(start = 0.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+                                        fontSize = 11.sp,
+                                        lineHeight = 16.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        onTextLayout = { logVisualLineCount = it.lineCount }
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .horizontalScroll(horizontalScrollState)
+                                        .verticalScroll(verticalScrollState)
+                                ) {
+                                    if (showLineNumbers) {
+                                        Column(
+                                            modifier = Modifier
+                                                .width(logLineNumberWidth.dp)
+                                                .padding(top = 12.dp, bottom = 12.dp)
+                                        ) {
+                                            for (i in 1..logVisualLineCount) {
+                                                Text(
+                                                    text = "$i",
+                                                    fontSize = 11.sp,
+                                                    lineHeight = 16.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = MaterialTheme.colorScheme.outline,
+                                                    modifier = Modifier.padding(end = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = readResult.content,
+                                        modifier = Modifier
+                                            .padding(start = 0.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+                                        fontSize = 11.sp,
+                                        lineHeight = 16.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        onTextLayout = { logVisualLineCount = it.lineCount }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LogViewerSettingsScreen(
+    onNavigateBack: () -> Unit,
+    autoScroll: Boolean,
+    wordWrap: Boolean,
+    showLineNumbers: Boolean,
+    onAutoScrollChange: (Boolean) -> Unit,
+    onWordWrapChange: (Boolean) -> Unit,
+    onLineNumbersChange: (Boolean) -> Unit
+) {
+    BackHandler { onNavigateBack() }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.log_settings)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.log_auto_scroll))
                             Text(
-                                text = readResult.content,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .horizontalScroll(horizontalScrollState)
-                                    .verticalScroll(verticalScrollState)
-                                    .padding(12.dp),
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurface
+                                stringResource(R.string.log_auto_scroll_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Switch(checked = autoScroll, onCheckedChange = onAutoScrollChange)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.log_word_wrap))
+                            Text(
+                                stringResource(R.string.log_word_wrap_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = wordWrap, onCheckedChange = onWordWrapChange)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.log_line_numbers))
+                            Text(
+                                stringResource(R.string.log_line_numbers_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = showLineNumbers, onCheckedChange = onLineNumbersChange)
                     }
                 }
             }

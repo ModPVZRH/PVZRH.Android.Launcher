@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
@@ -43,7 +44,7 @@ import com.bepinex.android.modpack.ModpackExportProgress
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
-import com.bepinex.android.ui.components.ConfigEditorDialog
+import com.bepinex.android.ui.screens.TextViewerScreen
 import com.bepinex.android.ui.onboarding.CoachMarkOverlay
 import com.bepinex.android.ui.onboarding.CoachMarkTargets
 import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
@@ -812,9 +813,47 @@ fun BepInExNavHost(
                     val pkg = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val mpName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
                     val logFile = com.bepinex.android.BepInExPaths.getModpackLogFile(pkg, mpName)
+
+                    val autoScroll = AppSettings.isLogAutoScrollEnabled(context)
+                    val logWordWrap = AppSettings.isLogWordWrapEnabled(context)
+                    val logLineNumbers = AppSettings.isLogLineNumbersEnabled(context)
+
                     LogViewerScreen(
                         logFilePath = logFile.absolutePath,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onSettingsClick = { navController.navigate(NavRoutes.LOG_VIEWER_SETTINGS) },
+                        autoScroll = autoScroll,
+                        wordWrap = logWordWrap,
+                        showLineNumbers = logLineNumbers,
+                        onAutoScrollChange = { AppSettings.setLogAutoScrollEnabled(context, it) },
+                        onWordWrapChange = { AppSettings.setLogWordWrapEnabled(context, it) },
+                        onLineNumbersChange = { AppSettings.setLogLineNumbersEnabled(context, it) }
+                    )
+                }
+
+                // Log Viewer Settings
+                composable(route = NavRoutes.LOG_VIEWER_SETTINGS) {
+                    var autoScroll by remember { mutableStateOf(AppSettings.isLogAutoScrollEnabled(context)) }
+                    var logWordWrap by remember { mutableStateOf(AppSettings.isLogWordWrapEnabled(context)) }
+                    var logLineNumbers by remember { mutableStateOf(AppSettings.isLogLineNumbersEnabled(context)) }
+
+                    LogViewerSettingsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        autoScroll = autoScroll,
+                        wordWrap = logWordWrap,
+                        showLineNumbers = logLineNumbers,
+                        onAutoScrollChange = {
+                            autoScroll = it
+                            AppSettings.setLogAutoScrollEnabled(context, it)
+                        },
+                        onWordWrapChange = {
+                            logWordWrap = it
+                            AppSettings.setLogWordWrapEnabled(context, it)
+                        },
+                        onLineNumbersChange = {
+                            logLineNumbers = it
+                            AppSettings.setLogLineNumbersEnabled(context, it)
+                        }
                     )
                 }
 
@@ -826,9 +865,13 @@ fun BepInExNavHost(
                     val encodedPath = backStackEntry.arguments?.getString("filePath") ?: return@composable
                     val filePath = java.net.URLDecoder.decode(encodedPath, "UTF-8")
                     val file = java.io.File(filePath)
-                    ConfigEditorDialog(
-                        configFile = file,
-                        onDismiss = { navController.popBackStack() },
+
+                    val wordWrap = AppSettings.isViewerWordWrapEnabled(context)
+                    val showLineNumbers = AppSettings.isViewerLineNumbersEnabled(context)
+
+                    TextViewerScreen(
+                        file = file,
+                        onNavigateBack = { navController.popBackStack() },
                         onSave = { f, content ->
                             val success = runCatching {
                                 f.writeText(content)
@@ -836,6 +879,29 @@ fun BepInExNavHost(
                             success.also {
                                 if (success) navController.popBackStack()
                             }
+                        },
+                        onSettingsClick = { navController.navigate(NavRoutes.VIEWER_SETTINGS) },
+                        wordWrap = wordWrap,
+                        showLineNumbers = showLineNumbers
+                    )
+                }
+
+                // Viewer Settings
+                composable(route = NavRoutes.VIEWER_SETTINGS) {
+                    var wordWrap by remember { mutableStateOf(AppSettings.isViewerWordWrapEnabled(context)) }
+                    var showLineNumbers by remember { mutableStateOf(AppSettings.isViewerLineNumbersEnabled(context)) }
+
+                    ViewerSettingsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        wordWrap = wordWrap,
+                        showLineNumbers = showLineNumbers,
+                        onWordWrapChange = {
+                            wordWrap = it
+                            AppSettings.setViewerWordWrapEnabled(context, it)
+                        },
+                        onLineNumbersChange = {
+                            showLineNumbers = it
+                            AppSettings.setViewerLineNumbersEnabled(context, it)
                         }
                     )
                 }
