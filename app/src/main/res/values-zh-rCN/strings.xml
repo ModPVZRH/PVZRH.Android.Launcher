@@ -172,8 +172,8 @@
     <string name="save_saf_title">游戏存档（通过 SAF）</string>
     <string name="save_direct_title">游戏存档</string>
     <string name="save_shizuku_title">游戏存档（通过 Shizuku）</string>
-    <string name="save_saf_hint">Android 11–14 需要授予文件夹访问权限</string>
-    <string name="save_shizuku_hint">Android 15 及以上使用特权 Shell 访问</string>
+    <string name="save_saf_hint">Android 11 需要授予文件夹访问权限</string>
+    <string name="save_shizuku_hint">Android 12 及以上使用特权 Shell 访问</string>
     <string name="save_need_permission">需要权限才能访问游戏存档</string>
     <string name="save_not_found">未找到游戏文件目录。请至少启动一次游戏。</string>
     <string name="save_empty">游戏 files/ 目录为空。</string>
@@ -220,7 +220,7 @@
     <string name="save_manual_direct_step1">1. 使用文件管理器复制整个目录：/sdcard/Android/data/%1$s/files/</string>
     <string name="save_manual_direct_step2">2. 存档数据直接位于此 files/ 目录中，包括 playerData.json 和其中的子目录</string>
     <string name="save_manual_direct_step3">3. 还原时，将文件和子目录复制回相同的 files/ 目录</string>
-    <string name="save_manual_saf_title">文件夹权限（Android 11–14）</string>
+    <string name="save_manual_saf_title">文件夹权限（Android 11）</string>
     <string name="save_manual_saf_step1">1. 点击“授予文件夹访问权限”，然后选择“使用此文件夹”</string>
     <string name="save_manual_saf_step2">2. 点击“备份到启动器”以保存游戏数据</string>
     <string name="save_manual_saf_step3">3. 还原时，将文件放入 L2G 文件夹，然后点击“还原到游戏”</string>
@@ -230,11 +230,11 @@
     <string name="save_adb_restore_cmd">adb push ./PVZRH_Saves/. /sdcard/Android/data/%1$s/files/</string>
     <string name="save_copy_command">复制命令</string>
     <string name="save_command_copied">命令已复制</string>
-    <string name="save_manual_shizuku_title">Shizuku / ADB（Android 15 及以上）</string>
+    <string name="save_manual_shizuku_title">Shizuku / ADB（Android 12 及以上）</string>
     <string name="save_manual_shizuku_step1">方案 A：安装 Shizuku，并授予上方所需权限</string>
     <string name="save_manual_shizuku_step2">方案 B：在电脑上使用 ADB</string>
     <string name="save_shizuku_not_installed">未安装 Shizuku</string>
-    <string name="save_shizuku_not_installed_desc">安装 Shizuku 以管理 Android 15 及以上设备上的存档</string>
+    <string name="save_shizuku_not_installed_desc">安装 Shizuku 以管理 Android 12 及以上设备上的存档</string>
     <string name="save_shizuku_install">安装 Shizuku</string>
     <string name="save_shizuku_not_running">Shizuku 未运行</string>
     <string name="save_shizuku_not_running_desc">通过无线调试或 root 启动 Shizuku</string>
@@ -359,7 +359,7 @@
     <string name="about_project_bepinexandroid_name">BepInEx.Android.Launcher</string>
     <string name="about_project_bepinexandroid_desc">通用 BepInEx Android 启动器 — 支持多游戏整合包管理。</string>
     <string name="about_project_dotnet_name">dotnet/runtime</string>
-    <string name="about_project_dotnet_desc">Microsoft .NET 运行时 v10.0.5。从源码构建，使用 OpenSSL 加密后端修复 Android 16 / 小米 HyperOS 上的 BoringSSL SIGSEGV 崩溃。</string>
+    <string name="about_project_dotnet_desc">Microsoft .NET 运行时 v10.0.5。从源码构建，使用 OpenSSL 加密后端修复 Android 16 上的 BoringSSL SIGSEGV 崩溃。</string>
     <string name="about_project_openssl_name">OpenSSL</string>
     <string name="about_project_openssl_desc">OpenSSL 3.4.0 — 替换 BoringSSL 用于 ARM64 Android 加密。提供 libcrypto.so + libssl.so。</string>
     <string name="about_project_pine_name">Pine</string>

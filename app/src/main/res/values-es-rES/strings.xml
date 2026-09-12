@@ -40,6 +40,10 @@
     <!-- Modpacks -->
     <string name="modpack_title">Docs/Translating</string>
     <string name="modpack_create">Create Modpack</string>
+    <string name="modpack_create_action">Create</string>
+    <string name="modpack_import_action">Import</string>
+    <string name="modpack_actions">Modpack actions</string>
+    <string name="modpack_actions_close">Close actions</string>
     <string name="modpack_delete">Docs/Translating</string>
     <string name="modpack_rename">Rename</string>
     <string name="modpack_rename_failed">Docs/Translating</string>
@@ -130,6 +134,7 @@
     <string name="viewer_line_numbers">Line Numbers</string>
     <string name="viewer_line_numbers_desc">Show line numbers on the left side</string>
     <string name="viewer_empty">Empty file</string>
+    <string name="viewer_cursor_position">Ln %1$d, Col %2$d</string>
     <string name="viewer_preview">Preview</string>
     <string name="viewer_preview_text">\"Every art and every inquiry, and similarly every action and pursuit, is thought to aim at some good; and for this reason the good has rightly been declared to be that at which all things aim.\" — Aristotle, *Nicomachean Ethics*</string>
     <!-- Log Viewer -->
@@ -254,7 +259,7 @@
     <string name="animation_restart_now">Restart</string>
     <string name="settings_about">About</string>
     <string name="settings_onboarding">Beginner guide</string>
-    <string name="settings_onboarding_desc">Review launch, modpacks, and permission steps</string>
+    <string name="settings_onboarding_desc">Review launch, modpacks, permissions, and sharing crash logs</string>
     <!-- Onboarding -->
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_later">Later</string>
@@ -273,6 +278,8 @@
     <string name="onboarding_permission_granted">All files access is granted</string>
     <string name="onboarding_first_launch_title">The first launch takes a moment</string>
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
+    <string name="onboarding_crash_logs_title">Share logs after a crash</string>
+    <string name="onboarding_crash_logs_body">If Fusion crashes, tap the share icon on the Games tab to export logs and send them to the developer.</string>
     <string name="coach_next">Next</string>
     <string name="coach_skip">Skip tips</string>
     <string name="coach_done">Got it</string>
@@ -282,6 +289,14 @@
     <string name="coach_modpacks_body">Enable mods from a modpack. Import .rhp or .zip on the Modpacks tab — don\'t treat those archives as a single DLL.</string>
     <string name="coach_saves_title">Saves</string>
     <string name="coach_saves_body">Back up and restore saves in the launcher. Uninstalling the game does not keep these backups by itself.</string>
+    <string name="coach_export_logs_title">Export logs</string>
+    <string name="coach_export_logs_body">If Fusion crashes, tap here to export logs and share them with the developer.</string>
+    <string name="coach_modpack_actions_title">Create or import</string>
+    <string name="coach_modpack_actions_body">Tap + to create a modpack, import a .rhp or .zip file, or scan Downloads for packs.</string>
+    <string name="coach_modpack_vanilla_title">Vanilla</string>
+    <string name="coach_modpack_vanilla_body">Select this to launch without mods. The highlighted pack is the one used when you start the game.</string>
+    <string name="coach_modpack_card_title">Open a modpack</string>
+    <string name="coach_modpack_card_body">Tap the card to manage mods and files. Use the circle to make it active before launching.</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">Clear BepInEx Files?</string>
     <string name="confirm_clear_bepinex_msg">This will delete all BepInEx files and interop assemblies for this game. You will need to re-extract on next launch.</string>
