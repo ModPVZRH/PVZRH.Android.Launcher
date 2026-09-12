@@ -18,6 +18,9 @@
     <!-- Framework Status -->
     <string name="framework_ready">Docs/Translating</string>
     <string name="framework_setting_up">Setting up…</string>
+    <string name="framework_setup_failed">Setup failed</string>
+    <string name="framework_setup_failed_permission">All files access is required to extract BepInEx</string>
+    <string name="framework_retry">Retry setup</string>
     <string name="extracting">Extracting BepInEx…</string>
     <string name="mod_count">%d mod(s)</string>
     <!-- Actions -->
@@ -53,6 +56,8 @@
     <string name="shortcut_permission_open_settings">Docs/Translating</string>
     <string name="modpack_vanilla_desc">Docs/Translating</string>
     <string name="modpack_empty">Docs/Translating</string>
+    <string name="modpack_switching">Switching modpack…</string>
+    <string name="launch_wait_modpack_switch">Wait for the modpack switch to finish</string>
     <string name="modpack_empty_hint">Import a .rhp or .zip modpack here. Don\'t add archive files as a single mod DLL.</string>
     <string name="modpack_export">Export</string>
     <string name="modpack_export_preparing">Docs/Translating…</string>
@@ -72,6 +77,13 @@
     <string name="modpack_deleted">Docs/Translating%s</string>
     <string name="modpack_exported">Exported: %s</string>
     <string name="modpack_imported">Docs/Translating%s</string>
+    <string name="modpack_scan_downloads">Import from Downloads</string>
+    <string name="modpack_scan_downloads_title">Modpacks in Downloads</string>
+    <string name="modpack_scan_downloads_message">Found %d .rhp file(s) in Downloads. Import the selected files?</string>
+    <string name="modpack_scan_downloads_import">Import</string>
+    <string name="modpack_scan_downloads_skip">Not now</string>
+    <string name="modpack_scan_downloads_empty">No .rhp modpacks found in Downloads</string>
+    <string name="modpack_scan_downloads_imported">Imported %1$d of %2$d modpack(s)</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Docs/Translating</string>
     <string name="modpack_invalid_mod_file">Only .dll mod files can be added</string>
@@ -95,6 +107,9 @@
     <string name="modpack_mod_sort_file">File name</string>
     <string name="modpack_mod_sort_enabled_first">Enabled first</string>
     <string name="modpack_mod_sort_disabled_first">Disabled first</string>
+    <string name="modpack_search_mods">Search mods</string>
+    <string name="modpack_search_clear">Clear search</string>
+    <string name="modpack_search_no_results">No matching mods</string>
     <string name="modpack_scrollbar">Scroll list</string>
     <!-- Config Editor -->
     <string name="config_editor_title">Docs/Translating</string>
