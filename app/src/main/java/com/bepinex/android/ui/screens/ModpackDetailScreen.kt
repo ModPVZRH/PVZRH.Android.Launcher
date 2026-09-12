@@ -1,10 +1,10 @@
 package com.bepinex.android.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Add
@@ -72,6 +73,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -124,7 +127,6 @@ fun ModpackDetailScreen(
         configFiles.filter { it.matchesSearch(searchQuery) }
     }
     val listState = rememberLazyListState()
-    val keyboardController = LocalSoftwareKeyboardController.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -190,92 +192,66 @@ fun ModpackDetailScreen(
             }
 
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.installed_mods),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier
-                            .weight(1f)
-                            .semantics { heading() }
-                    )
-                    if (mods.isNotEmpty()) {
-                        StatusBadge(
-                            text = stringResource(
-                                R.string.modpack_mod_count_ratio,
-                                mods.count { it.enabled },
-                                mods.size
-                            )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.installed_mods),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics { heading() }
                         )
-                        Box {
-                            IconButton(onClick = { sortMenuOpen = true }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Sort,
-                                    contentDescription = stringResource(R.string.modpack_mod_sort)
+                        if (mods.isNotEmpty()) {
+                            StatusBadge(
+                                text = stringResource(
+                                    R.string.modpack_mod_count_ratio,
+                                    mods.count { it.enabled },
+                                    mods.size
                                 )
-                            }
-                            DropdownMenu(
-                                expanded = sortMenuOpen,
-                                onDismissRequest = { sortMenuOpen = false }
-                            ) {
-                                ModSortMode.entries.forEach { mode ->
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(mode.labelRes)) },
-                                        onClick = {
-                                            sortMode = mode
-                                            sortMenuOpen = false
-                                        },
-                                        trailingIcon = if (sortMode == mode) {
-                                            {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Check,
-                                                    contentDescription = null
-                                                )
-                                            }
-                                        } else {
-                                            null
-                                        }
+                            )
+                            Box {
+                                IconButton(onClick = { sortMenuOpen = true }) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Sort,
+                                        contentDescription = stringResource(R.string.modpack_mod_sort)
                                     )
+                                }
+                                DropdownMenu(
+                                    expanded = sortMenuOpen,
+                                    onDismissRequest = { sortMenuOpen = false }
+                                ) {
+                                    ModSortMode.entries.forEach { mode ->
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(mode.labelRes)) },
+                                            onClick = {
+                                                sortMode = mode
+                                                sortMenuOpen = false
+                                            },
+                                            trailingIcon = if (sortMode == mode) {
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Check,
+                                                        contentDescription = null
+                                                    )
+                                                }
+                                            } else {
+                                                null
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
-
-            if (mods.isNotEmpty()) {
-                item {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.modpack_search_mods)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = null
-                            )
-                        },
-                        trailingIcon = if (searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = stringResource(R.string.modpack_search_clear)
-                                    )
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(
-                            onSearch = { keyboardController?.hide() }
+                    if (mods.isNotEmpty()) {
+                        ModSearchBar(
+                            query = searchQuery,
+                            onQueryChange = { searchQuery = it }
                         )
-                    )
+                    }
                 }
             }
 
@@ -411,7 +387,6 @@ fun ModpackDetailScreen(
                     buildList {
                         add("")
                         add("")
-                        if (mods.isNotEmpty()) add("")
                         if (mods.isEmpty() || filteredMods.isEmpty()) {
                             add("")
                         } else {
@@ -833,6 +808,90 @@ private fun ModItemCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.delete))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val placeholder = stringResource(R.string.modpack_search_mods)
+    var focused by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (focused) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+            }
+        ),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(start = 14.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(10.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { focused = it.isFocused },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = { keyboardController?.hide() }
+                ),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.modpack_search_clear),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
