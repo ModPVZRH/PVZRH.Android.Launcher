@@ -64,6 +64,10 @@
     <string name="modpack_export_progress">تعديل</string>
     <string name="modpack_export_cancel">تعديل</string>
     <string name="modpack_import">تعديل</string>
+    <string name="modpack_import_dialog_title">Import Modpack</string>
+    <string name="modpack_import_dialog_message">Import a prepared modpack into the launcher</string>
+    <string name="modpack_import_auto_scan">Auto Scan</string>
+    <string name="modpack_import_manual">Manual Import</string>
     <string name="modpack_importing">تعديل</string>
     <string name="modpack_import_cancel">تعديل</string>
     <string name="modpack_invalid_file">تعديل</string>
