@@ -130,6 +130,7 @@
     <string name="viewer_line_numbers">Line Numbers</string>
     <string name="viewer_line_numbers_desc">Show line numbers on the left side</string>
     <string name="viewer_empty">Empty file</string>
+    <string name="viewer_cursor_position">Ln %1$d, Col %2$d</string>
     <string name="viewer_preview">Preview</string>
     <string name="viewer_preview_text">\"Every art and every inquiry, and similarly every action and pursuit, is thought to aim at some good; and for this reason the good has rightly been declared to be that at which all things aim.\" — Aristotle, *Nicomachean Ethics*</string>
     <!-- Log Viewer -->
