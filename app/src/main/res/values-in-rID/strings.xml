@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">PVZRH Launcher</string>
+    <string name="app_name">Source text does not end with a space. Please remove  space from the end of the translation.Spellcheck found possible errors: \"Punyaku\", \"bermasalah\"The translation contains extra numbers not found in the source:</string>
     <string name="app_tagline">PVZRH Launcher</string>
     <!-- Navigation -->
     <string name="nav_games">Games</string>
