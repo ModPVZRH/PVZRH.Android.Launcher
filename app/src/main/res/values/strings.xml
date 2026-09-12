@@ -303,6 +303,12 @@
     <string name="coach_modpacks_body">Enable mods from a modpack. Import .rhp or .zip on the Modpacks tab — don\'t treat those archives as a single DLL.</string>
     <string name="coach_saves_title">Saves</string>
     <string name="coach_saves_body">Back up and restore saves in the launcher. Uninstalling the game does not keep these backups by itself.</string>
+    <string name="coach_modpack_actions_title">Create or import</string>
+    <string name="coach_modpack_actions_body">Tap + to create a modpack, import a .rhp or .zip file, or scan Downloads for packs.</string>
+    <string name="coach_modpack_vanilla_title">Vanilla</string>
+    <string name="coach_modpack_vanilla_body">Select this to launch without mods. The highlighted pack is the one used when you start the game.</string>
+    <string name="coach_modpack_card_title">Open a modpack</string>
+    <string name="coach_modpack_card_body">Tap the card to manage mods and files. Use the circle to make it active before launching.</string>
 
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">Clear BepInEx Files?</string>

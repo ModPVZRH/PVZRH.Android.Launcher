@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,6 +72,7 @@ fun ModpackListScreen(
     var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var scanningDownloads by remember { mutableStateOf(false) }
     val scanScope = rememberCoroutineScope()
+    val coachTargets = LocalCoachMarkTargets.current
 
     // Refresh icons when modpacks change
     var internalIconRefreshKey by remember { mutableIntStateOf(0) }
@@ -165,6 +168,9 @@ fun ModpackListScreen(
                 onAutoImport = {
                     collapseActions()
                     scanDownloads()
+                },
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    coachTargets?.updateActionsFab(coords)
                 }
             )
         }
@@ -204,7 +210,10 @@ fun ModpackListScreen(
             item(key = "vanilla") {
                 VanillaCard(
                     isActive = activeModpackName == null,
-                    onSelect = { onSelectModpack(null) }
+                    onSelect = { onSelectModpack(null) },
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        coachTargets?.updateVanilla(coords)
+                    }
                 )
             }
 
@@ -214,6 +223,7 @@ fun ModpackListScreen(
                 }
             } else {
                 items(modpacks, key = { it.name }) { modpack ->
+                    val isFirst = modpack.name == modpacks.first().name
                     // Force recomposition when internalIconRefreshKey changes
                     key(combinedIconRefreshKey) {
                         ModpackCard(
@@ -228,7 +238,14 @@ fun ModpackListScreen(
                                 imagePicker.launch("image/*")
                             },
                             onEdit = { showEditDialog = modpack },
-                            onDelete = { showDeleteDialog = modpack.name }
+                            onDelete = { showDeleteDialog = modpack.name },
+                            modifier = if (isFirst) {
+                                Modifier.onGloballyPositioned { coords ->
+                                    coachTargets?.updateFirstModpack(coords)
+                                }
+                            } else {
+                                Modifier
+                            }
                         )
                     }
                 }
@@ -317,10 +334,11 @@ fun ModpackListScreen(
 @Composable
 private fun VanillaCard(
     isActive: Boolean,
-    onSelect: () -> Unit
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         onClick = onSelect,
         colors = CardDefaults.cardColors(
@@ -387,7 +405,8 @@ private fun ModpackCard(
     onSelect: () -> Unit,
     onIconClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val manager = remember { ModpackManager() }
     var iconBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
@@ -401,7 +420,7 @@ private fun ModpackCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         onClick = onOpen,
         colors = CardDefaults.cardColors(
@@ -688,14 +707,15 @@ private fun ModpackActionsFab(
     onExpandedChange: (Boolean) -> Unit,
     onCreate: () -> Unit,
     onImport: () -> Unit,
-    onAutoImport: () -> Unit
+    onAutoImport: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 45f else 0f,
         label = "modpackFabRotation"
     )
 
-    Box {
+    Box(modifier = modifier) {
         FloatingActionButton(
             onClick = { onExpandedChange(!expanded) },
             containerColor = MaterialTheme.colorScheme.primaryContainer,

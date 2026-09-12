@@ -42,7 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 
-private data class CoachStep(
+data class CoachMarkStep(
     val rect: Rect?,
     val title: String,
     val body: String
@@ -50,35 +50,19 @@ private data class CoachStep(
 
 @Composable
 fun CoachMarkOverlay(
-    targets: CoachMarkTargets,
+    steps: List<CoachMarkStep>,
     onFinished: () -> Unit
 ) {
-    val steps = listOf(
-        CoachStep(
-            targets.launchRect,
-            stringResource(R.string.coach_launch_title),
-            stringResource(R.string.coach_launch_body)
-        ),
-        CoachStep(
-            targets.modpacksRect,
-            stringResource(R.string.coach_modpacks_title),
-            stringResource(R.string.coach_modpacks_body)
-        ),
-        CoachStep(
-            targets.savesRect,
-            stringResource(R.string.coach_saves_title),
-            stringResource(R.string.coach_saves_body)
-        )
-    ).filter { step ->
+    val visibleSteps = steps.filter { step ->
         val rect = step.rect
         rect != null && rect.width > 8f && rect.height > 8f
     }
-    if (steps.isEmpty()) return
+    if (visibleSteps.isEmpty()) return
 
     var index by remember { mutableIntStateOf(0) }
-    val safeIndex = index.coerceIn(0, steps.lastIndex)
-    val step = steps[safeIndex]
-    val last = safeIndex == steps.lastIndex
+    val safeIndex = index.coerceIn(0, visibleSteps.lastIndex)
+    val step = visibleSteps[safeIndex]
+    val last = safeIndex == visibleSteps.lastIndex
     val view = LocalView.current
     val hole = step.rect?.let { windowRect ->
         val loc = IntArray(2)

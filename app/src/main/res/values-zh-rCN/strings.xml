@@ -287,6 +287,12 @@
     <string name="coach_modpacks_body">模组请做成整合包再启用。ZIP/RHP 走整合包页，不要当单个 DLL 导入。</string>
     <string name="coach_saves_title">存档</string>
     <string name="coach_saves_body">请在启动器里备份和还原存档。卸载游戏不会自动带走这些备份。</string>
+    <string name="coach_modpack_actions_title">创建或导入</string>
+    <string name="coach_modpack_actions_body">点右下角 + 可以创建整合包、手动导入 .rhp/.zip，或扫描下载目录。</string>
+    <string name="coach_modpack_vanilla_title">纯净模式</string>
+    <string name="coach_modpack_vanilla_body">选中后启动游戏将不加载模组。启动时用的是当前激活的那一个。</string>
+    <string name="coach_modpack_card_title">打开整合包</string>
+    <string name="coach_modpack_card_body">点卡片可以管理模组和文件。点圆圈把它设为激活，再去启动游戏。</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">清除 BepInEx 文件？</string>
     <string name="confirm_clear_bepinex_msg">这将删除此游戏的所有 BepInEx 文件和 interop 程序集。下次启动需要重新解压。</string>

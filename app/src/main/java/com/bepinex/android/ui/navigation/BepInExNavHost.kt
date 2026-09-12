@@ -45,6 +45,7 @@ import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.screens.TextViewerScreen
 import com.bepinex.android.ui.onboarding.CoachMarkOverlay
+import com.bepinex.android.ui.onboarding.CoachMarkStep
 import com.bepinex.android.ui.onboarding.CoachMarkTargets
 import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
 import com.bepinex.android.ui.screens.*
@@ -429,13 +430,33 @@ fun BepInExNavHost(
     val isTablet = configuration.screenWidthDp >= 600
     val coachTargets = remember { CoachMarkTargets() }
     var showCoachMarks by remember { mutableStateOf(false) }
+    var showModpackCoachMarks by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedGame?.packageName, currentRoute, coachTargets.launchRect) {
+    LaunchedEffect(selectedGame?.packageName, currentRoute, pagerState.currentPage, coachTargets.launchRect) {
+        if (showCoachMarks) return@LaunchedEffect
         showCoachMarks = AppSettings.isOnboardingCompleted(context) &&
             !AppSettings.isCoachMarksShown(context) &&
             selectedGame != null &&
             currentRoute == NavRoutes.MAIN &&
+            pagerState.currentPage == 0 &&
             coachTargets.launchRect != null
+    }
+
+    LaunchedEffect(
+        selectedGame?.packageName,
+        currentRoute,
+        pagerState.currentPage,
+        coachTargets.actionsFabRect,
+        showCoachMarks
+    ) {
+        if (showModpackCoachMarks) return@LaunchedEffect
+        showModpackCoachMarks = AppSettings.isOnboardingCompleted(context) &&
+            !AppSettings.isModpackCoachMarksShown(context) &&
+            selectedGame != null &&
+            currentRoute == NavRoutes.MAIN &&
+            pagerState.currentPage == 1 &&
+            !showCoachMarks &&
+            coachTargets.actionsFabRect != null
     }
 
     CompositionLocalProvider(LocalCoachMarkTargets provides coachTargets) {
@@ -1108,10 +1129,51 @@ fun BepInExNavHost(
     }
     if (showCoachMarks && currentRoute == NavRoutes.MAIN) {
         CoachMarkOverlay(
-            targets = coachTargets,
+            steps = listOf(
+                CoachMarkStep(
+                    coachTargets.launchRect,
+                    stringResource(R.string.coach_launch_title),
+                    stringResource(R.string.coach_launch_body)
+                ),
+                CoachMarkStep(
+                    coachTargets.modpacksRect,
+                    stringResource(R.string.coach_modpacks_title),
+                    stringResource(R.string.coach_modpacks_body)
+                ),
+                CoachMarkStep(
+                    coachTargets.savesRect,
+                    stringResource(R.string.coach_saves_title),
+                    stringResource(R.string.coach_saves_body)
+                )
+            ),
             onFinished = {
                 AppSettings.setCoachMarksShown(context, true)
                 showCoachMarks = false
+            }
+        )
+    }
+    if (showModpackCoachMarks && currentRoute == NavRoutes.MAIN) {
+        CoachMarkOverlay(
+            steps = listOf(
+                CoachMarkStep(
+                    coachTargets.actionsFabRect,
+                    stringResource(R.string.coach_modpack_actions_title),
+                    stringResource(R.string.coach_modpack_actions_body)
+                ),
+                CoachMarkStep(
+                    coachTargets.vanillaRect,
+                    stringResource(R.string.coach_modpack_vanilla_title),
+                    stringResource(R.string.coach_modpack_vanilla_body)
+                ),
+                CoachMarkStep(
+                    coachTargets.firstModpackRect,
+                    stringResource(R.string.coach_modpack_card_title),
+                    stringResource(R.string.coach_modpack_card_body)
+                )
+            ),
+            onFinished = {
+                AppSettings.setModpackCoachMarksShown(context, true)
+                showModpackCoachMarks = false
             }
         )
     }
