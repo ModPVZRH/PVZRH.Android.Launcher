@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Environment
 import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
 import org.json.JSONArray
@@ -12,10 +13,14 @@ import java.io.File
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
@@ -83,6 +88,12 @@ class ModpackManager {
 
         fun isModFileName(fileName: String?): Boolean =
             fileName?.substringAfterLast('.', "")?.equals("dll", ignoreCase = true) == true
+
+        private val runtimeMutex = Mutex()
+
+        @Volatile
+        var runtimeSwitchInProgress: Boolean = false
+            internal set
     }
 
     fun normalizeModpackName(name: String): String =
@@ -362,6 +373,27 @@ class ModpackManager {
     fun clearActiveMods(packageName: String) {
         restoreRuntimeState(packageName, null)
         BepInExLog.i("Cleared active mods (vanilla mode)")
+    }
+
+    /**
+     * Persist [from] then restore [to] under a lock so UI switches and
+     * shortcut launches cannot interleave copies.
+     */
+    suspend fun switchRuntime(packageName: String, from: String?, to: String?): Boolean {
+        return runtimeMutex.withLock {
+            runtimeSwitchInProgress = true
+            try {
+                persistRuntimeState(packageName, from)
+                if (to.isNullOrEmpty()) {
+                    clearActiveMods(packageName)
+                    true
+                } else {
+                    applyModpack(packageName, to)
+                }
+            } finally {
+                runtimeSwitchInProgress = false
+            }
+        }
     }
 
     fun persistRuntimeState(packageName: String, modpackName: String?) {
@@ -644,11 +676,90 @@ class ModpackManager {
         return !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
     }
 
+    fun scanDownloadModpacks(): List<File> {
+        return downloadDirectories()
+            .flatMap { dir ->
+                dir.walkTopDown().maxDepth(3)
+                    .filter { file ->
+                        file.isFile && file.extension.equals(MODPACK_EXTENSION, ignoreCase = true)
+                    }
+                    .toList()
+            }
+            .distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
+            .filter { containsModpackMetadata(it) }
+            .sortedByDescending { it.lastModified() }
+    }
+
+    suspend fun importModpack(packageName: String, file: File): ModpackMeta? {
+        if (!file.isFile) return null
+        return try {
+            file.inputStream().use { input ->
+                importModpackFromStream(packageName, input, file.name)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to import modpack from ${file.absolutePath}", e)
+            null
+        }
+    }
+
     suspend fun importModpack(
         packageName: String,
         uri: Uri,
         context: Context,
         archiveName: String? = null
+    ): ModpackMeta? {
+        val input = try {
+            context.contentResolver.openInputStream(uri)
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to open modpack archive", e)
+            null
+        } ?: return null.also {
+            BepInExLog.e("Unable to open modpack archive")
+        }
+        return try {
+            input.use { stream ->
+                importModpackFromStream(packageName, stream, archiveName)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to import modpack", e)
+            null
+        }
+    }
+
+    private fun downloadDirectories(): List<File> {
+        val dirs = linkedSetOf<File>()
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)?.let { dirs.add(it) }
+        Environment.getExternalStorageDirectory()?.let { root ->
+            dirs.add(File(root, "Download"))
+            dirs.add(File(root, "Downloads"))
+        }
+        return dirs.filter { it.isDirectory }.distinctBy {
+            runCatching { it.canonicalPath }.getOrDefault(it.absolutePath)
+        }
+    }
+
+    private fun containsModpackMetadata(file: File): Boolean {
+        return try {
+            ZipFile(file).use { zip ->
+                zip.entries().asSequence().any { entry ->
+                    entry.name.replace('\\', '/')
+                        .substringAfterLast('/')
+                        .equals("modpack.json", ignoreCase = true)
+                }
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun importModpackFromStream(
+        packageName: String,
+        input: InputStream,
+        archiveName: String?
     ): ModpackMeta? {
         if (!isModpackFileName(archiveName)) {
             BepInExLog.w("Rejected modpack import with unsupported extension: $archiveName")
@@ -668,46 +779,40 @@ class ModpackManager {
             stagingDir.deleteRecursively()
             stagingDir.mkdirs()
             val stagingRoot = stagingDir.canonicalFile.toPath()
-            val input = context.contentResolver.openInputStream(uri)
-                ?: throw java.io.IOException("Unable to open modpack archive")
+            val zis = ZipInputStream(BufferedInputStream(input))
             try {
-                val zis = ZipInputStream(BufferedInputStream(input))
-                try {
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        currentCoroutineContext().ensureActive()
-                        val normalizedEntryName = entry.name.replace('\\', '/').trimStart('/')
-                        if (normalizedEntryName.isNotEmpty()) {
-                            val entryFile = File(stagingDir, normalizedEntryName).canonicalFile
-                            if (!entryFile.toPath().startsWith(stagingRoot)) {
-                                throw java.io.IOException("Unsafe archive entry: ${entry.name}")
-                            }
-                            if (entry.isDirectory) {
-                                entryFile.mkdirs()
-                            } else {
-                                entryFile.parentFile?.mkdirs()
-                                val output = BufferedOutputStream(FileOutputStream(entryFile))
-                                try {
-                                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
-                                    var read: Int
-                                    do {
-                                        currentCoroutineContext().ensureActive()
-                                        read = zis.read(buffer)
-                                        if (read > 0) output.write(buffer, 0, read)
-                                    } while (read >= 0)
-                                } finally {
-                                    output.close()
-                                }
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    currentCoroutineContext().ensureActive()
+                    val normalizedEntryName = entry.name.replace('\\', '/').trimStart('/')
+                    if (normalizedEntryName.isNotEmpty()) {
+                        val entryFile = File(stagingDir, normalizedEntryName).canonicalFile
+                        if (!entryFile.toPath().startsWith(stagingRoot)) {
+                            throw java.io.IOException("Unsafe archive entry: ${entry.name}")
+                        }
+                        if (entry.isDirectory) {
+                            entryFile.mkdirs()
+                        } else {
+                            entryFile.parentFile?.mkdirs()
+                            val output = BufferedOutputStream(FileOutputStream(entryFile))
+                            try {
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 8)
+                                var read: Int
+                                do {
+                                    currentCoroutineContext().ensureActive()
+                                    read = zis.read(buffer)
+                                    if (read > 0) output.write(buffer, 0, read)
+                                } while (read >= 0)
+                            } finally {
+                                output.close()
                             }
                         }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
                     }
-                } finally {
-                    zis.close()
+                    zis.closeEntry()
+                    entry = zis.nextEntry
                 }
             } finally {
-                input.close()
+                zis.close()
             }
 
             currentCoroutineContext().ensureActive()

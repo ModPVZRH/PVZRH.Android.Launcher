@@ -30,10 +30,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.shortcut.ModpackShortcutHelper
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +44,7 @@ fun ModpackListScreen(
     targetGameLabel: String,
     modpacks: List<ModpackMeta>,
     activeModpackName: String?,
+    isSwitching: Boolean = false,
     iconRefreshKey: Int = 0,
     onCreateModpack: (String, Boolean, android.graphics.Bitmap?) -> Unit,
     onDeleteModpack: (String) -> Unit,
@@ -50,7 +53,8 @@ fun ModpackListScreen(
     onOpenModpack: (String) -> Unit,
     onExportModpack: (String) -> Unit,
     onImportModpack: () -> Unit,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    onImportDownloadFiles: (List<File>) -> Unit = {}
 ) {
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
@@ -58,10 +62,35 @@ fun ModpackListScreen(
     var showEditDialog by remember { mutableStateOf<ModpackMeta?>(null) }
     var showFabCreateDialog by remember { mutableStateOf(false) }
     var editingIconForModpack by remember { mutableStateOf<String?>(null) }
+    var downloadCandidates by remember { mutableStateOf<List<File>>(emptyList()) }
+    var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var scanningDownloads by remember { mutableStateOf(false) }
+    val scanScope = rememberCoroutineScope()
 
     // Refresh icons when modpacks change
     var internalIconRefreshKey by remember { mutableIntStateOf(0) }
     val combinedIconRefreshKey = iconRefreshKey + internalIconRefreshKey
+
+    fun scanDownloads() {
+        if (scanningDownloads) return
+        scanningDownloads = true
+        scanScope.launch {
+            val found = withContext(Dispatchers.IO) {
+                manager.scanDownloadModpacks()
+            }
+            scanningDownloads = false
+            if (found.isEmpty()) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(R.string.modpack_scan_downloads_empty),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                downloadCandidates = found
+                selectedDownloadPaths = found.map { it.absolutePath }.toSet()
+            }
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -112,6 +141,15 @@ fun ModpackListScreen(
                             contentDescription = stringResource(R.string.refresh)
                         )
                     }
+                    IconButton(
+                        onClick = { scanDownloads() },
+                        enabled = !scanningDownloads
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Download,
+                            contentDescription = stringResource(R.string.modpack_scan_downloads)
+                        )
+                    }
                     IconButton(onClick = onImportModpack) {
                         Icon(
                             imageVector = Icons.Filled.FileOpen,
@@ -138,10 +176,23 @@ fun ModpackListScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+        ) {
+            if (isSwitching) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(
+                    text = stringResource(R.string.modpack_switching),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
@@ -181,6 +232,7 @@ fun ModpackListScreen(
 
             item { Spacer(Modifier.height(16.dp)) }
         }
+        }
     }
 
     // Delete dialog
@@ -219,6 +271,28 @@ fun ModpackListScreen(
             onSave = { newName, createShortcut, bitmap ->
                 onEditModpack(modpack.name, newName, createShortcut, bitmap)
                 showEditDialog = null
+            }
+        )
+    }
+
+    if (downloadCandidates.isNotEmpty()) {
+        DownloadModpackScanDialog(
+            files = downloadCandidates,
+            selectedPaths = selectedDownloadPaths,
+            onToggle = { file, checked ->
+                selectedDownloadPaths = if (checked) {
+                    selectedDownloadPaths + file.absolutePath
+                } else {
+                    selectedDownloadPaths - file.absolutePath
+                }
+            },
+            onImport = {
+                val selected = downloadCandidates.filter { it.absolutePath in selectedDownloadPaths }
+                downloadCandidates = emptyList()
+                if (selected.isNotEmpty()) onImportDownloadFiles(selected)
+            },
+            onSkip = {
+                downloadCandidates = emptyList()
             }
         )
     }
@@ -646,6 +720,79 @@ private fun EmptyModpacksCard(onCreate: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun DownloadModpackScanDialog(
+    files: List<File>,
+    selectedPaths: Set<String>,
+    onToggle: (File, Boolean) -> Unit,
+    onImport: () -> Unit,
+    onSkip: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onSkip,
+        title = { Text(stringResource(R.string.modpack_scan_downloads_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.modpack_scan_downloads_message, files.size))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(files, key = { it.absolutePath }) { file ->
+                        val checked = file.absolutePath in selectedPaths
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onToggle(file, !checked) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { onToggle(file, it) }
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = file.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = formatDownloadFileSize(file.length()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onImport,
+                enabled = selectedPaths.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.modpack_scan_downloads_import))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onSkip) {
+                Text(stringResource(R.string.modpack_scan_downloads_skip))
+            }
+        }
+    )
+}
+
+private fun formatDownloadFileSize(bytes: Long): String = when {
+    bytes < 1024 -> "$bytes B"
+    bytes < 1024 * 1024 -> "%.1f KB".format(bytes / 1024.0)
+    else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
 }
 
 @Composable

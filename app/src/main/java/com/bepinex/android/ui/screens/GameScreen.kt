@@ -94,7 +94,8 @@ fun GameScreen(
     onManageSaves: () -> Unit,
     onExportLogs: () -> Unit,
     onShowAnnouncement: () -> Unit = {},
-    showIncompleteBanner: Boolean = false
+    showIncompleteBanner: Boolean = false,
+    isSwitchingModpack: Boolean = false
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -241,7 +242,8 @@ fun GameScreen(
                             activeModpackEnabledCount = activeModpackEnabledCount,
                             activeModpackModCount = activeModpackModCount,
                             onLaunch = onLaunch,
-                            onManageSaves = onManageSaves
+                            onManageSaves = onManageSaves,
+                            isSwitchingModpack = isSwitchingModpack
                         )
                     }
                 }
@@ -393,7 +395,8 @@ private fun SelectedGameCard(
     activeModpackEnabledCount: Int,
     activeModpackModCount: Int,
     onLaunch: () -> Unit,
-    onManageSaves: () -> Unit
+    onManageSaves: () -> Unit,
+    isSwitchingModpack: Boolean = false
 ) {
     val coachTargets = LocalCoachMarkTargets.current
     Card(
@@ -488,10 +491,22 @@ private fun SelectedGameCard(
                 )
             }
 
+            if (isSwitchingModpack) {
+                Spacer(Modifier.height(10.dp))
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.modpack_switching),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Spacer(Modifier.height(18.dp))
             SelectedGameActions(
-                canLaunch = !isExtracting,
+                canLaunch = !isExtracting && !isSwitchingModpack,
                 isFrameworkReady = isFrameworkReady,
+                isSwitchingModpack = isSwitchingModpack,
                 onLaunch = onLaunch,
                 modifier = Modifier.onGloballyPositioned { coords ->
                     coachTargets?.updateLaunch(coords)
@@ -505,6 +520,7 @@ private fun SelectedGameCard(
 private fun SelectedGameActions(
     canLaunch: Boolean,
     isFrameworkReady: Boolean,
+    isSwitchingModpack: Boolean = false,
     onLaunch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -520,7 +536,11 @@ private fun SelectedGameActions(
         Spacer(Modifier.width(8.dp))
         Text(
             text = stringResource(
-                if (isFrameworkReady) R.string.launch else R.string.framework_retry
+                when {
+                    isSwitchingModpack -> R.string.modpack_switching
+                    isFrameworkReady -> R.string.launch
+                    else -> R.string.framework_retry
+                }
             ),
             style = MaterialTheme.typography.titleMedium
         )

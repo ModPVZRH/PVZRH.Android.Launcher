@@ -56,6 +56,8 @@
     <string name="shortcut_permission_open_settings">打开设置</string>
     <string name="modpack_vanilla_desc">未加载模组</string>
     <string name="modpack_empty">暂无整合包</string>
+    <string name="modpack_switching">正在切换整合包…</string>
+    <string name="launch_wait_modpack_switch">请等待整合包切换完成</string>
     <string name="modpack_empty_hint">请在此页导入 .rhp 或 .zip 整合包，不要把压缩包当成单个 DLL 添加。</string>
     <string name="modpack_export">导出</string>
     <string name="modpack_export_preparing">正在准备导出…</string>
@@ -75,6 +77,13 @@
     <string name="modpack_deleted">已删除整合包: %s</string>
     <string name="modpack_exported">已导出: %s</string>
     <string name="modpack_imported">已导入: %s</string>
+    <string name="modpack_scan_downloads">从下载目录导入</string>
+    <string name="modpack_scan_downloads_title">下载目录中的整合包</string>
+    <string name="modpack_scan_downloads_message">在下载目录找到 %d 个 .rhp 文件，要导入选中的文件吗？</string>
+    <string name="modpack_scan_downloads_import">导入</string>
+    <string name="modpack_scan_downloads_skip">暂不</string>
+    <string name="modpack_scan_downloads_empty">下载目录没有 .rhp 整合包</string>
+    <string name="modpack_scan_downloads_imported">已导入 %1$d / %2$d 个整合包</string>
     <string name="modpack_no_mods">此整合包中暂无模组</string>
     <string name="modpack_add_mod">添加模组</string>
     <string name="modpack_invalid_mod_file">仅可添加 .dll 后缀的模组</string>
