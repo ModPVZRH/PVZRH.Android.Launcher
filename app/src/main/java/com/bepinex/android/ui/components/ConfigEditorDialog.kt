@@ -10,7 +10,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -48,25 +48,8 @@ fun ConfigEditorDialog(
     // top-bar back button instead of dismissing the editor immediately.
     BackHandler(enabled = !showDiscardDialog, onBack = ::requestDismiss)
 
-    val highlightColors = SyntaxHighlightColors(
-        property = MaterialTheme.colorScheme.primary,
-        string = MaterialTheme.colorScheme.tertiary,
-        number = MaterialTheme.colorScheme.secondary,
-        boolean = MaterialTheme.colorScheme.error,
-        nullLiteral = MaterialTheme.colorScheme.onSurfaceVariant,
-        keyword = MaterialTheme.colorScheme.primary,
-        function = lerp(
-            MaterialTheme.colorScheme.tertiary,
-            MaterialTheme.colorScheme.primary,
-            0.35f
-        ),
-        builtin = lerp(
-            MaterialTheme.colorScheme.secondary,
-            MaterialTheme.colorScheme.error,
-            0.2f
-        ),
-        comment = MaterialTheme.colorScheme.outline.copy(alpha = 0.9f)
-    )
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val highlightColors = remember(isDark) { editorSyntaxColors(isDark) }
     val syntaxHighlighting = remember(configFile.extension, highlightColors) {
         SyntaxHighlightVisualTransformation(configFile.extension, highlightColors)
     }
