@@ -445,7 +445,7 @@ fun BepInExNavHost(
     LaunchedEffect(
         selectedGame?.packageName,
         currentRoute,
-        pagerState.currentPage,
+        pagerState.settledPage,
         coachTargets.actionsFabRect,
         showCoachMarks
     ) {
@@ -454,7 +454,7 @@ fun BepInExNavHost(
             !AppSettings.isModpackCoachMarksShown(context) &&
             selectedGame != null &&
             currentRoute == NavRoutes.MAIN &&
-            pagerState.currentPage == 1 &&
+            pagerState.settledPage == 1 &&
             !showCoachMarks &&
             coachTargets.actionsFabRect != null
     }
@@ -1141,19 +1141,33 @@ fun BepInExNavHost(
                     stringResource(R.string.coach_export_logs_body)
                 ),
                 CoachMarkStep(
-                    coachTargets.modpacksRect,
-                    stringResource(R.string.coach_modpacks_title),
-                    stringResource(R.string.coach_modpacks_body)
-                ),
-                CoachMarkStep(
                     coachTargets.savesRect,
                     stringResource(R.string.coach_saves_title),
                     stringResource(R.string.coach_saves_body)
+                ),
+                CoachMarkStep(
+                    coachTargets.modpacksRect,
+                    stringResource(R.string.coach_modpacks_title),
+                    stringResource(R.string.coach_modpacks_body)
                 )
             ),
+            lastStepContinues = !AppSettings.isModpackCoachMarksShown(context),
+            onSkip = {
+                AppSettings.setCoachMarksShown(context, true)
+                AppSettings.setModpackCoachMarksShown(context, true)
+                showCoachMarks = false
+                showModpackCoachMarks = false
+            },
             onFinished = {
                 AppSettings.setCoachMarksShown(context, true)
                 showCoachMarks = false
+                if (!AppSettings.isModpackCoachMarksShown(context)) {
+                    composeScope.launch {
+                        if (animationDisabled) pagerState.scrollToPage(1)
+                        else pagerState.animateScrollToPage(1)
+                        showModpackCoachMarks = true
+                    }
+                }
             }
         )
     }

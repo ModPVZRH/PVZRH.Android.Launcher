@@ -51,7 +51,9 @@ data class CoachMarkStep(
 @Composable
 fun CoachMarkOverlay(
     steps: List<CoachMarkStep>,
-    onFinished: () -> Unit
+    onFinished: () -> Unit,
+    onSkip: () -> Unit = onFinished,
+    lastStepContinues: Boolean = false
 ) {
     val visibleSteps = steps.filter { step ->
         val rect = step.rect
@@ -138,7 +140,7 @@ fun CoachMarkOverlay(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = onFinished) {
+                        TextButton(onClick = onSkip) {
                             Text(stringResource(R.string.coach_skip))
                         }
                         Button(
@@ -148,7 +150,11 @@ fun CoachMarkOverlay(
                         ) {
                             Text(
                                 text = stringResource(
-                                    if (last) R.string.coach_done else R.string.coach_next
+                                    if (last && !lastStepContinues) {
+                                        R.string.coach_done
+                                    } else {
+                                        R.string.coach_next
+                                    }
                                 )
                             )
                         }

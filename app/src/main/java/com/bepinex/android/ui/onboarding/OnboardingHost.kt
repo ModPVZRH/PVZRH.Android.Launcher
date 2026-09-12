@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -65,7 +66,7 @@ fun OnboardingHost(
     val scope = rememberCoroutineScope()
     val page = pagerState.currentPage
     val lastPage = page == PAGE_COUNT - 1
-    val canSkip = page == 0 || lastPage
+    val showLater = page == 1 || page == 2
     val canGoNext = when (page) {
         2 -> permissionGranted
         else -> true
@@ -91,23 +92,23 @@ fun OnboardingHost(
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.onboarding_step_of, page + 1, PAGE_COUNT),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.weight(1f))
-                if (canSkip) {
-                    TextButton(onClick = onFinished) {
-                        Text(stringResource(R.string.onboarding_skip))
-                    }
-                } else if (page == 1 || page == 2) {
-                    TextButton(onClick = onFinished) {
-                        Text(stringResource(R.string.onboarding_later))
-                    }
+                TextButton(onClick = onFinished) {
+                    Text(
+                        stringResource(
+                            if (showLater) R.string.onboarding_later else R.string.onboarding_skip
+                        )
+                    )
                 }
             }
 
