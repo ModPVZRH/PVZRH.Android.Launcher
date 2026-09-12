@@ -84,6 +84,7 @@ fun GameScreen(
     isFrameworkReady: Boolean,
     isExtracting: Boolean,
     extractionStatus: String,
+    extractionError: String? = null,
     activeModpackName: String?,
     activeModpackEnabledCount: Int,
     activeModpackModCount: Int,
@@ -235,6 +236,7 @@ fun GameScreen(
                             isFrameworkReady = isFrameworkReady,
                             isExtracting = isExtracting,
                             extractionStatus = extractionStatus,
+                            extractionError = extractionError,
                             activeModpackName = activeModpackName,
                             activeModpackEnabledCount = activeModpackEnabledCount,
                             activeModpackModCount = activeModpackModCount,
@@ -386,6 +388,7 @@ private fun SelectedGameCard(
     isFrameworkReady: Boolean,
     isExtracting: Boolean,
     extractionStatus: String,
+    extractionError: String? = null,
     activeModpackName: String?,
     activeModpackEnabledCount: Int,
     activeModpackModCount: Int,
@@ -445,6 +448,8 @@ private fun SelectedGameCard(
             ) {
                 StatusChip(
                     isFrameworkReady = isFrameworkReady,
+                    isExtracting = isExtracting,
+                    hasError = extractionError != null,
                     modifier = Modifier.weight(1f)
                 )
                 ManageSavesButton(
@@ -472,9 +477,21 @@ private fun SelectedGameCard(
                 }
             }
 
+            if (!isExtracting && !extractionError.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = extractionError,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
             Spacer(Modifier.height(18.dp))
             SelectedGameActions(
-                canLaunch = isFrameworkReady && !isExtracting,
+                canLaunch = !isExtracting,
+                isFrameworkReady = isFrameworkReady,
                 onLaunch = onLaunch,
                 modifier = Modifier.onGloballyPositioned { coords ->
                     coachTargets?.updateLaunch(coords)
@@ -487,6 +504,7 @@ private fun SelectedGameCard(
 @Composable
 private fun SelectedGameActions(
     canLaunch: Boolean,
+    isFrameworkReady: Boolean,
     onLaunch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -501,7 +519,9 @@ private fun SelectedGameActions(
         Icon(Icons.Filled.PlayArrow, contentDescription = null)
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(R.string.launch),
+            text = stringResource(
+                if (isFrameworkReady) R.string.launch else R.string.framework_retry
+            ),
             style = MaterialTheme.typography.titleMedium
         )
     }
@@ -540,16 +560,35 @@ private fun ManageSavesButton(
 @Composable
 private fun StatusChip(
     isFrameworkReady: Boolean,
+    isExtracting: Boolean,
+    hasError: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val failed = hasError && !isFrameworkReady && !isExtracting
+    val containerColor = when {
+        isFrameworkReady -> MaterialTheme.colorScheme.primaryContainer
+        failed -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val dotColor = when {
+        isFrameworkReady -> MaterialTheme.colorScheme.primary
+        failed -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.tertiary
+    }
+    val labelColor = when {
+        isFrameworkReady -> MaterialTheme.colorScheme.onPrimaryContainer
+        failed -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onTertiaryContainer
+    }
+    val label = when {
+        isFrameworkReady -> stringResource(R.string.framework_ready)
+        failed -> stringResource(R.string.framework_setup_failed)
+        else -> stringResource(R.string.framework_setting_up)
+    }
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(50),
-        color = if (isFrameworkReady) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.tertiaryContainer
-        }
+        color = containerColor
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -558,25 +597,13 @@ private fun StatusChip(
             Surface(
                 modifier = Modifier.size(8.dp),
                 shape = RoundedCornerShape(50),
-                color = if (isFrameworkReady) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.tertiary
-                }
+                color = dotColor
             ) {}
             Spacer(Modifier.width(8.dp))
             Text(
-                text = if (isFrameworkReady) {
-                    stringResource(R.string.framework_ready)
-                } else {
-                    stringResource(R.string.framework_setting_up)
-                },
+                text = label,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (isFrameworkReady) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onTertiaryContainer
-                }
+                color = labelColor
             )
         }
     }

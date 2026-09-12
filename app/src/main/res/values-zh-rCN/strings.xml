@@ -18,6 +18,9 @@
     <!-- Framework Status -->
     <string name="framework_ready">BepInEx 就绪</string>
     <string name="framework_setting_up">正在设置…</string>
+    <string name="framework_setup_failed">设置失败</string>
+    <string name="framework_setup_failed_permission">需要「所有文件访问权限」才能解压 BepInEx</string>
+    <string name="framework_retry">重试设置</string>
     <string name="extracting">正在解压 BepInEx…</string>
     <string name="mod_count">%d 个模组</string>
     <!-- Actions -->

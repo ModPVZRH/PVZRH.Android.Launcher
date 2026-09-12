@@ -113,6 +113,7 @@ fun BepInExNavHost(
     isFrameworkReady: Boolean,
     isExtracting: Boolean,
     extractionStatus: String,
+    extractionError: String? = null,
     // Settings state
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
@@ -527,6 +528,7 @@ fun BepInExNavHost(
                                 isFrameworkReady = isFrameworkReady,
                                 isExtracting = isExtracting,
                                 extractionStatus = extractionStatus,
+                                extractionError = extractionError,
                                 activeModpackName = activeModpackName,
                                 activeModpackEnabledCount = if (activeModpackName != null)
                                     modpacks.find { it.name == activeModpackName }?.enabledModCount ?: 0 else 0,

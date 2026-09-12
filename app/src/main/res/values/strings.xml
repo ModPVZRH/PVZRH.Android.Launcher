@@ -21,6 +21,9 @@
     <!-- Framework Status -->
     <string name="framework_ready">BepInEx Ready</string>
     <string name="framework_setting_up">Setting up…</string>
+    <string name="framework_setup_failed">Setup failed</string>
+    <string name="framework_setup_failed_permission">All files access is required to extract BepInEx</string>
+    <string name="framework_retry">Retry setup</string>
     <string name="extracting">Extracting BepInEx…</string>
     <string name="mod_count">%d mod(s)</string>
 
