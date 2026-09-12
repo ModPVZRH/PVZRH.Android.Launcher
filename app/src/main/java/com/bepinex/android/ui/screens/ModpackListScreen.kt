@@ -61,6 +61,7 @@ fun ModpackListScreen(
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
     var showEditDialog by remember { mutableStateOf<ModpackMeta?>(null) }
     var showFabCreateDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
     var editingIconForModpack by remember { mutableStateOf<String?>(null) }
     var downloadCandidates by remember { mutableStateOf<List<File>>(emptyList()) }
     var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -141,21 +142,6 @@ fun ModpackListScreen(
                             contentDescription = stringResource(R.string.refresh)
                         )
                     }
-                    IconButton(
-                        onClick = { scanDownloads() },
-                        enabled = !scanningDownloads
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Download,
-                            contentDescription = stringResource(R.string.modpack_scan_downloads)
-                        )
-                    }
-                    IconButton(onClick = onImportModpack) {
-                        Icon(
-                            imageVector = Icons.Filled.FileOpen,
-                            contentDescription = stringResource(R.string.modpack_import)
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -163,17 +149,34 @@ fun ModpackListScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showFabCreateDialog = true },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null
-                    )
-                },
-                text = { Text(stringResource(R.string.modpack_create)) },
+            Column(
+                horizontalAlignment = Alignment.End,
                 modifier = Modifier.navigationBarsPadding()
-            )
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = { showImportDialog = true },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.FileOpen,
+                            contentDescription = null
+                        )
+                    },
+                    text = { Text(stringResource(R.string.modpack_import)) },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                ExtendedFloatingActionButton(
+                    onClick = { showFabCreateDialog = true },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = null
+                        )
+                    },
+                    text = { Text(stringResource(R.string.modpack_create)) }
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -293,6 +296,31 @@ fun ModpackListScreen(
             },
             onSkip = {
                 downloadCandidates = emptyList()
+            }
+        )
+    }
+
+    // Import choice dialog
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text(stringResource(R.string.modpack_import_dialog_title)) },
+            text = { Text(stringResource(R.string.modpack_import_dialog_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showImportDialog = false
+                    scanDownloads()
+                }) {
+                    Text(stringResource(R.string.modpack_import_auto_scan))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showImportDialog = false
+                    onImportModpack()
+                }) {
+                    Text(stringResource(R.string.modpack_import_manual))
+                }
             }
         )
     }

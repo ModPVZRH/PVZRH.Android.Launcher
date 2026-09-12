@@ -70,6 +70,10 @@
     <string name="modpack_export_progress">Exporting %1$d / %2$d files</string>
     <string name="modpack_export_cancel">Cancel</string>
     <string name="modpack_import">Import Modpack</string>
+    <string name="modpack_import_dialog_title">Import Modpack</string>
+    <string name="modpack_import_dialog_message">Import a prepared modpack into the launcher</string>
+    <string name="modpack_import_auto_scan">Auto Scan</string>
+    <string name="modpack_import_manual">Manual Import</string>
     <string name="modpack_importing">Importing modpack…</string>
     <string name="modpack_import_cancel">Cancel</string>
     <string name="modpack_invalid_file">Only .rhp or .zip modpack files can be imported</string>
