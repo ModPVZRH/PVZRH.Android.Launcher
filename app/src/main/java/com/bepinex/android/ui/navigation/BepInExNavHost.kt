@@ -1,10 +1,9 @@
 package com.bepinex.android.ui.navigation
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.lifecycle.Lifecycle
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -95,12 +94,15 @@ private fun isPluginsDll(modpackDirectory: File, target: File): Boolean {
         canonicalTarget.extension.equals("dll", ignoreCase = true)
 }
 
-private fun isSaveImportRoute(route: String?): Boolean = route == NavRoutes.SAVE_IMPORT
-
 private fun deleteModpackFile(modpackDirectory: File, target: File): Boolean {
     val safeTarget = resolveModpackFile(modpackDirectory, target) ?: return false
     if (isProtectedModpackFile(modpackDirectory, safeTarget)) return false
     return runCatching { safeTarget.delete() }.getOrDefault(false)
+}
+
+private fun NavHostController.safePopBackStack(): Boolean {
+    val currentState = currentBackStackEntry?.lifecycle?.currentState
+    return if (currentState == Lifecycle.State.RESUMED) popBackStack() else false
 }
 
 /**
@@ -507,59 +509,31 @@ fun BepInExNavHost(
                 else Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
             enterTransition = {
                 if (animationDisabled) EnterTransition.None
-                else if (isSaveImportRoute(targetState.destination.route)) {
-                    fadeIn(animationSpec = tween(durationMillis = 110))
-                } else {
-                    slideInHorizontally(
-                        animationSpec = tween(
-                            durationMillis = 190,
-                            easing = FastOutSlowInEasing
-                        ),
-                        initialOffsetX = { it / 4 }
-                    ) + fadeIn(animationSpec = tween(durationMillis = 150))
-                }
+                else slideInHorizontally(
+                    animationSpec = tween(300),
+                    initialOffsetX = { it }
+                ) + fadeIn(animationSpec = tween(200))
             },
             exitTransition = {
                 if (animationDisabled) ExitTransition.None
-                else if (isSaveImportRoute(targetState.destination.route)) {
-                    fadeOut(animationSpec = tween(durationMillis = 80))
-                } else {
-                    slideOutHorizontally(
-                        animationSpec = tween(
-                            durationMillis = 160,
-                            easing = LinearOutSlowInEasing
-                        ),
-                        targetOffsetX = { -it / 6 }
-                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
-                }
+                else slideOutHorizontally(
+                    animationSpec = tween(300),
+                    targetOffsetX = { -it }
+                ) + fadeOut(animationSpec = tween(200))
             },
             popEnterTransition = {
                 if (animationDisabled) EnterTransition.None
-                else if (isSaveImportRoute(initialState.destination.route)) {
-                    fadeIn(animationSpec = tween(durationMillis = 110))
-                } else {
-                    slideInHorizontally(
-                        animationSpec = tween(
-                            durationMillis = 190,
-                            easing = FastOutSlowInEasing
-                        ),
-                        initialOffsetX = { -it / 6 }
-                    ) + fadeIn(animationSpec = tween(durationMillis = 150))
-                }
+                else slideInHorizontally(
+                    animationSpec = tween(300),
+                    initialOffsetX = { -it }
+                ) + fadeIn(animationSpec = tween(200))
             },
             popExitTransition = {
                 if (animationDisabled) ExitTransition.None
-                else if (isSaveImportRoute(initialState.destination.route)) {
-                    fadeOut(animationSpec = tween(durationMillis = 80))
-                } else {
-                    slideOutHorizontally(
-                        animationSpec = tween(
-                            durationMillis = 160,
-                            easing = LinearOutSlowInEasing
-                        ),
-                        targetOffsetX = { it / 4 }
-                    ) + fadeOut(animationSpec = tween(durationMillis = 120))
-                }
+                else slideOutHorizontally(
+                    animationSpec = tween(300),
+                    targetOffsetX = { it }
+                ) + fadeOut(animationSpec = tween(200))
             }
         ) {
                 // Main pager — 3 pages: Games, Modpacks, Settings
@@ -821,7 +795,7 @@ fun BepInExNavHost(
                         modpackName = modpackName,
                         mods = mods,
                         configFiles = configFiles,
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         onAddMod = { addModTrigger = modpackName },
                         onDeleteMod = { mod ->
                             modpackManager.removeMod(mod.file)
@@ -879,7 +853,7 @@ fun BepInExNavHost(
 
                     ModFileBrowserScreen(
                         rootDirectory = modpackDirectory,
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         onFileClick = { file ->
                             val safeFile = resolveModpackFile(modpackDirectory, file)
                             if (safeFile != null &&
@@ -920,7 +894,7 @@ fun BepInExNavHost(
 
                     LogViewerScreen(
                         logFilePath = logFile.absolutePath,
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         onSettingsClick = { navController.navigate(NavRoutes.LOG_VIEWER_SETTINGS) },
                         autoScroll = autoScroll,
                         wordWrap = logWordWrap,
@@ -938,7 +912,7 @@ fun BepInExNavHost(
                     var logLineNumbers by remember { mutableStateOf(AppSettings.isLogLineNumbersEnabled(context)) }
 
                     LogViewerSettingsScreen(
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         autoScroll = autoScroll,
                         wordWrap = logWordWrap,
                         showLineNumbers = logLineNumbers,
@@ -971,13 +945,13 @@ fun BepInExNavHost(
 
                     TextViewerScreen(
                         file = file,
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         onSave = { f, content ->
                             val success = runCatching {
                                 f.writeText(content)
                             }.isSuccess
                             success.also {
-                                if (success) navController.popBackStack()
+                                if (success) navController.safePopBackStack()
                             }
                         },
                         onSettingsClick = { navController.navigate(NavRoutes.VIEWER_SETTINGS) },
@@ -992,7 +966,7 @@ fun BepInExNavHost(
                     var showLineNumbers by remember { mutableStateOf(AppSettings.isViewerLineNumbersEnabled(context)) }
 
                     ViewerSettingsScreen(
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         wordWrap = wordWrap,
                         showLineNumbers = showLineNumbers,
                         onWordWrapChange = {
@@ -1016,7 +990,7 @@ fun BepInExNavHost(
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     SaveImportScreen(
                         packageName = packageName,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.safePopBackStack() }
                     )
                 }
 
@@ -1030,7 +1004,7 @@ fun BepInExNavHost(
                     }.getOrDefault("0.170")
                     AboutScreen(
                         versionName = versionName,
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateBack = { navController.safePopBackStack() },
                         onNavigateToCredits = { navController.navigate(NavRoutes.CREDITS) }
                     )
                 }
@@ -1039,7 +1013,7 @@ fun BepInExNavHost(
                 composable(
                     route = NavRoutes.CREDITS
                 ) {
-                    CreditsScreen(onNavigateBack = { navController.popBackStack() })
+                    CreditsScreen(onNavigateBack = { navController.safePopBackStack() })
                 }
             }
                 exportProgress?.let { progress ->
