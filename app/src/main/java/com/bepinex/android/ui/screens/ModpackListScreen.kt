@@ -76,7 +76,7 @@ fun ModpackListScreen(
         scanningDownloads = true
         scanScope.launch {
             val found = withContext(Dispatchers.IO) {
-                manager.scanDownloadModpacks()
+                manager.scanDownloadModpacks(context)
             }
             scanningDownloads = false
             if (found.isEmpty()) {

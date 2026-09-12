@@ -1,10 +1,14 @@
 package com.bepinex.android.modpack
 
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.Environment
+import android.os.storage.StorageManager
+import android.provider.MediaStore
 import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
 import org.json.JSONArray
@@ -82,6 +86,22 @@ class ModpackManager {
         private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
         private const val DLL_NAMES_KEY = "dllNames"
         private const val DISABLED_DLLS_KEY = "disabledDlls"
+        private val EXTRA_DOWNLOAD_RELATIVE_PATHS = listOf(
+            "Download",
+            "Downloads",
+            "download",
+            "Documents",
+            "Download/WeiXin",
+            "Download/WeChat",
+            "Download/Browser",
+            "Download/Telegram",
+            "Download/QQ",
+            "Download/Chrome",
+            "Download/UCDownloads",
+            "tencent/QQfile_recv",
+            "tencent/MicroMsg/Download",
+            "qqfile_recv"
+        )
 
         fun isModpackFileName(fileName: String?): Boolean =
             fileName?.substringAfterLast('.', "")?.lowercase() in SUPPORTED_MODPACK_EXTENSIONS
@@ -676,19 +696,53 @@ class ModpackManager {
         return !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
     }
 
-    fun scanDownloadModpacks(): List<File> {
-        return downloadDirectories()
-            .flatMap { dir ->
-                dir.walkTopDown().maxDepth(3)
-                    .filter { file ->
-                        file.isFile && file.extension.equals(MODPACK_EXTENSION, ignoreCase = true)
-                    }
-                    .toList()
+    fun scanDownloadModpacks(context: Context): List<File> {
+        val byPath = linkedMapOf<String, File>()
+        fun addCandidate(file: File) {
+            if (!file.isFile) return
+            if (!file.extension.equals(MODPACK_EXTENSION, ignoreCase = true)) return
+            val key = runCatching { file.canonicalPath }.getOrDefault(file.absolutePath)
+            val existing = byPath[key]
+            if (existing == null || compareScanFiles(file, existing) < 0) {
+                byPath[key] = file
             }
-            .distinctBy { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
+        }
+
+        downloadDirectories(context).forEach { dir ->
+            runCatching {
+                dir.walkTopDown().maxDepth(4)
+                    .filter { it.isFile }
+                    .forEach(::addCandidate)
+            }
+        }
+        scanMediaStoreRhpFiles(context, byPath.values).forEach(::addCandidate)
+
+        return byPath.values
             .filter { containsModpackMetadata(it) }
+            .groupBy { scanIdentity(it) }
+            .map { (_, copies) -> copies.minWithOrNull(scanFileComparator) ?: copies.first() }
             .sortedByDescending { it.lastModified() }
     }
+
+    private fun scanIdentity(file: File): String {
+        val name = file.nameWithoutExtension
+            .replace(Regex("\\s*\\(\\d+\\)\\s*$"), "")
+            .lowercase()
+        return "$name|${file.length()}"
+    }
+
+    private val scanFileComparator = Comparator<File> { left, right ->
+        compareScanFiles(left, right)
+    }
+
+    private fun compareScanFiles(left: File, right: File): Int {
+        val cacheRank = scanCacheRank(left).compareTo(scanCacheRank(right))
+        if (cacheRank != 0) return cacheRank
+        return right.lastModified().compareTo(left.lastModified())
+    }
+
+    private fun scanCacheRank(file: File): Int =
+        if (file.path.contains("${File.separator}download-scan${File.separator}")) 1 else 0
 
     suspend fun importModpack(packageName: String, file: File): ModpackMeta? {
         if (!file.isFile) return null
@@ -730,15 +784,117 @@ class ModpackManager {
         }
     }
 
-    private fun downloadDirectories(): List<File> {
+    private fun downloadDirectories(context: Context): List<File> {
         val dirs = linkedSetOf<File>()
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)?.let { dirs.add(it) }
-        Environment.getExternalStorageDirectory()?.let { root ->
-            dirs.add(File(root, "Download"))
-            dirs.add(File(root, "Downloads"))
+        storageRoots(context).forEach { root ->
+            EXTRA_DOWNLOAD_RELATIVE_PATHS.forEach { relative ->
+                dirs.add(File(root, relative))
+            }
         }
         return dirs.filter { it.isDirectory }.distinctBy {
             runCatching { it.canonicalPath }.getOrDefault(it.absolutePath)
+        }
+    }
+
+    private fun storageRoots(context: Context): List<File> {
+        val roots = linkedSetOf<File>()
+        Environment.getExternalStorageDirectory()?.let { roots.add(it) }
+        if (Build.VERSION.SDK_INT >= 30) {
+            runCatching {
+                context.getSystemService(StorageManager::class.java)
+                    ?.storageVolumes
+                    ?.mapNotNull { it.directory }
+                    ?.forEach { roots.add(it) }
+            }
+        }
+        context.getExternalFilesDirs(null)?.forEach { appDir ->
+            generateSequence(appDir) { it.parentFile }
+                .firstOrNull { it.name.equals("Android", ignoreCase = true) }
+                ?.parentFile
+                ?.let { roots.add(it) }
+        }
+        return roots.filter { it.isDirectory }.distinctBy {
+            runCatching { it.canonicalPath }.getOrDefault(it.absolutePath)
+        }
+    }
+
+    private fun scanMediaStoreRhpFiles(context: Context, alreadyFound: Collection<File> = emptyList()): List<File> {
+        val files = mutableListOf<File>()
+        val collections = linkedSetOf<Uri>()
+        collections.add(MediaStore.Files.getContentUri("external"))
+        if (Build.VERSION.SDK_INT >= 29) {
+            runCatching {
+                collections.add(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL))
+            }
+            runCatching {
+                MediaStore.getExternalVolumeNames(context).forEach { volume ->
+                    collections.add(MediaStore.Files.getContentUri(volume))
+                    runCatching {
+                        collections.add(MediaStore.Downloads.getContentUri(volume))
+                    }
+                }
+            }
+        }
+
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.DATA
+        )
+        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf("%.rhp")
+
+        collections.forEach { collection ->
+            try {
+                context.contentResolver.query(
+                    collection,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null
+                )?.use { cursor ->
+                    val idIdx = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+                    val nameIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                    val dataIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                    while (cursor.moveToNext()) {
+                        val name = nameIdx.takeIf { it >= 0 }?.let(cursor::getString)
+                        if (!isModpackFileName(name) ||
+                            name?.substringAfterLast('.', "")?.equals(MODPACK_EXTENSION, true) != true
+                        ) {
+                            continue
+                        }
+                        val path = dataIdx.takeIf { it >= 0 }?.let(cursor::getString)
+                        val direct = path?.takeIf { it.isNotBlank() }?.let(::File)
+                        if (direct?.isFile == true) {
+                            files.add(direct)
+                            continue
+                        }
+                        if (idIdx < 0 || name.isNullOrBlank()) continue
+                        if (alreadyFound.any { it.name.equals(name, ignoreCase = true) }) continue
+                        val itemUri = ContentUris.withAppendedId(collection, cursor.getLong(idIdx))
+                        copyMediaStoreItemToCache(context, itemUri, name)?.let(files::add)
+                    }
+                }
+            } catch (error: Exception) {
+                BepInExLog.w("MediaStore download scan failed for $collection: ${error.message}")
+            }
+        }
+        return files
+    }
+
+    private fun copyMediaStoreItemToCache(context: Context, uri: Uri, displayName: String): File? {
+        return try {
+            val cacheDir = File(context.cacheDir, "download-scan")
+            cacheDir.mkdirs()
+            val target = File(cacheDir, "${uri.lastPathSegment}-$displayName")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } ?: return null
+            target.takeIf { it.isFile && it.length() > 0L }
+        } catch (error: Exception) {
+            BepInExLog.w("Unable to copy MediaStore item $displayName: ${error.message}")
+            null
         }
     }
 
