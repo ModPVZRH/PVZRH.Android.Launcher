@@ -302,9 +302,13 @@ fun SettingsScreen(
                 AppSettings.Language.DUTCH to stringResource(R.string.lang_dutch),
                 AppSettings.Language.ARABIC to stringResource(R.string.lang_arabic),
                 AppSettings.Language.ARABIC_EG to stringResource(R.string.lang_arabic_eg),
+                AppSettings.Language.ARABIC_SA to stringResource(R.string.lang_arabic_sa),
                 AppSettings.Language.INDONESIAN to stringResource(R.string.lang_indonesian),
                 AppSettings.Language.MALAY to stringResource(R.string.lang_malay),
+                AppSettings.Language.MALAYALAM to stringResource(R.string.lang_malayalam),
                 AppSettings.Language.THAI to stringResource(R.string.lang_thai),
+                AppSettings.Language.TURKISH to stringResource(R.string.lang_turkish),
+                AppSettings.Language.UKRAINIAN to stringResource(R.string.lang_ukrainian),
                 AppSettings.Language.VENETIAN to stringResource(R.string.lang_venetian)
             ),
             onDismiss = { showLanguageDialog = false },
@@ -402,9 +406,13 @@ private fun languageLabel(language: AppSettings.Language) = when (language) {
     AppSettings.Language.DUTCH -> stringResource(R.string.lang_dutch)
     AppSettings.Language.ARABIC -> stringResource(R.string.lang_arabic)
     AppSettings.Language.ARABIC_EG -> stringResource(R.string.lang_arabic_eg)
+    AppSettings.Language.ARABIC_SA -> stringResource(R.string.lang_arabic_sa)
     AppSettings.Language.INDONESIAN -> stringResource(R.string.lang_indonesian)
     AppSettings.Language.MALAY -> stringResource(R.string.lang_malay)
+    AppSettings.Language.MALAYALAM -> stringResource(R.string.lang_malayalam)
     AppSettings.Language.THAI -> stringResource(R.string.lang_thai)
+    AppSettings.Language.TURKISH -> stringResource(R.string.lang_turkish)
+    AppSettings.Language.UKRAINIAN -> stringResource(R.string.lang_ukrainian)
     AppSettings.Language.VENETIAN -> stringResource(R.string.lang_venetian)
 }
 

@@ -67,9 +67,13 @@ object AppSettings {
         DUTCH("nl"),
         ARABIC("ar"),
         ARABIC_EG("ar-EG"),
+        ARABIC_SA("ar-SA"),
         INDONESIAN("id"),
         MALAY("ms"),
+        MALAYALAM("ml"),
         THAI("th"),
+        TURKISH("tr"),
+        UKRAINIAN("uk"),
         VENETIAN("vec");
 
         companion object {
