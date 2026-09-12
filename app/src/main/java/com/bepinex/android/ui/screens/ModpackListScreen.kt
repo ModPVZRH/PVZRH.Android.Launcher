@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import kotlinx.coroutines.Dispatchers
@@ -61,7 +64,7 @@ fun ModpackListScreen(
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
     var showEditDialog by remember { mutableStateOf<ModpackMeta?>(null) }
     var showFabCreateDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
+    var actionsExpanded by remember { mutableStateOf(false) }
     var editingIconForModpack by remember { mutableStateOf<String?>(null) }
     var downloadCandidates by remember { mutableStateOf<List<File>>(emptyList()) }
     var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -115,25 +118,21 @@ fun ModpackListScreen(
         editingIconForModpack = null
     }
 
+    fun collapseActions() {
+        actionsExpanded = false
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.modpack_title),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = targetGameLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.modpack_title),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
@@ -143,40 +142,31 @@ fun ModpackListScreen(
                         )
                     }
                 },
+                windowInsets = WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
         floatingActionButton = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                modifier = Modifier.navigationBarsPadding()
-            ) {
-                ExtendedFloatingActionButton(
-                    onClick = { showImportDialog = true },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Filled.FileOpen,
-                            contentDescription = null
-                        )
-                    },
-                    text = { Text(stringResource(R.string.modpack_import)) },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                ExtendedFloatingActionButton(
-                    onClick = { showFabCreateDialog = true },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = null
-                        )
-                    },
-                    text = { Text(stringResource(R.string.modpack_create)) }
-                )
-            }
+            ModpackActionsFab(
+                expanded = actionsExpanded,
+                onExpandedChange = { actionsExpanded = it },
+                onCreate = {
+                    collapseActions()
+                    showFabCreateDialog = true
+                },
+                onImport = {
+                    collapseActions()
+                    onImportModpack()
+                },
+                onAutoImport = {
+                    collapseActions()
+                    scanDownloads()
+                }
+            )
         }
     ) { padding ->
         Column(
@@ -198,8 +188,19 @@ fun ModpackListScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)
+            contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)
         ) {
+            if (targetGameLabel.isNotBlank()) {
+                item(key = "game_label") {
+                    Text(
+                        text = stringResource(R.string.modpack_target_game, targetGameLabel),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
             item(key = "vanilla") {
                 VanillaCard(
                     isActive = activeModpackName == null,
@@ -209,7 +210,7 @@ fun ModpackListScreen(
 
             if (modpacks.isEmpty()) {
                 item {
-                    EmptyModpacksCard(onCreate = { showFabCreateDialog = true })
+                    EmptyModpacksCard()
                 }
             } else {
                 items(modpacks, key = { it.name }) { modpack ->
@@ -296,31 +297,6 @@ fun ModpackListScreen(
             },
             onSkip = {
                 downloadCandidates = emptyList()
-            }
-        )
-    }
-
-    // Import choice dialog
-    if (showImportDialog) {
-        AlertDialog(
-            onDismissRequest = { showImportDialog = false },
-            title = { Text(stringResource(R.string.modpack_import_dialog_title)) },
-            text = { Text(stringResource(R.string.modpack_import_dialog_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showImportDialog = false
-                    scanDownloads()
-                }) {
-                    Text(stringResource(R.string.modpack_import_auto_scan))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showImportDialog = false
-                    onImportModpack()
-                }) {
-                    Text(stringResource(R.string.modpack_import_manual))
-                }
             }
         )
     }
@@ -707,7 +683,80 @@ private fun EditModpackDialog(
 }
 
 @Composable
-private fun EmptyModpacksCard(onCreate: () -> Unit) {
+private fun ModpackActionsFab(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onCreate: () -> Unit,
+    onImport: () -> Unit,
+    onAutoImport: () -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        label = "modpackFabRotation"
+    )
+
+    Box {
+        FloatingActionButton(
+            onClick = { onExpandedChange(!expanded) },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(
+                    if (expanded) R.string.modpack_actions_close else R.string.modpack_actions
+                ),
+                modifier = Modifier.rotate(rotation)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            offset = DpOffset(0.dp, (-8).dp),
+            shape = RoundedCornerShape(16.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shadowElevation = 6.dp,
+            tonalElevation = 2.dp
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_create)) },
+                onClick = onCreate,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.CreateNewFolder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_import_manual)) },
+                onClick = onImport,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.FileOpen,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_import_auto_scan)) },
+                onClick = onAutoImport,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyModpacksCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -740,12 +789,6 @@ private fun EmptyModpacksCard(onCreate: () -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onCreate) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.modpack_create))
-            }
         }
     }
 }

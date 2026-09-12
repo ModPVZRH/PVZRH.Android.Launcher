@@ -46,6 +46,10 @@
     <!-- Modpacks -->
     <string name="modpack_title">Modpacks</string>
     <string name="modpack_create">Create Modpack</string>
+    <string name="modpack_create_action">Create</string>
+    <string name="modpack_import_action">Import</string>
+    <string name="modpack_actions">Modpack actions</string>
+    <string name="modpack_actions_close">Close actions</string>
     <string name="modpack_delete">Delete Modpack</string>
     <string name="modpack_rename">Rename</string>
     <string name="modpack_rename_failed">The name is invalid or already exists</string>

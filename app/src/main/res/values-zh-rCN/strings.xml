@@ -40,6 +40,10 @@
     <!-- Modpacks -->
     <string name="modpack_title">整合包</string>
     <string name="modpack_create">创建整合包</string>
+    <string name="modpack_create_action">创建</string>
+    <string name="modpack_import_action">导入</string>
+    <string name="modpack_actions">整合包操作</string>
+    <string name="modpack_actions_close">关闭操作菜单</string>
     <string name="modpack_delete">删除整合包</string>
     <string name="modpack_rename">重命名</string>
     <string name="modpack_rename_failed">名称无效或已存在</string>
