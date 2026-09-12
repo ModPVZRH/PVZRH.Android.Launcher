@@ -119,6 +119,22 @@
     <string name="config_editor_discard_title">Discard Changes?</string>
     <string name="config_editor_discard_msg">You have unsaved changes. Discard them?</string>
     <string name="config_editor_no_configs">No config files</string>
+    <!-- Viewer -->
+    <string name="viewer_settings">Viewer Settings</string>
+    <string name="viewer_word_wrap">Word Wrap</string>
+    <string name="viewer_word_wrap_desc">Wrap long lines to fit the screen width</string>
+    <string name="viewer_line_numbers">Line Numbers</string>
+    <string name="viewer_line_numbers_desc">Show line numbers on the left side</string>
+    <string name="viewer_empty">Empty file</string>
+    <string name="viewer_preview">Preview</string>
+    <string name="viewer_preview_text">\"Every art and every inquiry, and similarly every action and pursuit, is thought to aim at some good; and for this reason the good has rightly been declared to be that at which all things aim.\" — Aristotle, *Nicomachean Ethics*</string>
+    <!-- Log Viewer -->
+    <string name="log_settings">Log Settings</string>
+    <string name="log_auto_scroll_desc">Automatically scroll to bottom when new content arrives</string>
+    <string name="log_word_wrap">Word Wrap</string>
+    <string name="log_word_wrap_desc">Wrap long lines to fit the screen width</string>
+    <string name="log_line_numbers">Line Numbers</string>
+    <string name="log_line_numbers_desc">Show line numbers on the left side</string>
     <!-- Mod File Browser -->
     <string name="mod_file_browser_title">Mod Files</string>
     <string name="mod_file_browser_empty">This directory is empty</string>
@@ -299,9 +315,13 @@
     <string name="lang_dutch">Nederlands</string>
     <string name="lang_arabic">العربية</string>
     <string name="lang_arabic_eg">العربية (مصر)</string>
+    <string name="lang_arabic_sa">العربية (السعودية)</string>
     <string name="lang_indonesian">Bahasa Indonesia</string>
     <string name="lang_malay">Bahasa Melayu</string>
+    <string name="lang_malayalam">മലയാളം</string>
     <string name="lang_thai">ไทย</string>
+    <string name="lang_turkish">Türkçe</string>
+    <string name="lang_ukrainian">Українська</string>
     <string name="lang_venetian">Vèneto</string>
     <string name="lang_incomplete_title">Localisation non contribuée</string>
     <string name="lang_incomplete_message">La traduction de votre langue n\'est pas complète. Si vous souhaitez aider à améliorer la localisation, veuillez visiter [ici](https://github.com/ModPVZRH/PVZRH.Android.Launcher/blob/main/docs/TRANSLATING.md).</string>
