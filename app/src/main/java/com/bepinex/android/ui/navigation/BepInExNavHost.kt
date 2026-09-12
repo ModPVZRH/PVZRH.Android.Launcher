@@ -1136,6 +1136,11 @@ fun BepInExNavHost(
                     stringResource(R.string.coach_launch_body)
                 ),
                 CoachMarkStep(
+                    coachTargets.exportLogsRect,
+                    stringResource(R.string.coach_export_logs_title),
+                    stringResource(R.string.coach_export_logs_body)
+                ),
+                CoachMarkStep(
                     coachTargets.modpacksRect,
                     stringResource(R.string.coach_modpacks_title),
                     stringResource(R.string.coach_modpacks_body)

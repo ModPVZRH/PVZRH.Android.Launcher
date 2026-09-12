@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.Button
@@ -49,7 +50,7 @@ import com.bepinex.android.GameDetector
 import com.bepinex.android.R
 import kotlinx.coroutines.launch
 
-private const val PAGE_COUNT = 4
+private const val PAGE_COUNT = 5
 
 @Composable
 fun OnboardingHost(
@@ -132,10 +133,15 @@ fun OnboardingHost(
                         permissionGranted = permissionGranted,
                         onRequestPermission = onRequestPermission
                     )
-                    else -> OnboardingMessagePage(
+                    3 -> OnboardingMessagePage(
                         icon = Icons.Outlined.CloudDownload,
                         title = stringResource(R.string.onboarding_first_launch_title),
                         body = stringResource(R.string.onboarding_first_launch_body)
+                    )
+                    else -> OnboardingMessagePage(
+                        icon = Icons.Outlined.Share,
+                        title = stringResource(R.string.onboarding_crash_logs_title),
+                        body = stringResource(R.string.onboarding_crash_logs_body)
                     )
                 }
             }

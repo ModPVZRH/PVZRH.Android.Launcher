@@ -15,6 +15,7 @@ class CoachMarkTargets {
     var actionsFabRect by mutableStateOf<Rect?>(null)
     var vanillaRect by mutableStateOf<Rect?>(null)
     var firstModpackRect by mutableStateOf<Rect?>(null)
+    var exportLogsRect by mutableStateOf<Rect?>(null)
 
     fun updateLaunch(coordinates: LayoutCoordinates) {
         launchRect = coordinates.boundsInWindow()
@@ -38,6 +39,10 @@ class CoachMarkTargets {
 
     fun updateFirstModpack(coordinates: LayoutCoordinates) {
         firstModpackRect = coordinates.boundsInWindow()
+    }
+
+    fun updateExportLogs(coordinates: LayoutCoordinates) {
+        exportLogsRect = coordinates.boundsInWindow()
     }
 }
 

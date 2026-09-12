@@ -121,6 +121,7 @@ fun GameScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
+                    val coachTargets = LocalCoachMarkTargets.current
                     IconButton(onClick = onShowAnnouncement) {
                         Icon(
                             imageVector = Icons.Outlined.Announcement,
@@ -136,7 +137,12 @@ fun GameScreen(
                             contentDescription = stringResource(R.string.rescan)
                         )
                     }
-                    IconButton(onClick = onExportLogs) {
+                    IconButton(
+                        onClick = onExportLogs,
+                        modifier = Modifier.onGloballyPositioned { coords ->
+                            coachTargets?.updateExportLogs(coords)
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Share,
                             contentDescription = stringResource(R.string.crash_export_logs)
