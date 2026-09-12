@@ -12,7 +12,7 @@
     <string name="scan_title">植物大战僵尸融合版</string>
     <string name="scanning">正在检查 植物大战僵尸融合版…</string>
     <string name="no_games_found">未找到 植物大战僵尸融合版</string>
-    <string name="no_games_hint">请先安装 植物大战僵尸融合版</string>
+    <string name="no_games_hint">请先安装植物大战僵尸融合版，然后点刷新。游戏包名为 com.LanPiaoPiao.PlantsVsZombiesRH。</string>
     <string name="scan_again">重新扫描</string>
     <string name="rescan">刷新</string>
     <!-- Framework Status -->
@@ -53,6 +53,7 @@
     <string name="shortcut_permission_open_settings">打开设置</string>
     <string name="modpack_vanilla_desc">未加载模组</string>
     <string name="modpack_empty">暂无整合包</string>
+    <string name="modpack_empty_hint">请在此页导入 .rhp 或 .zip 整合包，不要把压缩包当成单个 DLL 添加。</string>
     <string name="modpack_export">导出</string>
     <string name="modpack_export_preparing">正在准备导出…</string>
     <string name="modpack_export_progress">正在导出：%1$d / %2$d 个文件</string>
@@ -217,6 +218,35 @@
     <string name="animation_restart_message">重启后才可禁用动画，是否重启？</string>
     <string name="animation_restart_now">重启</string>
     <string name="settings_about">关于</string>
+    <string name="settings_onboarding">新手指引</string>
+    <string name="settings_onboarding_desc">查看启动、整合包与权限说明</string>
+    <!-- Onboarding -->
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_later">稍后</string>
+    <string name="onboarding_back">上一步</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_done">开始使用</string>
+    <string name="onboarding_step_of">%1$d / %2$d</string>
+    <string name="onboarding_welcome_title">用启动器打开游戏</string>
+    <string name="onboarding_welcome_body">模组由启动器注入。请从本应用启动，不要点桌面上的原版图标。</string>
+    <string name="onboarding_game_title">先安装融合版</string>
+    <string name="onboarding_game_body_missing">未检测到植物大战僵尸融合版。安装后再点重新扫描。</string>
+    <string name="onboarding_game_body_found">已找到 %s，可以继续。</string>
+    <string name="onboarding_game_scanning">正在查找游戏…</string>
+    <string name="onboarding_permission_title">需要文件权限</string>
+    <string name="onboarding_permission_body">启动器要把模组框架解压到存储空间。请授予「所有文件访问权限」。</string>
+    <string name="onboarding_permission_granted">已授予所有文件访问权限</string>
+    <string name="onboarding_first_launch_title">第一次启动请稍等</string>
+    <string name="onboarding_first_launch_body">首次启动会准备运行环境，可能下载文件。保持网络畅通，不要切走应用。</string>
+    <string name="coach_next">下一步</string>
+    <string name="coach_skip">跳过提示</string>
+    <string name="coach_done">知道了</string>
+    <string name="coach_launch_title">启动</string>
+    <string name="coach_launch_body">点这里启动融合版。第一次会准备运行时，请等进度走完。</string>
+    <string name="coach_modpacks_title">整合包</string>
+    <string name="coach_modpacks_body">模组请做成整合包再启用。ZIP/RHP 走整合包页，不要当单个 DLL 导入。</string>
+    <string name="coach_saves_title">存档</string>
+    <string name="coach_saves_body">请在启动器里备份和还原存档。卸载游戏不会自动带走这些备份。</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">清除 BepInEx 文件？</string>
     <string name="confirm_clear_bepinex_msg">这将删除此游戏的所有 BepInEx 文件和 interop 程序集。下次启动需要重新解压。</string>

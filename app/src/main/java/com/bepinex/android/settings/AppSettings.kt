@@ -22,6 +22,11 @@ object AppSettings {
     private const val KEY_ANIMATION_DISABLED = "animation_disabled"
     private const val KEY_LANGUAGE_INCOMPLETE_SHOWN = "language_incomplete_shown"
     private const val KEY_PENDING_INCOMPLETE_DIALOG = "pending_incomplete_dialog"
+    private const val KEY_ONBOARDING_VERSION = "onboarding_version"
+    private const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+    private const val KEY_ONBOARDING_COACH_SHOWN = "onboarding_coach_shown"
+
+    const val ONBOARDING_VERSION = 1
 
     /** Static flag for pending incomplete dialog (survives activity recreation). */
     @Volatile
@@ -161,6 +166,32 @@ object AppSettings {
 
     fun setLastSeenAnnouncementDate(context: Context, date: String) {
         prefs(context).edit().putString(KEY_LAST_SEEN_ANNOUNCEMENT, date).apply()
+    }
+
+    // Onboarding
+
+    fun getOnboardingVersion(context: Context): Int =
+        prefs(context).getInt(KEY_ONBOARDING_VERSION, 0)
+
+    fun setOnboardingVersion(context: Context, version: Int) {
+        prefs(context).edit().putInt(KEY_ONBOARDING_VERSION, version).apply()
+    }
+
+    fun isOnboardingCompleted(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONBOARDING_COMPLETED, false)
+
+    fun setOnboardingCompleted(context: Context, completed: Boolean) {
+        prefs(context).edit()
+            .putBoolean(KEY_ONBOARDING_COMPLETED, completed)
+            .putInt(KEY_ONBOARDING_VERSION, ONBOARDING_VERSION)
+            .apply()
+    }
+
+    fun isCoachMarksShown(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONBOARDING_COACH_SHOWN, false)
+
+    fun setCoachMarksShown(context: Context, shown: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ONBOARDING_COACH_SHOWN, shown).apply()
     }
 
     // Initialize on startup

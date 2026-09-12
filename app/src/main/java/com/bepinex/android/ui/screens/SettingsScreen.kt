@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -86,7 +87,8 @@ fun SettingsScreen(
     onClearLibUnity: () -> Unit,
     onCopyGameResources: () -> Unit,
     isLanguageIncompleteShown: Boolean,
-    onLanguageIncompleteShown: () -> Unit
+    onLanguageIncompleteShown: () -> Unit,
+    onReplayOnboarding: () -> Unit = {}
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -245,6 +247,15 @@ fun SettingsScreen(
             }
 
             item { SettingsSectionHeader(stringResource(R.string.settings_about)) }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_onboarding),
+                    summary = stringResource(R.string.settings_onboarding_desc),
+                    icon = { Icon(Icons.Outlined.HelpOutline, contentDescription = null) },
+                    trailing = { Icon(Icons.Filled.ChevronRight, contentDescription = null) },
+                    onClick = onReplayOnboarding
+                )
+            }
             item {
                 SettingListItem(
                     title = stringResource(R.string.settings_about),

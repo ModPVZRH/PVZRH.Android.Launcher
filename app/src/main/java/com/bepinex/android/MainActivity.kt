@@ -35,6 +35,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.bepinex.android.log.BepInExLogReader
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.navigation.BepInExNavHost
+import com.bepinex.android.ui.onboarding.OnboardingHost
 import com.bepinex.android.ui.theme.BepInExTheme
 import com.bepinex.android.update.UpdateChecker
 import com.bepinex.android.update.AnnouncementDialog
@@ -95,6 +96,7 @@ class MainActivity : ComponentActivity() {
     private var isCheckingUpdate by mutableStateOf(true)
     private var pendingAnnouncementToShow by mutableStateOf(false)
     private var showIncompleteTranslation by mutableStateOf(false)
+    private var showOnboarding by mutableStateOf(false)
 
     // Crash detection state
     private var crashMonitorJob: Job? = null
@@ -136,6 +138,8 @@ class MainActivity : ComponentActivity() {
         language = AppSettings.getLanguage(this)
         dynamicColor = AppSettings.isDynamicColorEnabled(this)
         animationDisabled = AppSettings.isAnimationDisabled(this)
+        skipOnboardingForExistingUser()
+        showOnboarding = !AppSettings.isOnboardingCompleted(this)
 
         BepInExLog.init(this)
         BepInExLog.i("=== PVZRH Launcher ===")
@@ -162,9 +166,33 @@ class MainActivity : ComponentActivity() {
 
         // Compose is installed once; subsequent updates are driven by observable state.
         setupContent()
-        checkStoragePermission(requestIfMissing = true)
+        checkStoragePermission(requestIfMissing = !showOnboarding)
+        if (showOnboarding) startGameDetection()
         handleSharedText(intent)
         checkForUpdates()
+    }
+
+    private fun skipOnboardingForExistingUser() {
+        if (AppSettings.isOnboardingCompleted(this)) return
+        val hasLauncherData =
+            AppSettings.getLastSeenAnnouncementDate(this).isNotEmpty() ||
+                AppSettings.isLanguageIncompleteShown(this) ||
+                BepInExPaths.getGameRootDir("com.LanPiaoPiao.PlantsVsZombiesRH").exists() ||
+                BepInExPaths.getGameRootDir("com.LanPiaoPiao.PlantsVsZombiesRHMod").exists()
+        if (hasLauncherData) {
+            AppSettings.setOnboardingCompleted(this, true)
+            AppSettings.setCoachMarksShown(this, true)
+        }
+    }
+
+    private fun completeOnboarding() {
+        AppSettings.setOnboardingCompleted(this, true)
+        showOnboarding = false
+        if (!storagePermissionGranted) {
+            checkStoragePermission(requestIfMissing = true)
+        } else if (detectedGames.isEmpty() && !isScanning) {
+            startGameDetection()
+        }
     }
 
     // Storage permission
@@ -187,12 +215,14 @@ class MainActivity : ComponentActivity() {
                         }
                         pendingAnnouncementToShow
                             && info.announcementDate.isNotEmpty()
-                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
+                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity)
+                            && !showOnboarding -> {
                             pendingAnnouncementToShow = false
                             showAnnouncement = true
                         }
                         info.announcementDate.isNotEmpty()
-                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity) -> {
+                            && info.announcementDate != AppSettings.getLastSeenAnnouncementDate(this@MainActivity)
+                            && !showOnboarding -> {
                             showAnnouncement = true
                         }
                     }
@@ -997,7 +1027,19 @@ class MainActivity : ComponentActivity() {
     private fun setupContent() {
         setContent {
             BepInExTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
-                if (storagePermissionGranted) {
+                if (showOnboarding) {
+                    OnboardingHost(
+                        detectedGames = detectedGames,
+                        isScanning = isScanning,
+                        permissionGranted = storagePermissionGranted,
+                        onRescan = {
+                            GameDetector.invalidateCache()
+                            startGameDetection()
+                        },
+                        onRequestPermission = { requestStoragePermission() },
+                        onFinished = { completeOnboarding() }
+                    )
+                } else if (storagePermissionGranted) {
                     BepInExNavHost(
                     scope = scope,
                     detectedGames = detectedGames,
@@ -1040,7 +1082,8 @@ class MainActivity : ComponentActivity() {
                             else -> AppSettings.Language.isCompleteTranslation(language)
                         }
                         !isComplete
-                    }
+                    },
+                    onReplayOnboarding = { showOnboarding = true }
                     )
                 } else {
                     StoragePermissionContent(onGrant = { requestStoragePermission() })
@@ -1055,7 +1098,7 @@ class MainActivity : ComponentActivity() {
                     BlockedDialog(message = blockedMsg)
                 }
 
-                if (showUpdate) {
+                if (showUpdate && !showOnboarding) {
                     updateInfo?.let { info ->
                         val isZh = usesChineseAnnouncement(language, resources.configuration.locales[0])
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
@@ -1073,7 +1116,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (showAnnouncement) {
+                if (showAnnouncement && !showOnboarding) {
                     updateInfo?.let { info ->
                         val isZh = usesChineseAnnouncement(language, resources.configuration.locales[0])
                         val announcement = if (isZh) info.announcementZh else info.announcementEn
@@ -1103,7 +1146,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (showIncompleteTranslation) {
+                if (showIncompleteTranslation && !showOnboarding) {
                     IncompleteTranslationDialog(
                         onDismiss = {
                             showIncompleteTranslation = false

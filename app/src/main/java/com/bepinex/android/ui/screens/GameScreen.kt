@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.bepinex.android.GameDetector
 import com.bepinex.android.R
+import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
 
 /**
  * Main game selection and mod management screen.
@@ -390,6 +392,7 @@ private fun SelectedGameCard(
     onLaunch: () -> Unit,
     onManageSaves: () -> Unit
 ) {
+    val coachTargets = LocalCoachMarkTargets.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -444,7 +447,12 @@ private fun SelectedGameCard(
                     isFrameworkReady = isFrameworkReady,
                     modifier = Modifier.weight(1f)
                 )
-                ManageSavesButton(onClick = onManageSaves)
+                ManageSavesButton(
+                    onClick = onManageSaves,
+                    modifier = Modifier.onGloballyPositioned { coords ->
+                        coachTargets?.updateSaves(coords)
+                    }
+                )
             }
 
             AnimatedVisibility(visible = isExtracting) {
@@ -467,7 +475,10 @@ private fun SelectedGameCard(
             Spacer(Modifier.height(18.dp))
             SelectedGameActions(
                 canLaunch = isFrameworkReady && !isExtracting,
-                onLaunch = onLaunch
+                onLaunch = onLaunch,
+                modifier = Modifier.onGloballyPositioned { coords ->
+                    coachTargets?.updateLaunch(coords)
+                }
             )
         }
     }
@@ -476,11 +487,12 @@ private fun SelectedGameCard(
 @Composable
 private fun SelectedGameActions(
     canLaunch: Boolean,
-    onLaunch: () -> Unit
+    onLaunch: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onLaunch,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
         enabled = canLaunch,
@@ -496,10 +508,13 @@ private fun SelectedGameActions(
 }
 
 @Composable
-private fun ManageSavesButton(onClick: () -> Unit) {
+private fun ManageSavesButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     FilledTonalButton(
         onClick = onClick,
-        modifier = Modifier.height(40.dp),
+        modifier = modifier.height(40.dp),
         shape = RoundedCornerShape(50),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(

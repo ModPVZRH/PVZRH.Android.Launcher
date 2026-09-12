@@ -23,6 +23,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
@@ -43,6 +44,9 @@ import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.components.ConfigEditorDialog
+import com.bepinex.android.ui.onboarding.CoachMarkOverlay
+import com.bepinex.android.ui.onboarding.CoachMarkTargets
+import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
 import com.bepinex.android.ui.screens.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +132,8 @@ fun BepInExNavHost(
     onCopyGameResources: (String) -> Unit,
     onExportLogs: () -> Unit,
     onShowAnnouncement: () -> Unit = {},
-    showIncompleteBanner: Boolean = false
+    showIncompleteBanner: Boolean = false,
+    onReplayOnboarding: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val modpackManager = remember { ModpackManager() }
@@ -370,7 +375,19 @@ fun BepInExNavHost(
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
+    val coachTargets = remember { CoachMarkTargets() }
+    var showCoachMarks by remember { mutableStateOf(false) }
 
+    LaunchedEffect(selectedGame?.packageName, currentRoute, coachTargets.launchRect) {
+        showCoachMarks = AppSettings.isOnboardingCompleted(context) &&
+            !AppSettings.isCoachMarksShown(context) &&
+            selectedGame != null &&
+            currentRoute == NavRoutes.MAIN &&
+            coachTargets.launchRect != null
+    }
+
+    CompositionLocalProvider(LocalCoachMarkTargets provides coachTargets) {
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -410,7 +427,8 @@ fun BepInExNavHost(
                         },
                         enabled = selectedGame != null,
                         icon = { Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks)) },
-                        label = { Text(stringResource(R.string.nav_modpacks)) }
+                        label = { Text(stringResource(R.string.nav_modpacks)) },
+                        modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
                     )
                     NavigationBarItem(
                         selected = pagerState.currentPage == 2,
@@ -672,7 +690,8 @@ fun BepInExNavHost(
                                     onClearLibUnity = { onClearLibUnity(packageName) },
                                     onCopyGameResources = { onCopyGameResources(packageName) },
                                     isLanguageIncompleteShown = AppSettings.isLanguageIncompleteShown(settingsContext),
-                                    onLanguageIncompleteShown = { AppSettings.setLanguageIncompleteShown(settingsContext, true) }
+                                    onLanguageIncompleteShown = { AppSettings.setLanguageIncompleteShown(settingsContext, true) },
+                                    onReplayOnboarding = onReplayOnboarding
                                 )
                             }
                         }
@@ -927,7 +946,8 @@ fun BepInExNavHost(
                         onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(1) else pagerState.animateScrollToPage(1) } },
                         enabled = selectedGame != null,
                         icon = { Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks)) },
-                        label = { Text(stringResource(R.string.nav_modpacks)) }
+                        label = { Text(stringResource(R.string.nav_modpacks)) },
+                        modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
                     )
                     NavigationRailItem(
                         selected = pagerState.currentPage == 2,
@@ -945,5 +965,16 @@ fun BepInExNavHost(
             navContent()
         }
 
+    }
+    if (showCoachMarks && currentRoute == NavRoutes.MAIN) {
+        CoachMarkOverlay(
+            targets = coachTargets,
+            onFinished = {
+                AppSettings.setCoachMarksShown(context, true)
+                showCoachMarks = false
+            }
+        )
+    }
+    }
     }
 }
