@@ -40,6 +40,10 @@
     <!-- Modpacks -->
     <string name="modpack_title">整合包</string>
     <string name="modpack_create">创建整合包</string>
+    <string name="modpack_create_action">创建</string>
+    <string name="modpack_import_action">导入</string>
+    <string name="modpack_actions">整合包操作</string>
+    <string name="modpack_actions_close">关闭操作菜单</string>
     <string name="modpack_delete">删除整合包</string>
     <string name="modpack_rename">重命名</string>
     <string name="modpack_rename_failed">名称无效或已存在</string>
@@ -255,7 +259,7 @@
     <string name="animation_restart_now">重启</string>
     <string name="settings_about">关于</string>
     <string name="settings_onboarding">新手指引</string>
-    <string name="settings_onboarding_desc">查看启动、整合包与权限说明</string>
+    <string name="settings_onboarding_desc">查看启动、整合包、权限，以及崩溃后如何分享日志</string>
     <!-- Onboarding -->
     <string name="onboarding_skip">跳过</string>
     <string name="onboarding_later">稍后</string>
@@ -274,6 +278,8 @@
     <string name="onboarding_permission_granted">已授予所有文件访问权限</string>
     <string name="onboarding_first_launch_title">第一次启动请稍等</string>
     <string name="onboarding_first_launch_body">首次启动会准备运行环境，可能下载文件。保持网络畅通，不要切走应用。</string>
+    <string name="onboarding_crash_logs_title">崩溃后请分享日志</string>
+    <string name="onboarding_crash_logs_body">游戏闪退时，点游戏页右上角的分享图标导出日志，发给开发者排查。</string>
     <string name="coach_next">下一步</string>
     <string name="coach_skip">跳过提示</string>
     <string name="coach_done">知道了</string>
@@ -283,6 +289,14 @@
     <string name="coach_modpacks_body">模组请做成整合包再启用。ZIP/RHP 走整合包页，不要当单个 DLL 导入。</string>
     <string name="coach_saves_title">存档</string>
     <string name="coach_saves_body">请在启动器里备份和还原存档。卸载游戏不会自动带走这些备份。</string>
+    <string name="coach_export_logs_title">导出日志</string>
+    <string name="coach_export_logs_body">融合版崩溃时，点这里导出日志并分享，方便排查问题。</string>
+    <string name="coach_modpack_actions_title">创建或导入</string>
+    <string name="coach_modpack_actions_body">点右下角 + 可以创建整合包、手动导入 .rhp/.zip，或扫描下载目录。</string>
+    <string name="coach_modpack_vanilla_title">纯净模式</string>
+    <string name="coach_modpack_vanilla_body">选中后启动游戏将不加载模组。启动时用的是当前激活的那一个。</string>
+    <string name="coach_modpack_card_title">打开整合包</string>
+    <string name="coach_modpack_card_body">点卡片可以管理模组和文件。点圆圈把它设为激活，再去启动游戏。</string>
     <!-- Confirm Dialogs -->
     <string name="confirm_clear_bepinex_title">清除 BepInEx 文件？</string>
     <string name="confirm_clear_bepinex_msg">这将删除此游戏的所有 BepInEx 文件和 interop 程序集。下次启动需要重新解压。</string>
