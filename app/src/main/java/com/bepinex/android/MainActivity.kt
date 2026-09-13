@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
         language = AppSettings.getLanguage(this)
         dynamicColor = AppSettings.isDynamicColorEnabled(this)
         animationDisabled = AppSettings.isAnimationDisabled(this)
-        skipOnboardingForExistingUser()
+
         showOnboarding = !AppSettings.isOnboardingCompleted(this)
 
         BepInExLog.init(this)
@@ -174,19 +174,6 @@ class MainActivity : ComponentActivity() {
         checkForUpdates()
     }
 
-    private fun skipOnboardingForExistingUser() {
-        if (AppSettings.isOnboardingCompleted(this)) return
-        val hasLauncherData =
-            AppSettings.getLastSeenAnnouncementDate(this).isNotEmpty() ||
-                AppSettings.isLanguageIncompleteShown(this) ||
-                BepInExPaths.getGameRootDir("com.LanPiaoPiao.PlantsVsZombiesRH").exists() ||
-                BepInExPaths.getGameRootDir("com.LanPiaoPiao.PlantsVsZombiesRHMod").exists()
-        if (hasLauncherData) {
-            AppSettings.setOnboardingCompleted(this, true)
-            AppSettings.setCoachMarksShown(this, true)
-            AppSettings.setModpackCoachMarksShown(this, true)
-        }
-    }
 
     private fun completeOnboarding() {
         AppSettings.setOnboardingCompleted(this, true)
