@@ -3,6 +3,8 @@ package com.bepinex.android.ui.onboarding
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,8 +59,10 @@ fun OnboardingHost(
     detectedGames: List<GameDetector.DetectedGame>,
     isScanning: Boolean,
     permissionGranted: Boolean,
+    appListPermissionGranted: Boolean,
     onRescan: () -> Unit,
     onRequestPermission: () -> Unit,
+    onRequestAppListPermission: () -> Unit,
     onFinished: () -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
@@ -131,7 +135,9 @@ fun OnboardingHost(
                     )
                     2 -> OnboardingPermissionPage(
                         permissionGranted = permissionGranted,
-                        onRequestPermission = onRequestPermission
+                        appListPermissionGranted = appListPermissionGranted,
+                        onRequestPermission = onRequestPermission,
+                        onRequestAppListPermission = onRequestAppListPermission
                     )
                     3 -> OnboardingImagePage(
                         imageRes = R.drawable.onboarding_first_launch,
@@ -325,13 +331,15 @@ private fun OnboardingGamePage(
 @Composable
 private fun OnboardingPermissionPage(
     permissionGranted: Boolean,
-    onRequestPermission: () -> Unit
+    appListPermissionGranted: Boolean,
+    onRequestPermission: () -> Unit,
+    onRequestAppListPermission: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 8.dp),
-        verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
@@ -339,7 +347,7 @@ private fun OnboardingPermissionPage(
             contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(200.dp)
                 .clip(RoundedCornerShape(16.dp)),
             contentScale = ContentScale.Fit
         )
@@ -357,28 +365,58 @@ private fun OnboardingPermissionPage(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        Spacer(Modifier.height(16.dp))
+        PermissionGrantControl(
+            granted = permissionGranted,
+            grantedText = stringResource(R.string.onboarding_permission_granted),
+            grantButtonText = stringResource(R.string.storage_permission_grant),
+            onGrant = onRequestPermission
+        )
         Spacer(Modifier.height(24.dp))
-        if (permissionGranted) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.onboarding_permission_granted),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        } else {
-            Button(
-                onClick = onRequestPermission,
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(stringResource(R.string.storage_permission_grant))
-            }
+        Text(
+            text = stringResource(R.string.onboarding_applist_permission_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(16.dp))
+        PermissionGrantControl(
+            granted = appListPermissionGranted,
+            grantedText = stringResource(R.string.onboarding_applist_permission_granted),
+            grantButtonText = stringResource(R.string.onboarding_applist_permission_grant),
+            onGrant = onRequestAppListPermission
+        )
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun PermissionGrantControl(
+    granted: Boolean,
+    grantedText: String,
+    grantButtonText: String,
+    onGrant: () -> Unit
+) {
+    if (granted) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = grantedText,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    } else {
+        Button(
+            onClick = onGrant,
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text(grantButtonText)
         }
     }
 }

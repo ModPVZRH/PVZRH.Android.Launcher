@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private var extractionStatus by mutableStateOf("")
     private var extractionError by mutableStateOf<String?>(null)
     private var storagePermissionGranted by mutableStateOf(false)
+    private var appListPermissionGranted by mutableStateOf(false)
     private var hasPaused = false
 
     // Settings state
@@ -117,6 +118,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         BepInExLog.i("GET_INSTALLED_APPS granted=$granted")
+        appListPermissionGranted = granted
         val alsoStorage = requestStorageAfterAppList
         requestStorageAfterAppList = false
         GameDetector.invalidateCache()
@@ -187,6 +189,7 @@ class MainActivity : ComponentActivity() {
 
         // Compose is installed once; subsequent updates are driven by observable state.
         setupContent()
+        appListPermissionGranted = !needsAppListPermission()
         checkStoragePermission(requestIfMissing = !showOnboarding)
         if (showOnboarding) startGameDetection(askAppListPermission = false)
         handleSharedText(intent)
@@ -351,6 +354,7 @@ class MainActivity : ComponentActivity() {
         }
         val permissionChanged = permissionNow != storagePermissionGranted
         storagePermissionGranted = permissionNow
+        appListPermissionGranted = !needsAppListPermission()
         if (permissionChanged && permissionNow) {
             startGameDetection(askAppListPermission = !showOnboarding)
         }
@@ -1113,15 +1117,13 @@ class MainActivity : ComponentActivity() {
                         detectedGames = detectedGames,
                         isScanning = isScanning,
                         permissionGranted = storagePermissionGranted,
+                        appListPermissionGranted = appListPermissionGranted,
                         onRescan = {
                             GameDetector.invalidateCache()
                             startGameDetection(askAppListPermission = false)
                         },
-                        onRequestPermission = {
-                            if (!requestAppListPermission(thenRequestStorage = true)) {
-                                requestStoragePermission()
-                            }
-                        },
+                        onRequestPermission = { requestStoragePermission() },
+                        onRequestAppListPermission = { requestAppListPermission() },
                         onFinished = { completeOnboarding() }
                     )
                 } else if (storagePermissionGranted) {

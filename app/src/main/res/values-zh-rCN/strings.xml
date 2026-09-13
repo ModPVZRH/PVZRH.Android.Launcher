@@ -276,6 +276,9 @@
     <string name="onboarding_permission_title">需要文件权限</string>
     <string name="onboarding_permission_body">启动器要把模组框架解压到存储空间。请授予「所有文件访问权限」。</string>
     <string name="onboarding_permission_granted">已授予所有文件访问权限</string>
+    <string name="onboarding_applist_permission_body">启动器还需要读取应用列表，才能找到融合版。</string>
+    <string name="onboarding_applist_permission_grant">授予读取应用列表</string>
+    <string name="onboarding_applist_permission_granted">已授予读取应用列表权限</string>
     <string name="onboarding_first_launch_title">第一次启动请稍等</string>
     <string name="onboarding_first_launch_body">首次启动会准备运行环境，可能下载文件。保持网络畅通，不要切走应用。</string>
     <string name="onboarding_crash_logs_title">崩溃后请分享日志</string>
