@@ -2,6 +2,7 @@ package com.bepinex.android
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -110,7 +111,18 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { checkStoragePermission(requestIfMissing = false) }
 
+    private val installedAppsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        BepInExLog.i("GET_INSTALLED_APPS granted=$granted")
+        GameDetector.invalidateCache()
+        startGameDetection(askAppListPermission = false)
+    }
+
     companion object {
+        private const val GET_INSTALLED_APPS_PERMISSION =
+            "com.android.permission.GET_INSTALLED_APPS"
+
         /** Saved across activity recreations (e.g. language switch) */
         private var savedPackageName: String? = null
         private var savedPagerPage = 0
@@ -393,7 +405,16 @@ class MainActivity : ComponentActivity() {
 
     // Game detection
 
-    private fun startGameDetection() {
+    private fun startGameDetection(askAppListPermission: Boolean = true) {
+        if (askAppListPermission &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            checkSelfPermission(GET_INSTALLED_APPS_PERMISSION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            BepInExLog.i("Requesting GET_INSTALLED_APPS")
+            installedAppsPermissionLauncher.launch(GET_INSTALLED_APPS_PERMISSION)
+            return
+        }
+
         scope.launch {
             isScanning = true
 
