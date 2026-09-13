@@ -172,8 +172,8 @@
     <string name="save_saf_title">\"يحفظ\"(\"</string>
     <string name="save_direct_title">تعديل</string>
     <string name="save_shizuku_title">تعديل</string>
-    <string name="save_saf_hint">تعديل</string>
-    <string name="save_shizuku_hint">تعديل</string>
+    <string name="save_saf_hint">Android 11 requires folder permission</string>
+    <string name="save_shizuku_hint">Android 12+ uses privileged shell access</string>
     <string name="save_need_permission">تعديل</string>
     <string name="save_not_found">تعديل</string>
     <string name="save_empty">تعديل</string>
@@ -220,7 +220,7 @@
     <string name="save_manual_direct_step1">موس</string>
     <string name="save_manual_direct_step2">موس</string>
     <string name="save_manual_direct_step3">موس</string>
-    <string name="save_manual_saf_title">م</string>
+    <string name="save_manual_saf_title">Folder Permission (Android 11)</string>
     <string name="save_manual_saf_step1"> تعديل</string>
     <string name="save_manual_saf_step2"> تعديل</string>
     <string name="save_manual_saf_step3">تعديل</string>
@@ -230,11 +230,11 @@
     <string name="save_adb_restore_cmd">تعديل</string>
     <string name="save_copy_command">صباح</string>
     <string name="save_command_copied">تعديل</string>
-    <string name="save_manual_shizuku_title">يحفظ</string>
+    <string name="save_manual_shizuku_title">Shizuku / ADB (Android 12+)</string>
     <string name="save_manual_shizuku_step1">يحفظ</string>
     <string name="save_manual_shizuku_step2">تعديل</string>
     <string name="save_shizuku_not_installed">تعديل</string>
-    <string name="save_shizuku_not_installed_desc">تعديل</string>
+    <string name="save_shizuku_not_installed_desc">Install Shizuku to manage saves on Android 12+</string>
     <string name="save_shizuku_install">تعديل</string>
     <string name="save_shizuku_not_running">تعديل</string>
     <string name="save_shizuku_not_running_desc">تعديل</string>
@@ -280,6 +280,8 @@
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>
     <string name="onboarding_crash_logs_body">If Fusion crashes, tap the share icon on the Games tab to export logs and send them to the developer.</string>
+    <string name="onboarding_troubleshooting_title">Troubleshooting</string>
+    <string name="onboarding_troubleshooting_body">If a crash occurs, visit the [troubleshooting page](https://modpvzrh.github.io/troubleshooting) to diagnose and fix the issue. Usually clearing BepInEx and libunity data then restarting helps.</string>
     <string name="coach_next">Next</string>
     <string name="coach_skip">Skip tips</string>
     <string name="coach_done">Got it</string>
@@ -359,7 +361,7 @@
     <string name="about_project_bepinexandroid_name"> تعديل</string>
     <string name="about_project_bepinexandroid_desc">موس</string>
     <string name="about_project_dotnet_name"> م</string>
-    <string name="about_project_dotnet_desc">م</string>
+    <string name="about_project_dotnet_desc">Microsoft .NET Runtime v10.0.5. Built from source with OpenSSL crypto backend to fix BoringSSL SIGSEGV on Android 16.</string>
     <string name="about_project_openssl_name">م</string>
     <string name="about_project_openssl_desc">م</string>
     <string name="about_project_pine_name">م</string>
