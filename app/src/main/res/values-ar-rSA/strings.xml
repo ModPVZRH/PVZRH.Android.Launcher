@@ -245,7 +245,7 @@
     <string name="settings_clear_dotnet">تعديل</string>
     <string name="settings_clear_dotnet_desc">يحفظ</string>
     <string name="settings_clear_libunity">تعديل</string>
-    <string name="settings_clear_libunity_desc">يحفظ</string>
+    <string name="settings_clear_libunity_desc">Delete cached unstripped libunity.so files. They will be restored on next launch.</string>
     <string name="settings_copy_resources">تعديل</string>
     <string name="settings_copy_resources_desc">تعديل</string>
     <string name="settings_theme">تعديل</string>
@@ -276,6 +276,9 @@
     <string name="onboarding_permission_title">File access is required</string>
     <string name="onboarding_permission_body">The launcher extracts the mod framework to storage. Grant All files access to continue.</string>
     <string name="onboarding_permission_granted">All files access is granted</string>
+    <string name="onboarding_applist_permission_body">The launcher also needs to read the installed app list to find Fusion.</string>
+    <string name="onboarding_applist_permission_grant">Grant app list access</string>
+    <string name="onboarding_applist_permission_granted">App list access is granted</string>
     <string name="onboarding_first_launch_title">The first launch takes a moment</string>
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>
@@ -305,7 +308,7 @@
     <string name="confirm_clear_dotnet_title">تعديل</string>
     <string name="confirm_clear_dotnet_msg">تعديل</string>
     <string name="confirm_clear_libunity_title">شهر</string>
-    <string name="confirm_clear_libunity_msg"> تعديل</string>
+    <string name="confirm_clear_libunity_msg">This will delete cached unstripped libunity.so files. They will be restored on next launch.</string>
     <string name="clear_libunity_done">شهر</string>
     <string name="clear_libunity_none">تعديل</string>
     <string name="confirm_copy_resources_title">تعديل؟</string>
@@ -415,7 +418,7 @@
     <string name="settings_floating_log">م</string>
     <string name="settings_floating_log_desc">م</string>
     <string name="settings_unstripped_libunity">م </string>
-    <string name="settings_unstripped_libunity_desc">م</string>
+    <string name="settings_unstripped_libunity_desc">Use unstripped libunity.so with full icalls.</string>
     <!-- Launch -->
     <string name="launch_failed">م</string>
     <string name="launch_wait_extraction"> م</string>
@@ -449,7 +452,7 @@
     <string name="bootstrap_status_preparing"> م</string>
     <string name="bootstrap_status_copy_assets">م</string>
     <string name="bootstrap_status_detecting_version">م</string>
-    <string name="bootstrap_status_downloading_libunity">م</string>
+    <string name="bootstrap_status_downloading_libunity">Preparing unstripped libunity…</string>
     <string name="bootstrap_status_preparing_unity_libraries">م</string>
     <string name="bootstrap_status_extracting_runtime">م</string>
     <string name="bootstrap_status_registering_libraries">م</string>
