@@ -111,12 +111,19 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { checkStoragePermission(requestIfMissing = false) }
 
+    private var requestStorageAfterAppList = false
+
     private val installedAppsPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         BepInExLog.i("GET_INSTALLED_APPS granted=$granted")
+        val alsoStorage = requestStorageAfterAppList
+        requestStorageAfterAppList = false
         GameDetector.invalidateCache()
         startGameDetection(askAppListPermission = false)
+        if (alsoStorage && !storagePermissionGranted) {
+            requestStoragePermission()
+        }
     }
 
     companion object {
@@ -181,7 +188,7 @@ class MainActivity : ComponentActivity() {
         // Compose is installed once; subsequent updates are driven by observable state.
         setupContent()
         checkStoragePermission(requestIfMissing = !showOnboarding)
-        if (showOnboarding) startGameDetection()
+        if (showOnboarding) startGameDetection(askAppListPermission = false)
         handleSharedText(intent)
         checkForUpdates()
     }
@@ -190,10 +197,11 @@ class MainActivity : ComponentActivity() {
     private fun completeOnboarding() {
         AppSettings.setOnboardingCompleted(this, true)
         showOnboarding = false
+        if (requestAppListPermission(thenRequestStorage = !storagePermissionGranted)) return
         if (!storagePermissionGranted) {
             checkStoragePermission(requestIfMissing = true)
         } else if (detectedGames.isEmpty() && !isScanning) {
-            startGameDetection()
+            startGameDetection(askAppListPermission = false)
         }
     }
 
@@ -278,8 +286,7 @@ class MainActivity : ComponentActivity() {
             if (requestIfMissing) requestStoragePermission()
         } else {
             BepInExLog.i("Storage permission granted")
-            startGameDetection()
-            // Initial render
+            if (!showOnboarding) startGameDetection()
         }
     }
 
@@ -313,6 +320,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun needsAppListPermission(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            checkSelfPermission(GET_INSTALLED_APPS_PERMISSION) != PackageManager.PERMISSION_GRANTED
+
+    private fun requestAppListPermission(thenRequestStorage: Boolean = false): Boolean {
+        if (!needsAppListPermission()) return false
+        requestStorageAfterAppList = thenRequestStorage
+        BepInExLog.i("Requesting GET_INSTALLED_APPS")
+        installedAppsPermissionLauncher.launch(GET_INSTALLED_APPS_PERMISSION)
+        return true
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleSharedText(intent)
@@ -333,7 +352,7 @@ class MainActivity : ComponentActivity() {
         val permissionChanged = permissionNow != storagePermissionGranted
         storagePermissionGranted = permissionNow
         if (permissionChanged && permissionNow) {
-            startGameDetection()
+            startGameDetection(askAppListPermission = !showOnboarding)
         }
         if (hasPaused) {
             hasPaused = false
@@ -406,14 +425,7 @@ class MainActivity : ComponentActivity() {
     // Game detection
 
     private fun startGameDetection(askAppListPermission: Boolean = true) {
-        if (askAppListPermission &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            checkSelfPermission(GET_INSTALLED_APPS_PERMISSION) != PackageManager.PERMISSION_GRANTED
-        ) {
-            BepInExLog.i("Requesting GET_INSTALLED_APPS")
-            installedAppsPermissionLauncher.launch(GET_INSTALLED_APPS_PERMISSION)
-            return
-        }
+        if (askAppListPermission && requestAppListPermission()) return
 
         scope.launch {
             isScanning = true
@@ -1103,9 +1115,13 @@ class MainActivity : ComponentActivity() {
                         permissionGranted = storagePermissionGranted,
                         onRescan = {
                             GameDetector.invalidateCache()
-                            startGameDetection()
+                            startGameDetection(askAppListPermission = false)
                         },
-                        onRequestPermission = { requestStoragePermission() },
+                        onRequestPermission = {
+                            if (!requestAppListPermission(thenRequestStorage = true)) {
+                                requestStoragePermission()
+                            }
+                        },
                         onFinished = { completeOnboarding() }
                     )
                 } else if (storagePermissionGranted) {
