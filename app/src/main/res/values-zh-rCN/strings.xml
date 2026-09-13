@@ -245,7 +245,7 @@
     <string name="settings_clear_dotnet">清空 .NET 数据</string>
     <string name="settings_clear_dotnet_desc">删除 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
     <string name="settings_clear_libunity">清除 libunity 缓存</string>
-    <string name="settings_clear_libunity_desc">删除已下载的未裁剪 libunity.so 文件。下次启动将重新下载。</string>
+    <string name="settings_clear_libunity_desc">删除已缓存的未裁剪 libunity.so 文件。下次启动将重新准备。</string>
     <string name="settings_copy_resources">复制游戏资源库</string>
     <string name="settings_copy_resources_desc">将游戏的资源数据复制到本地存储以用于 interop 生成。</string>
     <string name="settings_theme">主题</string>
@@ -305,7 +305,7 @@
     <string name="confirm_clear_dotnet_title">清空 .NET 数据？</string>
     <string name="confirm_clear_dotnet_msg">这将删除此游戏的 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
     <string name="confirm_clear_libunity_title">清除 libunity 缓存？</string>
-    <string name="confirm_clear_libunity_msg">这将删除已下载的未裁剪 libunity.so 文件。下次启动将重新下载。</string>
+    <string name="confirm_clear_libunity_msg">这将删除已缓存的未裁剪 libunity.so 文件。下次启动将重新准备。</string>
     <string name="clear_libunity_done">libunity 缓存已清除</string>
     <string name="clear_libunity_none">没有可清除的 libunity 缓存</string>
     <string name="confirm_copy_resources_title">复制游戏资源？</string>
@@ -415,7 +415,7 @@
     <string name="settings_floating_log">游戏内悬浮日志</string>
     <string name="settings_floating_log_desc">在游戏画面上显示一个悬浮日志按钮。点击可查看实时 BepInEx 日志。</string>
     <string name="settings_unstripped_libunity">使用未裁剪 libunity</string>
-    <string name="settings_unstripped_libunity_desc">下载并使用未裁剪的 libunity.so，保留完整 icall。</string>
+    <string name="settings_unstripped_libunity_desc">使用未裁剪的 libunity.so，保留完整 icall。</string>
     <!-- Launch -->
     <string name="launch_failed">启动失败</string>
     <string name="launch_wait_extraction">请等待 — BepInEx 正在解压中</string>
@@ -449,7 +449,7 @@
     <string name="bootstrap_status_preparing">正在准备目标包…</string>
     <string name="bootstrap_status_copy_assets">正在复制 Unity 数据…</string>
     <string name="bootstrap_status_detecting_version">正在检测 Unity 版本…</string>
-    <string name="bootstrap_status_downloading_libunity">正在下载未裁剪的 libunity…</string>
+    <string name="bootstrap_status_downloading_libunity">正在准备未裁剪的 libunity…</string>
     <string name="bootstrap_status_preparing_unity_libraries">正在准备 Unity 基础库…</string>
     <string name="bootstrap_status_extracting_runtime">正在解压运行时文件…</string>
     <string name="bootstrap_status_registering_libraries">正在注册原生库…</string>

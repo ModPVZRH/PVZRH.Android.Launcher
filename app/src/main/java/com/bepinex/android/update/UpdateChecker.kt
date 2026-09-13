@@ -18,6 +18,59 @@ object UpdateChecker {
     private const val INFO_URL_GH_PROXY =
         "https://v6.gh-proxy.org/https://github.com/ModPVZRH/PVZRH.Launcher-release/raw/refs/heads/main/info.json"
 
+    private const val PREFS_NAME = "update_checker"
+    private const val KEY_URL_LIB = "urlLib"
+    private const val KEY_URL_LIB_SYM = "urlLibSym"
+
+    data class LibSource(
+        val offlineMode: Boolean,
+        val github: String = "",
+        val ghProxy: String = "",
+        val cos: String = ""
+    ) {
+        fun downloadUrls(preferProxy: Boolean): List<String> {
+            val ordered = if (preferProxy) {
+                listOf(ghProxy, github, cos)
+            } else {
+                listOf(github, ghProxy, cos)
+            }
+            return ordered.map { cleanUrl(it) }.filter { it.isNotEmpty() }.distinct()
+        }
+
+        fun toJson(): JSONObject = JSONObject().apply {
+            put("offline-mode", offlineMode)
+            put("github", github)
+            put("gh-proxy", ghProxy)
+            put("cos", cos)
+        }
+
+        companion object {
+            val OFFLINE = LibSource(offlineMode = true)
+
+            fun fromJson(obj: JSONObject): LibSource = LibSource(
+                offlineMode = boolValue(obj, "offline-mode", default = true),
+                github = cleanUrl(obj.optString("github")),
+                ghProxy = cleanUrl(obj.optString("gh-proxy")),
+                cos = cleanUrl(obj.optString("cos"))
+            )
+
+            fun cleanUrl(value: String): String {
+                val trimmed = value.trim()
+                return if (trimmed.isEmpty() || trimmed.equals("null", ignoreCase = true)) "" else trimmed
+            }
+
+            private fun boolValue(obj: JSONObject, key: String, default: Boolean): Boolean {
+                if (!obj.has(key) || obj.isNull(key)) return default
+                return when (val value = obj.opt(key)) {
+                    is Boolean -> value
+                    is Number -> value.toInt() != 0
+                    is String -> value.equals("true", ignoreCase = true)
+                    else -> default
+                }
+            }
+        }
+    }
+
     data class UpdateInfo(
         val version: String,
         val allowStart: Boolean,
@@ -25,7 +78,8 @@ object UpdateChecker {
         val announcementZh: String,
         val announcementEn: String,
         val urlApk: String,
-        val urlLib: String
+        val urlLib: LibSource,
+        val urlLibSym: LibSource
     )
 
     /** Parse [text](url) markdown links into pairs */
@@ -72,15 +126,16 @@ object UpdateChecker {
 
             val isZh = isChinese(context)
             val urlsApk = json.optJSONObject("urlApk") ?: JSONObject()
-            val urlsLib = json.optJSONObject("urlLib") ?: JSONObject()
-
             val apkPrefix = if (isZh) "gh-proxy" else "github"
-            val libPrefix = if (isZh) "gh-proxy" else "github"
-
             val urlApk = urlsApk.optString(apkPrefix, urlsApk.optString("github", ""))
-            val urlLib = urlsLib.optString(libPrefix, urlsLib.optString("github", ""))
+            val urlLib = parseLibSource(json, "urlLib")
+            val urlLibSym = parseLibSource(json, "urlLibSym")
 
-            BepInExLog.i("info.json fetched: version=$version, allowStart=$allowStart")
+            BepInExLog.i(
+                "info.json fetched: version=$version, allowStart=$allowStart, " +
+                    "urlLib.offline=${urlLib.offlineMode}, urlLibSym.offline=${urlLibSym.offlineMode}"
+            )
+            cacheLibSources(context, urlLib, urlLibSym)
 
             UpdateInfo(
                 version = version,
@@ -89,10 +144,55 @@ object UpdateChecker {
                 announcementZh = announcementZh,
                 announcementEn = announcementEn,
                 urlApk = urlApk,
-                urlLib = urlLib
+                urlLib = urlLib,
+                urlLibSym = urlLibSym
             )
         } catch (e: Exception) {
             BepInExLog.e("Failed to fetch info.json", e)
+            null
+        }
+    }
+
+    fun preferProxyMirrors(context: Context): Boolean = isChinese(context)
+
+    /**
+     * Resolve libunity sources from info.json.
+     * Network failure uses the last cached result, then defaults to offline extract.
+     */
+    fun resolveLibSources(context: Context): Pair<LibSource, LibSource> {
+        val info = fetchInfo(context)
+        if (info != null) return info.urlLib to info.urlLibSym
+        loadCachedLibSources(context)?.let {
+            BepInExLog.w("Using cached libunity sources after info.json fetch failure")
+            return it
+        }
+        BepInExLog.w("libunity source unavailable; defaulting to offline extract")
+        return LibSource.OFFLINE to LibSource.OFFLINE
+    }
+
+    private fun parseLibSource(json: JSONObject, key: String): LibSource {
+        val value = json.opt(key) ?: return LibSource.OFFLINE
+        if (value is JSONObject) return LibSource.fromJson(value)
+        val url = LibSource.cleanUrl(value.toString())
+        return if (url.isEmpty()) LibSource.OFFLINE
+        else LibSource(offlineMode = false, github = url)
+    }
+
+    private fun cacheLibSources(context: Context, lib: LibSource, sym: LibSource) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_URL_LIB, lib.toJson().toString())
+            .putString(KEY_URL_LIB_SYM, sym.toJson().toString())
+            .commit()
+    }
+
+    private fun loadCachedLibSources(context: Context): Pair<LibSource, LibSource>? {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val libRaw = prefs.getString(KEY_URL_LIB, null) ?: return null
+        val symRaw = prefs.getString(KEY_URL_LIB_SYM, null) ?: return null
+        return try {
+            LibSource.fromJson(JSONObject(libRaw)) to LibSource.fromJson(JSONObject(symRaw))
+        } catch (e: Exception) {
+            BepInExLog.w("Failed to read cached libunity sources: ${e.message}")
             null
         }
     }

@@ -1,74 +1,159 @@
 package com.bepinex.android
 
+import android.content.Context
+import com.bepinex.android.update.UpdateChecker
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.zip.ZipInputStream
 
 /**
- * Downloads and caches unstripped libunity.so from GitHub.
+ * Provides unstripped libunity.so / libunity.sym.so.
+ * [UpdateChecker.LibSource.offlineMode] extracts from assets/unstrip.lib.zip;
+ * otherwise downloads from github / gh-proxy / cos, then falls back to assets.
  */
 object LibUnityDownloader {
 
     private const val TAG = "LibUnityDownloader"
-    private const val VERSION = "2022.3.62f1c1"
-    private const val BASE_URL_RAW =
-        "https://raw.githubusercontent.com/ModPVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
-    private const val BASE_URL_GH_PROXY =
-        "https://gh-proxy.org/https://raw.githubusercontent.com/ModPVZRH/PVZRH.Launcher-release/refs/heads/main/$VERSION"
-
-    // Try gh-proxy mirror first (China-reachable), then fall back to raw.githubusercontent.com
-    private fun getFileUrls(fileName: String): List<String> =
-        listOf("$BASE_URL_GH_PROXY/$fileName", "$BASE_URL_RAW/$fileName")
+    private const val ASSET_ZIP = "unstrip.lib.zip"
+    private const val LIB_NAME = "libunity.so"
+    private const val SYM_NAME = "libunity.sym.so"
+    private const val LIB_MIN_SIZE = 1024L * 1024L
+    private const val SYM_MIN_SIZE = 1024L
 
     fun ensureLibUnity(
+        context: Context,
         targetDir: File,
         onProgress: (String) -> Unit = {}
     ): File? {
         targetDir.mkdirs()
 
-        // Download libunity.so (try gh-proxy first, fallback to github)
-        val destLib = File(targetDir, "libunity.so")
-        if (!(destLib.exists() && destLib.length() > 1024 * 1024)) {
-            var result: File? = null
-            for (url in getFileUrls("libunity.so")) {
-                onProgress("Downloading libunity.so...")
-                BepInExLog.i("$TAG: Downloading libunity.so from $url")
-                result = downloadAndVerify(url, destLib, onProgress)
-                if (result != null) break
-                BepInExLog.w("$TAG: Failed from $url, trying next mirror...")
-            }
-            if (result == null) {
-                BepInExLog.e("$TAG: Failed to download libunity.so from all mirrors")
-                return null
-            }
-        } else {
-            BepInExLog.i("$TAG: Using cached libunity.so (${destLib.length()} bytes)")
+        val destLib = File(targetDir, LIB_NAME)
+        val destSym = File(targetDir, SYM_NAME)
+        val libReady = isReady(destLib, LIB_MIN_SIZE)
+        val symReady = isReady(destSym, SYM_MIN_SIZE)
+        if (libReady) {
+            BepInExLog.i("$TAG: Using cached $LIB_NAME (${destLib.length()} bytes)")
+        }
+        if (symReady) {
+            BepInExLog.i("$TAG: Using cached $SYM_NAME (${destSym.length()} bytes)")
+        }
+        if (libReady && symReady) return destLib
+
+        val (libSource, symSource) = UpdateChecker.resolveLibSources(context)
+        val preferProxy = UpdateChecker.preferProxyMirrors(context)
+
+        if (!libReady) {
+            obtainFile(
+                context = context,
+                destFile = destLib,
+                fileName = LIB_NAME,
+                source = libSource,
+                preferProxy = preferProxy,
+                minSize = LIB_MIN_SIZE,
+                required = true,
+                onProgress = onProgress
+            )
+        }
+        if (!isReady(destSym, SYM_MIN_SIZE)) {
+            obtainFile(
+                context = context,
+                destFile = destSym,
+                fileName = SYM_NAME,
+                source = symSource,
+                preferProxy = preferProxy,
+                minSize = SYM_MIN_SIZE,
+                required = false,
+                onProgress = onProgress
+            )
         }
 
-        // Download libunity.sym.so (optional)
-        val destSym = File(targetDir, "libunity.sym.so")
-        if (!(destSym.exists() && destSym.length() > 1024)) {
-            for (url in getFileUrls("libunity.sym.so")) {
-                onProgress("Downloading libunity.sym.so...")
-                BepInExLog.i("$TAG: Downloading libunity.sym.so from $url")
-                val result = downloadAndVerify(url, destSym, onProgress, minSize = 1024)
-                if (result != null) break
-                BepInExLog.w("$TAG: Failed sym from $url, trying next...")
-            }
-            // sym.so is optional — continue without it, hook will fail gracefully
-        } else {
-            BepInExLog.i("$TAG: Using cached libunity.sym.so (${destSym.length()} bytes)")
-        }
-
-        return destLib
+        return destLib.takeIf { isReady(it, LIB_MIN_SIZE) }
     }
+
+    private fun obtainFile(
+        context: Context,
+        destFile: File,
+        fileName: String,
+        source: UpdateChecker.LibSource,
+        preferProxy: Boolean,
+        minSize: Long,
+        required: Boolean,
+        onProgress: (String) -> Unit
+    ) {
+        if (!source.offlineMode) {
+            val urls = source.downloadUrls(preferProxy)
+            for (url in urls) {
+                onProgress("Downloading $fileName...")
+                BepInExLog.i("$TAG: Downloading $fileName from $url")
+                if (downloadAndVerify(url, destFile, onProgress, minSize) != null) return
+                BepInExLog.w("$TAG: Failed $fileName from $url, trying next...")
+            }
+            BepInExLog.w("$TAG: Network $fileName failed; falling back to assets")
+        } else {
+            BepInExLog.i("$TAG: offline-mode for $fileName, extracting from assets")
+        }
+
+        if (extractFromAssets(context, destFile.parentFile ?: return, fileName, onProgress) &&
+            isReady(destFile, minSize)
+        ) {
+            return
+        }
+        if (required) {
+            BepInExLog.e("$TAG: Failed to obtain $fileName")
+        } else {
+            BepInExLog.w("$TAG: Optional $fileName unavailable")
+        }
+    }
+
+    private fun extractFromAssets(
+        context: Context,
+        targetDir: File,
+        fileName: String,
+        onProgress: (String) -> Unit
+    ): Boolean {
+        onProgress("Extracting $fileName...")
+        return try {
+            var extracted = false
+            context.assets.open(ASSET_ZIP).use { input ->
+                ZipInputStream(input).use { zis ->
+                    var entry = zis.nextEntry
+                    while (entry != null) {
+                        val name = File(entry.name.replace('\\', '/')).name
+                        if (!entry.isDirectory && name == fileName) {
+                            val destFile = File(targetDir, name)
+                            val tempFile = File(targetDir, "$name.tmp")
+                            FileOutputStream(tempFile).use { output -> zis.copyTo(output) }
+                            if (destFile.exists()) destFile.delete()
+                            if (!tempFile.renameTo(destFile)) {
+                                tempFile.copyTo(destFile, overwrite = true)
+                                tempFile.delete()
+                            }
+                            BepInExLog.i("$TAG: Extracted $name (${destFile.length()} bytes)")
+                            extracted = true
+                            break
+                        }
+                        entry = zis.nextEntry
+                    }
+                }
+            }
+            if (!extracted) BepInExLog.e("$TAG: $fileName not found in $ASSET_ZIP")
+            extracted
+        } catch (e: Exception) {
+            BepInExLog.e("$TAG: Failed to extract $fileName from $ASSET_ZIP", e)
+            false
+        }
+    }
+
+    private fun isReady(file: File, minSize: Long): Boolean =
+        file.exists() && file.length() > minSize
 
     private fun downloadAndVerify(
         urlStr: String,
         destFile: File,
         onProgress: (String) -> Unit,
-        minSize: Long = 1024 * 1024
+        minSize: Long
     ): File? {
         return try {
             val tempFile = File(destFile.absolutePath + ".tmp")

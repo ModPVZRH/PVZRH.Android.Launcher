@@ -427,13 +427,13 @@ class BootstrapActivity : Activity() {
             }
         BepInExLog.i("Unity version: $unityVersion")
 
-        // Download unstripped libunity.so only when explicitly enabled.
-        // Fall back to the game's original library if the download fails.
+        // Prepare unstripped libunity.so only when explicitly enabled.
+        // Offline extract from assets, or download then fall back to assets.
         val useOriginalLibUnity = if (useUnstripped) {
             updateProgress(getString(R.string.bootstrap_status_downloading_libunity), "", 52)
-            BepInExLog.i("Downloading unstripped libunity.so...")
+            BepInExLog.i("Preparing unstripped libunity.so...")
             val unstrippedDir = File(File(appDataDir, "libunity"), "unstripped")
-            val downloadedLibUnity = LibUnityDownloader.ensureLibUnity(unstrippedDir) { detail ->
+            val downloadedLibUnity = LibUnityDownloader.ensureLibUnity(this, unstrippedDir) { detail ->
                 updateProgress(getString(R.string.bootstrap_status_downloading_libunity), detail, 52)
             }
             if (downloadedLibUnity == null) {
