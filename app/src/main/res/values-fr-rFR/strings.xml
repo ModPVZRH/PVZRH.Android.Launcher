@@ -245,7 +245,7 @@
     <string name="settings_clear_dotnet">Clear .NET Data</string>
     <string name="settings_clear_dotnet_desc">Delete the .NET runtime and copied game data. Files will be re-extracted on next launch.</string>
     <string name="settings_clear_libunity">Clear libunity Cache</string>
-    <string name="settings_clear_libunity_desc">Delete the downloaded unstripped libunity.so files. Will be re-downloaded on next launch.</string>
+    <string name="settings_clear_libunity_desc">Delete cached unstripped libunity.so files. They will be restored on next launch.</string>
     <string name="settings_copy_resources">Copy Game Resources</string>
     <string name="settings_copy_resources_desc">Copy the game\'s asset data to local storage for interop generation.</string>
     <string name="settings_theme">Theme</string>
@@ -276,6 +276,9 @@
     <string name="onboarding_permission_title">File access is required</string>
     <string name="onboarding_permission_body">The launcher extracts the mod framework to storage. Grant All files access to continue.</string>
     <string name="onboarding_permission_granted">All files access is granted</string>
+    <string name="onboarding_applist_permission_body">The launcher also needs to read the installed app list to find Fusion.</string>
+    <string name="onboarding_applist_permission_grant">Grant app list access</string>
+    <string name="onboarding_applist_permission_granted">App list access is granted</string>
     <string name="onboarding_first_launch_title">The first launch takes a moment</string>
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>
@@ -305,7 +308,7 @@
     <string name="confirm_clear_dotnet_title">Clear .NET Data?</string>
     <string name="confirm_clear_dotnet_msg">This will delete the .NET runtime and copied game data for this game. Files will be re-extracted on next launch.</string>
     <string name="confirm_clear_libunity_title">Clear libunity Cache?</string>
-    <string name="confirm_clear_libunity_msg">This will delete the downloaded unstripped libunity.so files. They will be re-downloaded on next launch.</string>
+    <string name="confirm_clear_libunity_msg">This will delete cached unstripped libunity.so files. They will be restored on next launch.</string>
     <string name="clear_libunity_done">libunity cache cleared</string>
     <string name="clear_libunity_none">No libunity cache to clear</string>
     <string name="confirm_copy_resources_title">Copy Game Resources?</string>
@@ -415,7 +418,7 @@
     <string name="settings_floating_log">Floating Log in Game</string>
     <string name="settings_floating_log_desc">Show a floating log button on top of the game. Tap to view real-time BepInEx logs.</string>
     <string name="settings_unstripped_libunity">Use Unstripped libunity</string>
-    <string name="settings_unstripped_libunity_desc">Download and use unstripped libunity.so with full icalls.</string>
+    <string name="settings_unstripped_libunity_desc">Use unstripped libunity.so with full icalls.</string>
     <!-- Launch -->
     <string name="launch_failed">Launch failed</string>
     <string name="launch_wait_extraction">Please wait — BepInEx is still extracting</string>
@@ -449,7 +452,7 @@
     <string name="bootstrap_status_preparing">Preparing target package…</string>
     <string name="bootstrap_status_copy_assets">Copying Unity data…</string>
     <string name="bootstrap_status_detecting_version">Detecting Unity version…</string>
-    <string name="bootstrap_status_downloading_libunity">Downloading unstripped libunity…</string>
+    <string name="bootstrap_status_downloading_libunity">Preparing unstripped libunity…</string>
     <string name="bootstrap_status_preparing_unity_libraries">Preparing Unity base libraries…</string>
     <string name="bootstrap_status_extracting_runtime">Extracting runtime files…</string>
     <string name="bootstrap_status_registering_libraries">Registering native libraries…</string>
