@@ -296,6 +296,8 @@
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>
     <string name="onboarding_crash_logs_body">If Fusion crashes, tap the share icon on the Games tab to export logs and send them to the developer.</string>
+    <string name="onboarding_troubleshooting_title">Troubleshooting</string>
+    <string name="onboarding_troubleshooting_body">If a crash occurs, visit the [troubleshooting page](https://modpvzrh.github.io/troubleshooting) to diagnose and fix the issue. Usually clearing BepInEx and libunity data then restarting helps.</string>
     <string name="coach_next">Next</string>
     <string name="coach_skip">Skip tips</string>
     <string name="coach_done">Got it</string>

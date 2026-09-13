@@ -1,6 +1,7 @@
 package com.bepinex.android.ui.onboarding
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,11 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.SportsEsports
-import androidx.compose.material.icons.outlined.VideogameAsset
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -42,16 +38,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.GameDetector
 import com.bepinex.android.R
+import com.bepinex.android.update.MarkdownText
 import kotlinx.coroutines.launch
 
-private const val PAGE_COUNT = 5
+private const val PAGE_COUNT = 6
 
 @Composable
 fun OnboardingHost(
@@ -120,8 +119,8 @@ fun OnboardingHost(
                     .fillMaxWidth()
             ) { current ->
                 when (current) {
-                    0 -> OnboardingMessagePage(
-                        icon = Icons.Outlined.SportsEsports,
+                    0 -> OnboardingImagePage(
+                        imageRes = R.drawable.onboarding_welcome,
                         title = stringResource(R.string.onboarding_welcome_title),
                         body = stringResource(R.string.onboarding_welcome_body)
                     )
@@ -134,15 +133,21 @@ fun OnboardingHost(
                         permissionGranted = permissionGranted,
                         onRequestPermission = onRequestPermission
                     )
-                    3 -> OnboardingMessagePage(
-                        icon = Icons.Outlined.CloudDownload,
+                    3 -> OnboardingImagePage(
+                        imageRes = R.drawable.onboarding_first_launch,
                         title = stringResource(R.string.onboarding_first_launch_title),
                         body = stringResource(R.string.onboarding_first_launch_body)
                     )
-                    else -> OnboardingMessagePage(
-                        icon = Icons.Outlined.Share,
+                    4 -> OnboardingImagePage(
+                        imageRes = R.drawable.onboarding_crash_logs,
                         title = stringResource(R.string.onboarding_crash_logs_title),
                         body = stringResource(R.string.onboarding_crash_logs_body)
+                    )
+                    else -> OnboardingImagePage(
+                        imageRes = R.drawable.onboarding_troubleshooting,
+                        title = stringResource(R.string.onboarding_troubleshooting_title),
+                        body = stringResource(R.string.onboarding_troubleshooting_body),
+                        markdown = true
                     )
                 }
             }
@@ -199,10 +204,11 @@ fun OnboardingHost(
 }
 
 @Composable
-private fun OnboardingMessagePage(
-    icon: ImageVector,
+private fun OnboardingImagePage(
+    imageRes: Int,
     title: String,
-    body: String
+    body: String,
+    markdown: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -211,11 +217,14 @@ private fun OnboardingMessagePage(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = icon,
+        Image(
+            painter = painterResource(imageRes),
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(24.dp))
         Text(
@@ -225,12 +234,22 @@ private fun OnboardingMessagePage(
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(12.dp))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        if (markdown) {
+            MarkdownText(
+                rawText = body,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        } else {
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -248,11 +267,14 @@ private fun OnboardingGamePage(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Outlined.VideogameAsset,
+        Image(
+            painter = painterResource(R.drawable.onboarding_game),
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(24.dp))
         Text(
@@ -312,11 +334,14 @@ private fun OnboardingPermissionPage(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Outlined.FolderOpen,
+        Image(
+            painter = painterResource(R.drawable.onboarding_permission),
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.primary
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(24.dp))
         Text(

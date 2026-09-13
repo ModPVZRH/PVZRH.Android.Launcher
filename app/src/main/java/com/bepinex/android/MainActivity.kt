@@ -184,6 +184,7 @@ class MainActivity : ComponentActivity() {
         if (hasLauncherData) {
             AppSettings.setOnboardingCompleted(this, true)
             AppSettings.setCoachMarksShown(this, true)
+            AppSettings.setModpackCoachMarksShown(this, true)
         }
     }
 
