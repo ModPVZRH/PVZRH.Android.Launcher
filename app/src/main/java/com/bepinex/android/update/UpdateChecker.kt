@@ -25,7 +25,8 @@ object UpdateChecker {
         val announcementZh: String,
         val announcementEn: String,
         val urlApk: String,
-        val urlLib: String
+        val urlLib: String,
+        val urlMarket: String
     )
 
     /** Parse [text](url) markdown links into pairs */
@@ -80,7 +81,9 @@ object UpdateChecker {
             val urlApk = urlsApk.optString(apkPrefix, urlsApk.optString("github", ""))
             val urlLib = urlsLib.optString(libPrefix, urlsLib.optString("github", ""))
 
-            BepInExLog.i("info.json fetched: version=$version, allowStart=$allowStart")
+            val urlMarket = json.optJSONObject("urlMarket")?.optString("backed", "") ?: ""
+
+            BepInExLog.i("info.json fetched: version=$version, allowStart=$allowStart, urlMarket=$urlMarket")
 
             UpdateInfo(
                 version = version,
@@ -89,7 +92,8 @@ object UpdateChecker {
                 announcementZh = announcementZh,
                 announcementEn = announcementEn,
                 urlApk = urlApk,
-                urlLib = urlLib
+                urlLib = urlLib,
+                urlMarket = urlMarket
             )
         } catch (e: Exception) {
             BepInExLog.e("Failed to fetch info.json", e)

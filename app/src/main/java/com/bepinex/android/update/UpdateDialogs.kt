@@ -328,6 +328,7 @@ fun CrashDialog(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(max = 240.dp)
                             .padding(bottom = 16.dp)
                     ) {
                         Text(
@@ -336,7 +337,9 @@ fun CrashDialog(
                                 fontSize = 11.sp,
                                 lineHeight = 14.sp
                             ),
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier
+                                .verticalScroll(rememberScrollState())
+                                .padding(12.dp)
                         )
                     }
                 }

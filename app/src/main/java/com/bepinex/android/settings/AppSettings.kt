@@ -31,6 +31,7 @@ object AppSettings {
     private const val KEY_LOG_AUTO_SCROLL = "log_auto_scroll"
     private const val KEY_LOG_WORD_WRAP = "log_word_wrap"
     private const val KEY_LOG_LINE_NUMBERS = "log_line_numbers"
+    private const val KEY_MARKET_URL = "market_url"
 
     const val ONBOARDING_VERSION = 1
 
@@ -246,6 +247,15 @@ object AppSettings {
 
     fun setLogLineNumbersEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_LOG_LINE_NUMBERS, enabled).apply()
+    }
+
+    // Market URL
+
+    fun getMarketUrl(context: Context): String =
+        prefs(context).getString(KEY_MARKET_URL, "") ?: ""
+
+    fun setMarketUrl(context: Context, url: String) {
+        prefs(context).edit().putString(KEY_MARKET_URL, url).apply()
     }
 
     // Initialize on startup

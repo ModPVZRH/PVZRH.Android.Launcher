@@ -48,6 +48,9 @@ object BepInExPaths {
     fun getModpackDir(packageName: String, modpackName: String): File =
         File(getGameRootDir(packageName), "modpacks/$modpackName")
 
+    fun getMarketDir(): File =
+        File(Environment.getExternalStorageDirectory(), "$ROOT_DIR/Market")
+
     fun getModpackConfigDir(packageName: String, modpackName: String): File =
         File(getModpackDir(packageName, modpackName), "config")
 

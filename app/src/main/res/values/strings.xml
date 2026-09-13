@@ -485,4 +485,34 @@
     <string name="bootstrap_status_launching">Launching game…</string>
     <string name="bootstrap_status_error">Launch failed</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
+
+    <!-- Market -->
+    <string name="nav_market">Market</string>
+    <string name="market_title">Market</string>
+    <string name="market_search">Search mods…</string>
+    <string name="market_filter_all">All</string>
+    <string name="market_filter_modpacks">Modpacks</string>
+    <string name="market_filter_mods">Mods</string>
+    <string name="market_type_modpack">Modpack</string>
+    <string name="market_type_mod">Mod</string>
+    <string name="market_downloads">%s downloads</string>
+    <string name="market_empty">No mods found</string>
+    <string name="market_error">Failed to load marketplace</string>
+    <string name="market_detail">Mod Detail</string>
+    <string name="market_detail_version">Version</string>
+    <string name="market_detail_size">Size</string>
+    <string name="market_detail_downloads">Downloads</string>
+    <string name="market_detail_game">Game</string>
+    <string name="market_detail_compatible">Compatible</string>
+    <string name="market_detail_description">Description</string>
+    <string name="market_detail_video">Video</string>
+    <string name="market_download">Download</string>
+    <string name="market_cloud_download">Cloud Download</string>
+    <string name="market_download_failed">Download failed</string>
+    <string name="market_no_download">No download available</string>
+    <string name="market_select_modpack">Select target modpack</string>
+    <string name="market_no_modpacks">No modpacks found. Create a modpack first.</string>
+    <string name="market_importing">Importing…</string>
+    <string name="market_import_success">Import successful</string>
+    <string name="market_import_failed">Import failed</string>
 </resources>

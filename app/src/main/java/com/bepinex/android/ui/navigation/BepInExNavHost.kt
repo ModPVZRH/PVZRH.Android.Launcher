@@ -424,7 +424,7 @@ fun BepInExNavHost(
 
     val showBottomBar = currentRoute == NavRoutes.MAIN
 
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -516,6 +516,19 @@ fun BepInExNavHost(
                         enabled = selectedGame != null,
                         icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
                         label = { Text(stringResource(R.string.nav_settings)) }
+                    )
+                    NavigationBarItem(
+                        selected = pagerState.currentPage == 3,
+                        onClick = {
+                            if (pagerState.currentPage != 3) {
+                                composeScope.launch {
+                                    if (animationDisabled) pagerState.scrollToPage(3)
+                                    else pagerState.animateScrollToPage(3)
+                                }
+                            }
+                        },
+                        icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
+                        label = { Text(stringResource(R.string.nav_market)) }
                     )
                 }
             }
@@ -790,6 +803,14 @@ fun BepInExNavHost(
                                     onReplayOnboarding = onReplayOnboarding
                                 )
                             }
+                            3 -> {
+                                val packageName = selectedGame?.packageName ?: ""
+                                MarketScreen(
+                                    onModClick = { modId ->
+                                        navController.navigate(NavRoutes.marketModDetail(modId, packageName))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -1015,6 +1036,26 @@ fun BepInExNavHost(
                     )
                 }
 
+                // Market Mod Detail
+                composable(
+                    route = NavRoutes.MARKET_MOD_DETAIL,
+                    arguments = listOf(
+                        navArgument("modId") { type = NavType.StringType },
+                        navArgument("packageName") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val modId = backStackEntry.arguments?.getString("modId") ?: return@composable
+                    val packageName = backStackEntry.arguments?.getString("packageName") ?: ""
+                    MarketModDetailScreen(
+                        modId = modId,
+                        packageName = packageName,
+                        onBack = { navController.safePopBackStack() },
+                        onModpackSelected = { _, _ ->
+                            navController.safePopBackStack()
+                        }
+                    )
+                }
+
                 // About
                 composable(
                     route = NavRoutes.ABOUT
@@ -1116,6 +1157,12 @@ fun BepInExNavHost(
                         enabled = selectedGame != null,
                         icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
                         label = { Text(stringResource(R.string.nav_settings)) }
+                    )
+                    NavigationRailItem(
+                        selected = pagerState.currentPage == 3,
+                        onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(3) else pagerState.animateScrollToPage(3) } },
+                        icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
+                        label = { Text(stringResource(R.string.nav_market)) }
                     )
                 }
                 Box(modifier = Modifier.weight(1f).fillMaxHeight()) {

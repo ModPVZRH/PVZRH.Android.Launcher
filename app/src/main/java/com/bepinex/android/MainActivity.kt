@@ -194,6 +194,10 @@ class MainActivity : ComponentActivity() {
                 updateInfo = info
                 isCheckingUpdate = false
                 if (info != null) {
+                    if (info.urlMarket.isNotEmpty()) {
+                        AppSettings.setMarketUrl(this@MainActivity, info.urlMarket)
+                    }
+
                     val currentVersion = try {
                         packageManager.getPackageInfo(packageName, 0).versionName ?: ""
                     } catch (_: Exception) { "" }
