@@ -4,7 +4,6 @@ import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,14 +27,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +73,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import com.bepinex.android.R
 import com.bepinex.android.market.MarketApi
 import com.bepinex.android.market.MarketMod
@@ -95,6 +101,8 @@ fun MarketScreen(
     var loadFailed by remember { mutableStateOf(false) }
     var searchExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf(MarketFilter.All) }
+    var sort by remember { mutableStateOf(MarketSort.Updated) }
 
     fun loadMods(forceRefresh: Boolean) {
         scope.launch {
@@ -131,21 +139,32 @@ fun MarketScreen(
         MarketApi.cachedMods()?.let { mods = it }
     }
 
-    val filteredMods = remember(mods, searchQuery) {
+    val filteredMods = remember(mods, searchQuery, filter, sort) {
         val query = searchQuery.trim()
-        if (query.isEmpty()) mods
-        else mods.filter { mod ->
-            mod.displayName.contains(query, ignoreCase = true) ||
-                mod.englishName.contains(query, ignoreCase = true) ||
-                mod.displayAuthor.contains(query, ignoreCase = true) ||
-                mod.modDescription.contains(query, ignoreCase = true)
-        }
+        mods.asSequence()
+            .filter { mod ->
+                query.isEmpty() ||
+                    mod.displayName.contains(query, ignoreCase = true) ||
+                    mod.englishName.contains(query, ignoreCase = true) ||
+                    mod.displayAuthor.contains(query, ignoreCase = true) ||
+                    mod.modDescription.contains(query, ignoreCase = true)
+            }
+            .filter { mod ->
+                when (filter) {
+                    MarketFilter.All -> true
+                    MarketFilter.Featured -> mod.isFeatured
+                    MarketFilter.Mods -> !mod.isPreposition && !mod.isModpack
+                    MarketFilter.Preposition -> mod.isPreposition
+                    MarketFilter.Modpacks -> mod.isModpack
+                }
+            }
+            .sortedWith(sort.comparator())
+            .toList()
     }
-    val featuredMods = remember(filteredMods, searchQuery) {
-        if (searchQuery.isNotBlank()) emptyList()
-        else filteredMods.filter { it.isFeatured }
+    val browsing = searchQuery.isBlank() && filter == MarketFilter.All && sort == MarketSort.Updated
+    val featuredMods = remember(filteredMods, browsing) {
+        if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
     }
-    val browsing = searchQuery.isBlank()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -200,6 +219,15 @@ fun MarketScreen(
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         focusedBorderColor = MaterialTheme.colorScheme.primary
                     )
+                )
+            }
+
+            if (!(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())) {
+                MarketFilterSortBar(
+                    filter = filter,
+                    sort = sort,
+                    onFilterChange = { filter = it },
+                    onSortChange = { sort = it }
                 )
             }
 
@@ -293,6 +321,112 @@ fun MarketScreen(
                     }
                 }
             }
+            }
+        }
+    }
+}
+
+private enum class MarketFilter(val labelRes: Int) {
+    All(R.string.market_filter_all),
+    Featured(R.string.market_filter_featured),
+    Mods(R.string.market_filter_mods),
+    Preposition(R.string.market_filter_preposition),
+    Modpacks(R.string.market_filter_modpacks)
+}
+
+private enum class MarketSort(val labelRes: Int) {
+    Updated(R.string.market_sort_updated),
+    Created(R.string.market_sort_created),
+    Downloads(R.string.market_sort_downloads),
+    Views(R.string.market_sort_views),
+    Name(R.string.market_sort_name);
+
+    fun comparator(): Comparator<MarketMod> = when (this) {
+        Updated -> compareByDescending<MarketMod> { parseMarketTime(it.timestamp) ?: 0L }
+            .thenBy { it.id }
+        Created -> compareByDescending<MarketMod> { parseMarketTime(it.createdAt) ?: 0L }
+            .thenBy { it.id }
+        Downloads -> compareByDescending<MarketMod> { it.downloadCount.toLongOrNull() ?: 0L }
+            .thenBy { it.id }
+        Views -> compareByDescending<MarketMod> { it.viewCount.toLongOrNull() ?: 0L }
+            .thenBy { it.id }
+        Name -> compareBy<MarketMod, String>(String.CASE_INSENSITIVE_ORDER) { it.displayName }
+            .thenBy { it.id }
+    }
+}
+
+@Composable
+private fun MarketFilterSortBar(
+    filter: MarketFilter,
+    sort: MarketSort,
+    onFilterChange: (MarketFilter) -> Unit,
+    onSortChange: (MarketSort) -> Unit
+) {
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    val chipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+        selectedLabelColor = MaterialTheme.colorScheme.primary,
+        selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(end = 8.dp)
+        ) {
+            items(MarketFilter.entries, key = { it.name }) { item ->
+                FilterChip(
+                    selected = filter == item,
+                    onClick = { onFilterChange(item) },
+                    label = { Text(stringResource(item.labelRes)) },
+                    colors = chipColors,
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = filter == item,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant,
+                        selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    )
+                )
+            }
+        }
+        Box {
+            TextButton(onClick = { sortMenuExpanded = true }) {
+                Icon(
+                    imageVector = Icons.Filled.Sort,
+                    contentDescription = stringResource(R.string.market_sort),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = stringResource(sort.labelRes),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            DropdownMenu(
+                expanded = sortMenuExpanded,
+                onDismissRequest = { sortMenuExpanded = false }
+            ) {
+                MarketSort.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(option.labelRes)) },
+                        onClick = {
+                            onSortChange(option)
+                            sortMenuExpanded = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -502,34 +636,24 @@ internal fun ModIcon(
         }
     }
 
-    val placeholder = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    val context = LocalContext.current
+    val fallbackIcon = remember(context) {
+        context.packageManager
+            .getApplicationIcon(context.packageName)
+            .toBitmap()
+            .asImageBitmap()
+    }
     Surface(
         modifier = modifier.clip(RoundedCornerShape(12.dp)),
         shape = RoundedCornerShape(12.dp),
-        color = placeholder
+        color = MaterialTheme.colorScheme.surface
     ) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap!!,
-                contentDescription = name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(placeholder),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = name.take(1).uppercase(Locale.getDefault()),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
+        Image(
+            bitmap = bitmap ?: fallbackIcon,
+            contentDescription = name,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
     }
 }
 

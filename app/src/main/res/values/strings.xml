@@ -518,6 +518,17 @@
     <string name="market_no_source">No source available</string>
     <string name="market_open_video">Open video</string>
     <string name="market_open_link">Open link</string>
+    <string name="market_filter_all">All</string>
+    <string name="market_filter_featured">Featured</string>
+    <string name="market_filter_mods">Mods</string>
+    <string name="market_filter_preposition">Prerequisites</string>
+    <string name="market_filter_modpacks">Modpacks</string>
+    <string name="market_sort">Sort</string>
+    <string name="market_sort_updated">Recently updated</string>
+    <string name="market_sort_created">Recently added</string>
+    <string name="market_sort_downloads">Most downloads</string>
+    <string name="market_sort_views">Most views</string>
+    <string name="market_sort_name">Name</string>
 
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">Launching selected game</string>

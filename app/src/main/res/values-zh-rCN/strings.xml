@@ -490,6 +490,17 @@
     <string name="market_no_source">暂无来源</string>
     <string name="market_open_video">打开视频</string>
     <string name="market_open_link">打开链接</string>
+    <string name="market_filter_all">全部</string>
+    <string name="market_filter_featured">精选</string>
+    <string name="market_filter_mods">模组</string>
+    <string name="market_filter_preposition">前置</string>
+    <string name="market_filter_modpacks">整合包</string>
+    <string name="market_sort">排序</string>
+    <string name="market_sort_updated">最近更新</string>
+    <string name="market_sort_created">最近添加</string>
+    <string name="market_sort_downloads">下载最多</string>
+    <string name="market_sort_views">浏览最多</string>
+    <string name="market_sort_name">名称</string>
 
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">正在启动游戏</string>
