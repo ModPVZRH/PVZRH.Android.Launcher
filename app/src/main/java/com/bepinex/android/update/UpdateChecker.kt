@@ -86,7 +86,7 @@ object UpdateChecker {
 
     /** Parse [text](url) markdown links into pairs */
     fun parseLinks(text: String): List<Pair<String, String>> {
-        val regex = Regex("""\[([^\]]+)\]\(([^)]+)\)""")
+        val regex = Regex("""\[([^\]]+)]\s*\(([^)]+)\)""")
         return regex.findAll(text).map { it.groupValues[1] to it.groupValues[2] }.toList()
     }
 

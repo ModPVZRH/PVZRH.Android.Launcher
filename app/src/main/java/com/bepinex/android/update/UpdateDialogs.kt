@@ -39,30 +39,40 @@ fun MarkdownText(
     style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge,
     lineHeight: androidx.compose.ui.unit.TextUnit = 24.sp
 ) {
+    val uriHandler = LocalUriHandler.current
+    val linkColor = MaterialTheme.colorScheme.primary
     val linkStyle = TextLinkStyles(
         style = SpanStyle(
-            color = MaterialTheme.colorScheme.primary,
+            color = linkColor,
             textDecoration = TextDecoration.Underline
         )
     )
-    val regex = Regex("""\[([^\]]+)\]\(([^)]+)\)""")
+    val regex = Regex("""\[([^\]]+)]\s*\(([^)]+)\)""")
 
-    val annotated = buildAnnotatedString {
-        var lastEnd = 0
-        for (match in regex.findAll(rawText)) {
-            val start = match.range.first
-            if (start > lastEnd) {
-                append(rawText.substring(lastEnd, start))
+    val annotated = remember(rawText, linkColor, uriHandler) {
+        buildAnnotatedString {
+            var lastEnd = 0
+            for (match in regex.findAll(rawText)) {
+                val start = match.range.first
+                if (start > lastEnd) {
+                    append(rawText.substring(lastEnd, start))
+                }
+                val linkText = match.groupValues[1]
+                val url = match.groupValues[2].trim()
+                withLink(
+                    LinkAnnotation.Url(
+                        url = url,
+                        styles = linkStyle,
+                        linkInteractionListener = { uriHandler.openUri(url) }
+                    )
+                ) {
+                    append(linkText)
+                }
+                lastEnd = match.range.last + 1
             }
-            val linkText = match.groupValues[1]
-            val url = match.groupValues[2]
-            withLink(LinkAnnotation.Url(url, linkStyle)) {
-                append(linkText)
+            if (lastEnd < rawText.length) {
+                append(rawText.substring(lastEnd))
             }
-            lastEnd = match.range.last + 1
-        }
-        if (lastEnd < rawText.length) {
-            append(rawText.substring(lastEnd))
         }
     }
 

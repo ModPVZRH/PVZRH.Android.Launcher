@@ -285,7 +285,7 @@
     <string name="onboarding_crash_logs_title">崩溃后请分享日志</string>
     <string name="onboarding_crash_logs_body">游戏闪退时，点游戏页右上角的分享图标导出日志，发给开发者排查。</string>
     <string name="onboarding_troubleshooting_title">故障排查</string>
-    <string name="onboarding_troubleshooting_body">如果发生崩溃，请访问 [此页面] (https://modpvzrh.github.io/zh/troubleshooting) 诊断和解决问题。通常清理BepInEx 和 libunity 数据，然后重启帮助。</string>
+    <string name="onboarding_troubleshooting_body">如果发生崩溃，请访问 [此页面](https://modpvzrh.github.io/zh/troubleshooting) 诊断和解决问题。通常清理 BepInEx 和 libunity 数据后再重启会有帮助。</string>
     <string name="coach_next">下一步</string>
     <string name="coach_skip">跳过提示</string>
     <string name="coach_done">知道了</string>
