@@ -6,6 +6,7 @@
     <!-- Navigation -->
     <string name="nav_games">游戏</string>
     <string name="nav_modpacks">整合包</string>
+    <string name="nav_market">市场</string>
     <string name="nav_settings">设置</string>
     <string name="nav_about">关于</string>
     <!-- Game Detection -->
@@ -447,6 +448,49 @@
     <string name="update_skip">跳过</string>
     <string name="update_blocked_title">已停止运营</string>
     <string name="update_blocked_message">本应用已停止运营，不再可用。</string>
+    <!-- Market -->
+    <string name="market_explore">探索</string>
+    <string name="market_search">搜索模组</string>
+    <string name="market_search_results">搜索结果</string>
+    <string name="market_hot">热门模组</string>
+    <string name="market_browse_all">浏览全部</string>
+    <string name="market_tag_mod">模组</string>
+    <string name="market_tag_modpack">整合包</string>
+    <string name="market_tag_preposition">前置</string>
+    <string name="market_unknown_author">未知作者</string>
+    <string name="market_empty">没有找到模组</string>
+    <string name="market_error">模组市场加载失败</string>
+    <string name="market_retry">重试</string>
+    <string name="market_time_just_now">刚刚</string>
+    <string name="market_time_minutes">%d分钟前</string>
+    <string name="market_time_hours">%d小时前</string>
+    <string name="market_time_days">%d天前</string>
+    <string name="market_detail">模组详情</string>
+    <string name="market_detail_version">版本</string>
+    <string name="market_detail_size">大小</string>
+    <string name="market_detail_downloads">下载</string>
+    <string name="market_detail_game">游戏</string>
+    <string name="market_detail_compatible">兼容</string>
+    <string name="market_detail_updated">更新</string>
+    <string name="market_detail_description">简介</string>
+    <string name="market_download">下载</string>
+    <string name="market_cloud_download">网盘下载</string>
+    <string name="market_no_download">暂无下载地址</string>
+    <string name="market_open_failed">无法打开下载链接</string>
+    <string name="market_install">下载 (%1$s)</string>
+    <string name="market_install_no_version">下载</string>
+    <string name="market_downloads_count">%s次下载</string>
+    <string name="market_tab_info">介绍</string>
+    <string name="market_tab_download">下载</string>
+    <string name="market_tab_source">来源</string>
+    <string name="market_latest_version">最新版本</string>
+    <string name="market_mod_id">模组ID</string>
+    <string name="market_created">创建</string>
+    <string name="market_no_description">暂无介绍</string>
+    <string name="market_no_source">暂无来源</string>
+    <string name="market_open_video">打开视频</string>
+    <string name="market_open_link">打开链接</string>
+
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">正在启动游戏</string>
     <string name="bootstrap_status_preparing">正在准备目标包…</string>

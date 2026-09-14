@@ -125,6 +125,9 @@ dependencies {
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // Markdown parser for market mod descriptions
+    implementation("org.jetbrains:markdown:0.7.3")
+
     // Pine — ART Java hook framework (FusionCore approach)
     implementation("top.canyie.pine:core:0.3.0")
 
