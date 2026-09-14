@@ -3,7 +3,6 @@ package com.bepinex.android.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,7 +37,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -55,6 +52,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +62,6 @@ import com.bepinex.android.R
 import com.bepinex.android.market.MarketApi
 import com.bepinex.android.market.MarketMod
 import com.bepinex.android.ui.components.MarkdownContent
-import com.bepinex.android.ui.components.plainTextFromMarkdown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -174,9 +171,14 @@ fun MarketModDetailScreen(
                 val item = mod!!
                 val primaryUrl = item.downloadDirectUrl.ifBlank { item.downloadCloudUrl }
                 val hasSource = item.videoUrl.isNotBlank()
-                val summary = remember(item.modDescription) {
-                    plainTextFromMarkdown(item.modDescription)
+                val tabs = remember(hasSource) {
+                    buildList {
+                        add(MarketDetailTab.Info)
+                        add(MarketDetailTab.Download)
+                        if (hasSource) add(MarketDetailTab.Source)
+                    }
                 }
+                val visibleTab = if (tab in tabs) tab else MarketDetailTab.Info
 
                 Column(
                     modifier = Modifier
@@ -188,7 +190,6 @@ fun MarketModDetailScreen(
                 ) {
                     MarketDetailHeroCard(
                         item = item,
-                        summary = summary,
                         primaryUrl = primaryUrl,
                         onInstall = { url -> openDownload(url) }
                     )
@@ -196,57 +197,17 @@ fun MarketModDetailScreen(
                     Spacer(Modifier.height(12.dp))
 
                     MarketDetailTabBar(
-                        selected = tab,
+                        tabs = tabs,
+                        selected = visibleTab,
                         onSelect = { tab = it }
                     )
 
-                    if (hasSource) {
-                        Spacer(Modifier.height(10.dp))
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            Surface(
-                                onClick = { tab = MarketDetailTab.Source },
-                                shape = RoundedCornerShape(50),
-                                color = if (tab == MarketDetailTab.Source) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Code,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = if (tab == MarketDetailTab.Source) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.market_tab_source),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = if (tab == MarketDetailTab.Source) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     Spacer(Modifier.height(12.dp))
 
-                    when (tab) {
+                    when (visibleTab) {
                         MarketDetailTab.Info -> MarketInfoTab(item)
                         MarketDetailTab.Download -> MarketDownloadTab(item, onOpenUrl = ::openDownload)
-                        MarketDetailTab.Source -> MarketSourceTab(item, onOpenUrl = ::openUrl)
+                        MarketDetailTab.Source -> MarketSourceTab(item, onOpenUrl = { openUrl(it) })
                     }
 
                     Spacer(Modifier.height(24.dp))
@@ -259,7 +220,6 @@ fun MarketModDetailScreen(
 @Composable
 private fun MarketDetailHeroCard(
     item: MarketMod,
-    summary: String,
     primaryUrl: String,
     onInstall: (String) -> Unit
 ) {
@@ -270,11 +230,11 @@ private fun MarketDetailHeroCard(
         elevation = marketCardElevation()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 ModIcon(
                     url = item.iconUrl,
                     name = item.displayName,
-                    modifier = Modifier.size(72.dp)
+                    modifier = Modifier.size(64.dp)
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -283,40 +243,60 @@ private fun MarketDetailHeroCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = item.displayAuthor.ifBlank {
-                                stringResource(R.string.market_unknown_author)
-                            },
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
+                            text = item.displayName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
                         Spacer(Modifier.width(8.dp))
                         MarketTagChip(item)
                     }
-                    Spacer(Modifier.height(2.dp))
                     Text(
-                        text = item.displayName,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
+                        text = item.displayAuthor.ifBlank {
+                            stringResource(R.string.market_unknown_author)
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (summary.isNotBlank()) {
-                        Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Text(
-                            text = summary,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            text = stringResource(
+                                R.string.market_downloads_count,
+                                formatDownloadCount(item.downloadCount)
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Sync,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = relativeTimeLabel(item.timestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
 
             Button(
                 onClick = { if (primaryUrl.isNotBlank()) onInstall(primaryUrl) },
@@ -334,119 +314,39 @@ private fun MarketDetailHeroCard(
                     }
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Download,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = stringResource(
-                        R.string.market_downloads_count,
-                        formatDownloadCount(item.downloadCount)
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(16.dp))
-                Icon(
-                    imageVector = Icons.Filled.Sync,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = relativeTimeLabel(item.timestamp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
 
 @Composable
 private fun MarketDetailTabBar(
+    tabs: List<MarketDetailTab>,
     selected: MarketDetailTab,
     onSelect: (MarketDetailTab) -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+    val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
+    TabRow(
+        selectedTabIndex = selectedIndex,
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            MarketTabIcon(
-                selected = selected == MarketDetailTab.Info,
-                icon = Icons.Outlined.Info,
-                label = stringResource(R.string.market_tab_info),
-                onClick = { onSelect(MarketDetailTab.Info) },
-                modifier = Modifier.weight(1f)
+        tabs.forEach { item ->
+            Tab(
+                selected = selected == item,
+                onClick = { onSelect(item) },
+                text = {
+                    Text(
+                        text = stringResource(
+                            when (item) {
+                                MarketDetailTab.Info -> R.string.market_tab_info
+                                MarketDetailTab.Download -> R.string.market_tab_download
+                                MarketDetailTab.Source -> R.string.market_tab_source
+                            }
+                        )
+                    )
+                }
             )
-            MarketTabIcon(
-                selected = selected == MarketDetailTab.Download,
-                icon = Icons.Outlined.Download,
-                label = stringResource(R.string.market_tab_download),
-                onClick = { onSelect(MarketDetailTab.Download) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun MarketTabIcon(
-    selected: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val tint = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Column(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .width(22.dp)
-                .height(2.dp)
-        ) {
-            if (selected) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp),
-                    shape = RoundedCornerShape(1.dp),
-                    color = MaterialTheme.colorScheme.primary
-                ) {}
-            }
         }
     }
 }

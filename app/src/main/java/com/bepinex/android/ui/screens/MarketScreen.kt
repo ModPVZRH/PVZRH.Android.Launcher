@@ -26,8 +26,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
@@ -67,7 +66,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +101,7 @@ fun MarketScreen(
     var searchQuery by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(MarketFilter.All) }
     var sort by remember { mutableStateOf(MarketSort.Updated) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
 
     fun loadMods(forceRefresh: Boolean) {
         scope.launch {
@@ -156,6 +155,7 @@ fun MarketScreen(
                     MarketFilter.Mods -> !mod.isPreposition && !mod.isModpack
                     MarketFilter.Preposition -> mod.isPreposition
                     MarketFilter.Modpacks -> mod.isModpack
+                    MarketFilter.Author -> true
                 }
             }
             .sortedWith(sort.comparator())
@@ -164,6 +164,16 @@ fun MarketScreen(
     val browsing = searchQuery.isBlank() && filter == MarketFilter.All && sort == MarketSort.Updated
     val featuredMods = remember(filteredMods, browsing) {
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
+    }
+    val groupedByAuthor = remember(filteredMods, filter) {
+        if (filter != MarketFilter.Author) null
+        else filteredMods
+            .groupBy { it.displayAuthor.trim() }
+            .entries
+            .sortedWith(
+                compareBy<Map.Entry<String, List<MarketMod>>> { it.key.isBlank() }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.key }
+            )
     }
 
     Scaffold(
@@ -178,6 +188,39 @@ fun MarketScreen(
                     )
                 },
                 actions = {
+                    Box {
+                        IconButton(onClick = { sortMenuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Sort,
+                                contentDescription = stringResource(R.string.market_sort)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = sortMenuExpanded,
+                            onDismissRequest = { sortMenuExpanded = false }
+                        ) {
+                            MarketSort.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(option.labelRes)) },
+                                    onClick = {
+                                        sort = option
+                                        sortMenuExpanded = false
+                                    },
+                                    trailingIcon = if (sort == option) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Filled.Check,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    }
+                                )
+                            }
+                        }
+                    }
                     IconButton(onClick = {
                         searchExpanded = !searchExpanded
                         if (!searchExpanded) searchQuery = ""
@@ -223,11 +266,9 @@ fun MarketScreen(
             }
 
             if (!(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())) {
-                MarketFilterSortBar(
+                MarketFilterBar(
                     filter = filter,
-                    sort = sort,
-                    onFilterChange = { filter = it },
-                    onSortChange = { sort = it }
+                    onFilterChange = { filter = it }
                 )
             }
 
@@ -266,57 +307,71 @@ fun MarketScreen(
                     }
                 }
                 else -> {
-                    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-                    val featuredCardWidth = (screenWidth - 48.dp).coerceAtLeast(280.dp)
-
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (browsing && featuredMods.isNotEmpty()) {
                             item(key = "hot_header") {
                                 MarketSectionHeader(
                                     title = stringResource(R.string.market_hot),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
                                 )
                             }
                             item(key = "hot_row") {
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     items(featuredMods, key = { it.id }) { mod ->
-                                        MarketModCard(
+                                        MarketHotCard(
                                             mod = mod,
-                                            onClick = { onModClick(mod.id) },
-                                            modifier = Modifier.width(featuredCardWidth),
-                                            descriptionMaxChars = ListDescriptionMaxChars,
-                                            descriptionMinLines = 2
+                                            onClick = { onModClick(mod.id) }
                                         )
                                     }
                                 }
                             }
                         }
 
-                        item(key = "all_header") {
-                            MarketSectionHeader(
-                                title = if (browsing) {
-                                    stringResource(R.string.market_browse_all)
-                                } else {
-                                    stringResource(R.string.market_search_results)
-                                },
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                            )
+                        if (!browsing && filter != MarketFilter.Author) {
+                            item(key = "all_header") {
+                                MarketSectionHeader(
+                                    title = if (searchQuery.isNotBlank()) {
+                                        stringResource(R.string.market_search_results)
+                                    } else {
+                                        stringResource(R.string.market_result_count, filteredMods.size)
+                                    },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                                )
+                            }
                         }
 
-                        items(filteredMods, key = { it.id }) { mod ->
-                            MarketModCard(
-                                mod = mod,
-                                onClick = { onModClick(mod.id) },
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                descriptionMaxChars = ListDescriptionMaxChars
-                            )
+                        val authorGroups = groupedByAuthor
+                        if (authorGroups != null) {
+                            authorGroups.forEach { (author, authorMods) ->
+                                item(key = "author-$author") {
+                                    MarketAuthorHeader(
+                                        author = author,
+                                        count = authorMods.size
+                                    )
+                                }
+                                items(authorMods, key = { "author-$author-${it.id}" }) { mod ->
+                                    MarketModCard(
+                                        mod = mod,
+                                        onClick = { onModClick(mod.id) },
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(filteredMods, key = { it.id }) { mod ->
+                                MarketModCard(
+                                    mod = mod,
+                                    onClick = { onModClick(mod.id) },
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -331,7 +386,8 @@ private enum class MarketFilter(val labelRes: Int) {
     Featured(R.string.market_filter_featured),
     Mods(R.string.market_filter_mods),
     Preposition(R.string.market_filter_preposition),
-    Modpacks(R.string.market_filter_modpacks)
+    Modpacks(R.string.market_filter_modpacks),
+    Author(R.string.market_filter_author)
 }
 
 private enum class MarketSort(val labelRes: Int) {
@@ -356,79 +412,61 @@ private enum class MarketSort(val labelRes: Int) {
 }
 
 @Composable
-private fun MarketFilterSortBar(
+private fun MarketFilterBar(
     filter: MarketFilter,
-    sort: MarketSort,
-    onFilterChange: (MarketFilter) -> Unit,
-    onSortChange: (MarketSort) -> Unit
+    onFilterChange: (MarketFilter) -> Unit
 ) {
-    var sortMenuExpanded by remember { mutableStateOf(false) }
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-        selectedLabelColor = MaterialTheme.colorScheme.primary,
-        selectedLeadingIconColor = MaterialTheme.colorScheme.primary
+        selectedLabelColor = MaterialTheme.colorScheme.primary
     )
 
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        items(MarketFilter.entries, key = { it.name }) { item ->
+            FilterChip(
+                selected = filter == item,
+                onClick = { onFilterChange(item) },
+                label = { Text(stringResource(item.labelRes)) },
+                colors = chipColors,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = filter == item,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarketAuthorHeader(
+    author: String,
+    count: Int
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        LazyRow(
+        Text(
+            text = author.ifBlank { stringResource(R.string.market_unknown_author) },
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(end = 8.dp)
-        ) {
-            items(MarketFilter.entries, key = { it.name }) { item ->
-                FilterChip(
-                    selected = filter == item,
-                    onClick = { onFilterChange(item) },
-                    label = { Text(stringResource(item.labelRes)) },
-                    colors = chipColors,
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = filter == item,
-                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                        selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                    )
-                )
-            }
-        }
-        Box {
-            TextButton(onClick = { sortMenuExpanded = true }) {
-                Icon(
-                    imageVector = Icons.Filled.Sort,
-                    contentDescription = stringResource(R.string.market_sort),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = stringResource(sort.labelRes),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            DropdownMenu(
-                expanded = sortMenuExpanded,
-                onDismissRequest = { sortMenuExpanded = false }
-            ) {
-                MarketSort.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(option.labelRes)) },
-                        onClick = {
-                            onSortChange(option)
-                            sortMenuExpanded = false
-                        }
-                    )
-                }
-            }
-        }
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = stringResource(R.string.market_result_count, count),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -437,23 +475,13 @@ private fun MarketSectionHeader(
     title: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.width(4.dp))
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.fillMaxWidth()
+    )
 }
 
 private const val ListDescriptionMaxChars = 36
@@ -465,12 +493,46 @@ private fun ellipsizeDescription(text: String, maxChars: Int): String {
 }
 
 @Composable
+private fun MarketHotCard(
+    mod: MarketMod,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .width(112.dp)
+            .clickable(onClick = onClick),
+        shape = MarketCardShape,
+        colors = marketCardColors(),
+        elevation = marketCardElevation()
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            ModIcon(
+                url = mod.iconUrl,
+                name = mod.displayName,
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = mod.displayName,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                minLines = 1,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
 private fun MarketModCard(
     mod: MarketMod,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    descriptionMaxChars: Int? = null,
-    descriptionMinLines: Int = 0
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
@@ -483,13 +545,13 @@ private fun MarketModCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.Top
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             ModIcon(
                 url = mod.iconUrl,
                 name = mod.displayName,
-                modifier = Modifier.size(72.dp)
+                modifier = Modifier.size(52.dp)
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -498,9 +560,9 @@ private fun MarketModCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = mod.displayAuthor.ifBlank { stringResource(R.string.market_unknown_author) },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = mod.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -508,31 +570,24 @@ private fun MarketModCard(
                     Spacer(Modifier.width(8.dp))
                     MarketTagChip(mod)
                 }
-                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = mod.displayName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    text = mod.displayAuthor.ifBlank { stringResource(R.string.market_unknown_author) },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val description = if (descriptionMaxChars != null) {
-                    ellipsizeDescription(mod.modDescription, descriptionMaxChars)
-                } else {
-                    mod.modDescription
-                }
-                if (description.isNotBlank() || descriptionMinLines > 0) {
-                    Spacer(Modifier.height(2.dp))
+                val description = ellipsizeDescription(mod.modDescription, ListDescriptionMaxChars)
+                if (description.isNotBlank()) {
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        minLines = if (descriptionMinLines > 0) descriptionMinLines else 1,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Filled.Download,

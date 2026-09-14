@@ -523,12 +523,14 @@
     <string name="market_filter_mods">Mods</string>
     <string name="market_filter_preposition">Prerequisites</string>
     <string name="market_filter_modpacks">Modpacks</string>
+    <string name="market_filter_author">Authors</string>
     <string name="market_sort">Sort</string>
     <string name="market_sort_updated">Recently updated</string>
     <string name="market_sort_created">Recently added</string>
     <string name="market_sort_downloads">Most downloads</string>
     <string name="market_sort_views">Most views</string>
     <string name="market_sort_name">Name</string>
+    <string name="market_result_count">%d mods</string>
 
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">Launching selected game</string>
