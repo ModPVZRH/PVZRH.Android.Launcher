@@ -2,6 +2,7 @@ package com.bepinex.android.market
 
 import android.content.Context
 import com.bepinex.android.BepInExLog
+import com.bepinex.android.update.UpdateChecker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,8 +13,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object MarketApi {
-
-    const val BASE_URL = "https://mod.ehre.top/api"
 
     private const val CACHE_DIR = "market"
     private const val CACHE_FILE = "mods.json"
@@ -39,7 +38,8 @@ object MarketApi {
             }
         }
 
-        val body = requestBody("$BASE_URL/public/mod")
+        val base = apiBase(appContext) ?: return memoryMods ?: readCache(appContext)?.also { memoryMods = it }
+        val body = requestBody("$base/public/mod")
         if (body != null) {
             val parsed = parseModPayload(body)?.filter { it.isBepInExFramework }
             if (parsed != null) {
@@ -58,7 +58,8 @@ object MarketApi {
             findCachedMod(modId)?.let { return it }
         }
 
-        val remote = requestJson("$BASE_URL/public/mod/$modId") { json ->
+        val base = apiBase(context.applicationContext) ?: return findCachedMod(modId)
+        val remote = requestJson("$base/public/mod/$modId") { json ->
             when (val data = json.opt("data")) {
                 is JSONObject -> parseMod(data)
                 else -> null
@@ -74,16 +75,27 @@ object MarketApi {
         return findCachedMod(modId)
     }
 
-    fun recordView(modId: String): Boolean {
-        val ok = postStat("$BASE_URL/public/mod/$modId/view")
+    fun recordView(context: Context, modId: String): Boolean {
+        val base = apiBase(context.applicationContext) ?: return false
+        val ok = postStat("$base/public/mod/$modId/view")
         if (ok) bumpCachedCount(modId, view = true)
         return ok
     }
 
-    fun recordDownload(modId: String): Boolean {
-        val ok = postStat("$BASE_URL/public/mod/$modId/download")
+    fun recordDownload(context: Context, modId: String): Boolean {
+        val base = apiBase(context.applicationContext) ?: return false
+        val ok = postStat("$base/public/mod/$modId/download")
         if (ok) bumpCachedCount(modId, download = true)
         return ok
+    }
+
+    private fun apiBase(context: Context): String? {
+        val host = UpdateChecker.resolveMarketBackend(context).trimEnd('/')
+        if (host.isEmpty()) {
+            BepInExLog.w("Market backend URL is missing from info.json urlMarket.backed")
+            return null
+        }
+        return "$host/api"
     }
 
     private fun bumpCachedCount(modId: String, view: Boolean = false, download: Boolean = false) {

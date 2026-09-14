@@ -21,6 +21,7 @@ object UpdateChecker {
     private const val PREFS_NAME = "update_checker"
     private const val KEY_URL_LIB = "urlLib"
     private const val KEY_URL_LIB_SYM = "urlLibSym"
+    private const val KEY_URL_MARKET = "urlMarket"
 
     data class LibSource(
         val offlineMode: Boolean,
@@ -79,7 +80,8 @@ object UpdateChecker {
         val announcementEn: String,
         val urlApk: String,
         val urlLib: LibSource,
-        val urlLibSym: LibSource
+        val urlLibSym: LibSource,
+        val urlMarket: String
     )
 
     /** Parse [text](url) markdown links into pairs */
@@ -130,12 +132,15 @@ object UpdateChecker {
             val urlApk = urlsApk.optString(apkPrefix, urlsApk.optString("github", ""))
             val urlLib = parseLibSource(json, "urlLib")
             val urlLibSym = parseLibSource(json, "urlLibSym")
+            val urlMarket = parseMarketBackend(json)
 
             BepInExLog.i(
                 "info.json fetched: version=$version, allowStart=$allowStart, " +
-                    "urlLib.offline=${urlLib.offlineMode}, urlLibSym.offline=${urlLibSym.offlineMode}"
+                    "urlLib.offline=${urlLib.offlineMode}, urlLibSym.offline=${urlLibSym.offlineMode}, " +
+                    "urlMarket=$urlMarket"
             )
             cacheLibSources(context, urlLib, urlLibSym)
+            cacheMarketBackend(context, urlMarket)
 
             UpdateInfo(
                 version = version,
@@ -145,7 +150,8 @@ object UpdateChecker {
                 announcementEn = announcementEn,
                 urlApk = urlApk,
                 urlLib = urlLib,
-                urlLibSym = urlLibSym
+                urlLibSym = urlLibSym,
+                urlMarket = urlMarket
             )
         } catch (e: Exception) {
             BepInExLog.e("Failed to fetch info.json", e)
@@ -154,6 +160,16 @@ object UpdateChecker {
     }
 
     fun preferProxyMirrors(context: Context): Boolean = isChinese(context)
+
+    /**
+     * Resolve the market API host from info.json `urlMarket.backed`.
+     * Uses the last cached value when the network fetch fails.
+     */
+    fun resolveMarketBackend(context: Context): String {
+        loadCachedMarketBackend(context)?.let { if (it.isNotEmpty()) return it }
+        fetchInfo(context)
+        return loadCachedMarketBackend(context).orEmpty()
+    }
 
     /**
      * Resolve libunity sources from info.json.
@@ -168,6 +184,26 @@ object UpdateChecker {
         }
         BepInExLog.w("libunity source unavailable; defaulting to offline extract")
         return LibSource.OFFLINE to LibSource.OFFLINE
+    }
+
+    private fun parseMarketBackend(json: JSONObject): String {
+        val value = json.opt("urlMarket") ?: return ""
+        if (value is JSONObject) return LibSource.cleanUrl(value.optString("backed"))
+        return LibSource.cleanUrl(value.toString())
+    }
+
+    private fun cacheMarketBackend(context: Context, url: String) {
+        if (url.isEmpty()) return
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString(KEY_URL_MARKET, url)
+            .commit()
+    }
+
+    private fun loadCachedMarketBackend(context: Context): String? {
+        val url = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_URL_MARKET, null)
+            ?.let(LibSource::cleanUrl)
+        return url?.takeIf { it.isNotEmpty() }
     }
 
     private fun parseLibSource(json: JSONObject, key: String): LibSource {

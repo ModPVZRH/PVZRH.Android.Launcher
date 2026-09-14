@@ -91,7 +91,7 @@ fun MarketModDetailScreen(
             isLoading = false
         }
         if (mod != null) {
-            withContext(Dispatchers.IO) { MarketApi.recordView(modId) }
+            withContext(Dispatchers.IO) { MarketApi.recordView(context, modId) }
             MarketApi.findCachedMod(modId)?.let { mod = it }
         }
     }
@@ -109,7 +109,7 @@ fun MarketModDetailScreen(
     fun openDownload(url: String) {
         if (!openUrl(url)) return
         scope.launch {
-            withContext(Dispatchers.IO) { MarketApi.recordDownload(modId) }
+            withContext(Dispatchers.IO) { MarketApi.recordDownload(context, modId) }
             MarketApi.findCachedMod(modId)?.let { mod = it }
         }
     }
