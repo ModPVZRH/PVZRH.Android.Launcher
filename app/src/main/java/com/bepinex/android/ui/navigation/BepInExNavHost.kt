@@ -424,7 +424,7 @@ fun BepInExNavHost(
 
     val showBottomBar = currentRoute == NavRoutes.MAIN
 
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 3 })
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
@@ -506,10 +506,23 @@ fun BepInExNavHost(
                     NavigationBarItem(
                         selected = pagerState.currentPage == 2,
                         onClick = {
-                            if (selectedGame != null && pagerState.currentPage != 2) {
+                            if (pagerState.currentPage != 2) {
                                 composeScope.launch {
                                     if (animationDisabled) pagerState.scrollToPage(2)
                                     else pagerState.animateScrollToPage(2)
+                                }
+                            }
+                        },
+                        icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
+                        label = { Text(stringResource(R.string.nav_market)) }
+                    )
+                    NavigationBarItem(
+                        selected = pagerState.currentPage == 3,
+                        onClick = {
+                            if (selectedGame != null && pagerState.currentPage != 3) {
+                                composeScope.launch {
+                                    if (animationDisabled) pagerState.scrollToPage(3)
+                                    else pagerState.animateScrollToPage(3)
                                 }
                             }
                         },
@@ -557,7 +570,7 @@ fun BepInExNavHost(
                 ) + fadeOut(animationSpec = tween(200))
             }
         ) {
-                // Main pager — 3 pages: Games, Modpacks, Settings
+                // Main pager — Games, Modpacks, Market, Settings
                 composable(route = NavRoutes.MAIN) {
                     androidx.compose.foundation.pager.HorizontalPager(
                         state = pagerState,
@@ -740,6 +753,13 @@ fun BepInExNavHost(
                                 )
                             }
                             2 -> {
+                                MarketScreen(
+                                    onModClick = { modId ->
+                                        navController.navigate(NavRoutes.marketModDetail(modId))
+                                    }
+                                )
+                            }
+                            3 -> {
                                 val packageName = selectedGame?.packageName ?: ""
                                 val settingsContext = LocalContext.current
                                 var floatingLogInGame by remember {
@@ -1015,6 +1035,20 @@ fun BepInExNavHost(
                     )
                 }
 
+                // Market mod detail
+                composable(
+                    route = NavRoutes.MARKET_MOD_DETAIL,
+                    arguments = listOf(
+                        navArgument("modId") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val modId = backStackEntry.arguments?.getString("modId") ?: return@composable
+                    MarketModDetailScreen(
+                        modId = modId,
+                        onBack = { navController.safePopBackStack() }
+                    )
+                }
+
                 // About
                 composable(
                     route = NavRoutes.ABOUT
@@ -1113,6 +1147,12 @@ fun BepInExNavHost(
                     NavigationRailItem(
                         selected = pagerState.currentPage == 2,
                         onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(2) else pagerState.animateScrollToPage(2) } },
+                        icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
+                        label = { Text(stringResource(R.string.nav_market)) }
+                    )
+                    NavigationRailItem(
+                        selected = pagerState.currentPage == 3,
+                        onClick = { composeScope.launch { if (animationDisabled) pagerState.scrollToPage(3) else pagerState.animateScrollToPage(3) } },
                         enabled = selectedGame != null,
                         icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
                         label = { Text(stringResource(R.string.nav_settings)) }
