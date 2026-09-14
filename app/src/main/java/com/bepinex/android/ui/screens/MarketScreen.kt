@@ -65,10 +65,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -367,6 +372,7 @@ fun MarketScreen(
                                 }
                                 item(key = "hot_row") {
                                     LazyRow(
+                                        modifier = Modifier.nestedScroll(rememberConsumeHorizontalParentScroll()),
                                         contentPadding = PaddingValues(horizontal = 16.dp),
                                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
@@ -456,6 +462,22 @@ private enum class MarketSort(val labelRes: Int) {
 }
 
 @Composable
+private fun rememberConsumeHorizontalParentScroll(): NestedScrollConnection {
+    return remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset = Offset(x = available.x, y = 0f)
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                Velocity(x = available.x, y = 0f)
+        }
+    }
+}
+
+@Composable
 private fun MarketFilterBar(
     filter: MarketFilter,
     onFilterChange: (MarketFilter) -> Unit
@@ -466,7 +488,9 @@ private fun MarketFilterBar(
     )
 
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .nestedScroll(rememberConsumeHorizontalParentScroll()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
     ) {
