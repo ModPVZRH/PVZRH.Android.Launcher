@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -97,11 +99,20 @@ fun MarketScreen(
     var isLoading by remember { mutableStateOf(mods.isEmpty()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
-    var searchExpanded by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(MarketFilter.All) }
-    var sort by remember { mutableStateOf(MarketSort.Updated) }
+    var searchExpanded by remember { mutableStateOf(MarketBrowseState.searchExpanded) }
+    var searchQuery by remember { mutableStateOf(MarketBrowseState.searchQuery) }
+    var filter by remember { mutableStateOf(MarketBrowseState.filter) }
+    var sort by remember { mutableStateOf(MarketBrowseState.sort) }
+    var selectedAuthor by remember { mutableStateOf(MarketBrowseState.selectedAuthor) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(filter, sort, searchQuery, searchExpanded, selectedAuthor) {
+        MarketBrowseState.filter = filter
+        MarketBrowseState.sort = sort
+        MarketBrowseState.searchQuery = searchQuery
+        MarketBrowseState.searchExpanded = searchExpanded
+        MarketBrowseState.selectedAuthor = selectedAuthor
+    }
 
     fun loadMods(forceRefresh: Boolean) {
         scope.launch {
@@ -138,16 +149,11 @@ fun MarketScreen(
         MarketApi.cachedMods()?.let { mods = it }
     }
 
-    val filteredMods = remember(mods, searchQuery, filter, sort) {
+    val showingAuthorDirectory = filter == MarketFilter.Author && selectedAuthor == null
+    val unknownAuthor = stringResource(R.string.market_unknown_author)
+    val filteredMods = remember(mods, searchQuery, filter, sort, selectedAuthor) {
         val query = searchQuery.trim()
         mods.asSequence()
-            .filter { mod ->
-                query.isEmpty() ||
-                    mod.displayName.contains(query, ignoreCase = true) ||
-                    mod.englishName.contains(query, ignoreCase = true) ||
-                    mod.displayAuthor.contains(query, ignoreCase = true) ||
-                    mod.modDescription.contains(query, ignoreCase = true)
-            }
             .filter { mod ->
                 when (filter) {
                     MarketFilter.All -> true
@@ -155,25 +161,36 @@ fun MarketScreen(
                     MarketFilter.Mods -> !mod.isPreposition && !mod.isModpack
                     MarketFilter.Preposition -> mod.isPreposition
                     MarketFilter.Modpacks -> mod.isModpack
-                    MarketFilter.Author -> true
+                    MarketFilter.Author ->
+                        selectedAuthor == null || mod.displayAuthor.trim() == selectedAuthor
                 }
+            }
+            .filter { mod ->
+                if (showingAuthorDirectory || query.isEmpty()) true
+                else mod.displayName.contains(query, ignoreCase = true) ||
+                    mod.englishName.contains(query, ignoreCase = true) ||
+                    mod.displayAuthor.contains(query, ignoreCase = true) ||
+                    mod.modDescription.contains(query, ignoreCase = true)
             }
             .sortedWith(sort.comparator())
             .toList()
     }
+    val authorDirectory = remember(mods, searchQuery, unknownAuthor) {
+        val query = searchQuery.trim()
+        mods.groupBy { it.displayAuthor.trim() }
+            .map { (author, authorMods) -> author to authorMods.size }
+            .filter { (author, _) ->
+                val label = author.ifBlank { unknownAuthor }
+                query.isEmpty() || label.contains(query, ignoreCase = true)
+            }
+            .sortedWith(
+                compareBy<Pair<String, Int>> { it.first.isBlank() }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first }
+            )
+    }
     val browsing = searchQuery.isBlank() && filter == MarketFilter.All && sort == MarketSort.Updated
     val featuredMods = remember(filteredMods, browsing) {
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
-    }
-    val groupedByAuthor = remember(filteredMods, filter) {
-        if (filter != MarketFilter.Author) null
-        else filteredMods
-            .groupBy { it.displayAuthor.trim() }
-            .entries
-            .sortedWith(
-                compareBy<Map.Entry<String, List<MarketMod>>> { it.key.isBlank() }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.key }
-            )
     }
 
     Scaffold(
@@ -188,7 +205,7 @@ fun MarketScreen(
                     )
                 },
                 actions = {
-                    Box {
+                    if (!showingAuthorDirectory) Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
                             Icon(
                                 imageVector = Icons.Filled.Sort,
@@ -252,7 +269,14 @@ fun MarketScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text(stringResource(R.string.market_search)) },
+                    placeholder = {
+                        Text(
+                            stringResource(
+                                if (showingAuthorDirectory) R.string.market_search_author
+                                else R.string.market_search
+                            )
+                        )
+                    },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -268,7 +292,12 @@ fun MarketScreen(
             if (!(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())) {
                 MarketFilterBar(
                     filter = filter,
-                    onFilterChange = { filter = it }
+                    onFilterChange = { next ->
+                        if (next == MarketFilter.Author && filter == MarketFilter.Author) {
+                            selectedAuthor = null
+                        }
+                        filter = next
+                    }
                 )
             }
 
@@ -298,7 +327,15 @@ fun MarketScreen(
                         }
                     }
                 }
-                filteredMods.isEmpty() -> {
+                showingAuthorDirectory && authorDirectory.isEmpty() -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.market_empty),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                filteredMods.isEmpty() && !showingAuthorDirectory -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = stringResource(R.string.market_empty),
@@ -312,59 +349,58 @@ fun MarketScreen(
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (browsing && featuredMods.isNotEmpty()) {
-                            item(key = "hot_header") {
-                                MarketSectionHeader(
-                                    title = stringResource(R.string.market_hot),
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                        if (showingAuthorDirectory) {
+                            items(authorDirectory, key = { "author-dir-${it.first}" }) { (author, count) ->
+                                MarketAuthorRow(
+                                    author = author,
+                                    count = count,
+                                    onClick = { selectedAuthor = author }
                                 )
                             }
-                            item(key = "hot_row") {
-                                LazyRow(
-                                    contentPadding = PaddingValues(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    items(featuredMods, key = { it.id }) { mod ->
-                                        MarketHotCard(
-                                            mod = mod,
-                                            onClick = { onModClick(mod.id) }
-                                        )
+                        } else {
+                            if (browsing && featuredMods.isNotEmpty()) {
+                                item(key = "hot_header") {
+                                    MarketSectionHeader(
+                                        title = stringResource(R.string.market_hot),
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                                    )
+                                }
+                                item(key = "hot_row") {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        items(featuredMods, key = { it.id }) { mod ->
+                                            MarketHotCard(
+                                                mod = mod,
+                                                onClick = { onModClick(mod.id) }
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        if (!browsing && filter != MarketFilter.Author) {
-                            item(key = "all_header") {
-                                MarketSectionHeader(
-                                    title = if (searchQuery.isNotBlank()) {
-                                        stringResource(R.string.market_search_results)
-                                    } else {
-                                        stringResource(R.string.market_result_count, filteredMods.size)
-                                    },
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        val authorGroups = groupedByAuthor
-                        if (authorGroups != null) {
-                            authorGroups.forEach { (author, authorMods) ->
-                                item(key = "author-$author") {
-                                    MarketAuthorHeader(
-                                        author = author,
-                                        count = authorMods.size
+                            if (filter == MarketFilter.Author && selectedAuthor != null) {
+                                item(key = "author-back") {
+                                    MarketAuthorModsHeader(
+                                        author = selectedAuthor!!,
+                                        count = filteredMods.size,
+                                        onBack = { selectedAuthor = null }
                                     )
                                 }
-                                items(authorMods, key = { "author-$author-${it.id}" }) { mod ->
-                                    MarketModCard(
-                                        mod = mod,
-                                        onClick = { onModClick(mod.id) },
-                                        modifier = Modifier.padding(horizontal = 16.dp)
+                            } else if (!browsing) {
+                                item(key = "all_header") {
+                                    MarketSectionHeader(
+                                        title = if (searchQuery.isNotBlank()) {
+                                            stringResource(R.string.market_search_results)
+                                        } else {
+                                            stringResource(R.string.market_result_count, filteredMods.size)
+                                        },
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
                                     )
                                 }
                             }
-                        } else {
+
                             items(filteredMods, key = { it.id }) { mod ->
                                 MarketModCard(
                                     mod = mod,
@@ -379,6 +415,14 @@ fun MarketScreen(
             }
         }
     }
+}
+
+private object MarketBrowseState {
+    var filter: MarketFilter = MarketFilter.All
+    var sort: MarketSort = MarketSort.Updated
+    var searchQuery: String = ""
+    var searchExpanded: Boolean = false
+    var selectedAuthor: String? = null
 }
 
 private enum class MarketFilter(val labelRes: Int) {
@@ -444,29 +488,83 @@ private fun MarketFilterBar(
 }
 
 @Composable
-private fun MarketAuthorHeader(
+private fun MarketAuthorRow(
     author: String,
-    count: Int
+    count: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick),
+        shape = MarketCardShape,
+        colors = marketCardColors(),
+        elevation = marketCardElevation()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = author.ifBlank { stringResource(R.string.market_unknown_author) },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.market_result_count, count),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarketAuthorModsHeader(
+    author: String,
+    count: Int,
+    onBack: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onBack)
             .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = author.ifBlank { stringResource(R.string.market_unknown_author) },
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = stringResource(R.string.market_all_authors),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
         )
-        Text(
-            text = stringResource(R.string.market_result_count, count),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = author.ifBlank { stringResource(R.string.market_unknown_author) },
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = stringResource(R.string.market_result_count, count),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
