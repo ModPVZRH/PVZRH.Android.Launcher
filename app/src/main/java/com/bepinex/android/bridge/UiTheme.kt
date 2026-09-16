@@ -5,6 +5,10 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.graphics.toArgb
 import com.bepinex.android.settings.AppSettings
 
 /**
@@ -97,12 +101,42 @@ object UiTheme {
         const val INPUT_MIN_H = 32
         const val INPUT_TEXT = 13f
         const val GROUP_PAD = 8
+        const val GROUP_PAD_TOP = 12
         const val LIST_ITEM_PAD = 8
         const val FAB_DEFAULT = 48
     }
 
     fun bind(context: Context) {
-        if (isDark(context)) apply(Dark) else apply(Light)
+        val app = context.applicationContext
+        val dark = isDark(context)
+        if (AppSettings.isDynamicColorEnabled(app) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val scheme = if (dark) dynamicDarkColorScheme(app) else dynamicLightColorScheme(app)
+            val surface = scheme.surface.toArgb()
+            val primary = scheme.primary.toArgb()
+            apply(
+                Palette(
+                    panel = Color.argb(
+                        if (dark) 0xF2 else 0xF5,
+                        Color.red(surface),
+                        Color.green(surface),
+                        Color.blue(surface),
+                    ),
+                    surface = surface,
+                    surfaceVariant = scheme.surfaceVariant.toArgb(),
+                    onSurface = scheme.onSurface.toArgb(),
+                    onSurfaceVariant = scheme.onSurfaceVariant.toArgb(),
+                    primary = primary,
+                    onPrimary = scheme.onPrimary.toArgb(),
+                    primaryContainer = scheme.primaryContainer.toArgb(),
+                    onPrimaryContainer = scheme.onPrimaryContainer.toArgb(),
+                    outline = scheme.outline.toArgb(),
+                    error = scheme.error.toArgb(),
+                    track = Color.argb(0x66, Color.red(primary), Color.green(primary), Color.blue(primary)),
+                )
+            )
+        } else {
+            apply(if (dark) Dark else Light)
+        }
     }
 
     fun dp(density: Float, value: Float): Int = (value * density + 0.5f).toInt()

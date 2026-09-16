@@ -239,11 +239,33 @@ class UiInflater(
     }
 
     private fun group(node: UiNode): View {
+        val collapsible = node.propBool("collapsible", node.type == WidgetType.COLLAPSIBLE)
+        var expanded = !node.propBool("collapsed", false)
+        if (!collapsible) expanded = true
         val title = TextView(activity).apply {
             text = node.propString("title").ifEmpty { node.propString("label") }
             setTextColor(UiTheme.PRIMARY)
             textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
+        }
+        val chevron = if (collapsible) {
+            TextView(activity).apply {
+                text = if (expanded) "▾" else "▸"
+                setTextColor(UiTheme.TEXT_MUTED)
+                textSize = 14f
+                setPadding(0, 0, UiTheme.dp(density, 4f), 0)
+            }
+        } else {
+            null
+        }
+        val header = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(
+                title,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+            )
+            if (chevron != null) addView(chevron)
         }
         val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         val bodyGap = UiTheme.dp(density, 8f)
@@ -262,29 +284,30 @@ class UiInflater(
             if (index > 0) lp.topMargin += bodyGap
             body.addView(childView, lp)
         }
-        var expanded = !node.propBool("collapsed", false)
-        if (node.type == WidgetType.GROUP && !node.propBool("collapsible", false)) {
-            expanded = true
-        }
         body.visibility = if (expanded) View.VISIBLE else View.GONE
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = UiTheme.groupBackground(density)
             val p = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD.toFloat())
-            setPadding(p, p, p, p)
+            val pTop = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD_TOP.toFloat())
+            setPadding(p, pTop, p, p)
         }
         pad(root, node)
         val fill = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
         )
-        root.addView(title, fill)
+        root.addView(header, fill)
         root.addView(body, LinearLayout.LayoutParams(fill))
         root.layoutParams = LinearLayout.LayoutParams(fill)
-        if (node.propBool("collapsible", node.type == WidgetType.COLLAPSIBLE)) {
-            title.setOnClickListener {
+        fun syncChevron() {
+            chevron?.text = if (expanded) "▾" else "▸"
+        }
+        if (collapsible) {
+            header.setOnClickListener {
                 expanded = !expanded
                 body.visibility = if (expanded) View.VISIBLE else View.GONE
+                syncChevron()
                 emit(node.id, "change", expanded)
             }
         }
@@ -295,6 +318,7 @@ class UiInflater(
             if (props.containsKey("collapsed")) {
                 expanded = !n.propBool("collapsed", false)
                 body.visibility = if (expanded) View.VISIBLE else View.GONE
+                syncChevron()
             }
         }
         return root
@@ -343,7 +367,10 @@ class UiInflater(
     private fun tabs(node: UiNode): View {
         val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         pad(root, node)
-        val header = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
+        val header = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, UiTheme.dp(density, 4f), 0, UiTheme.dp(density, 4f))
+        }
         val content = FrameLayout(activity)
         var active = node.propString("active").ifEmpty { node.children.firstOrNull()?.id.orEmpty() }
         val pages = mutableListOf<Pair<String, View>>()
@@ -371,10 +398,10 @@ class UiInflater(
                 text = label
                 textSize = 12f
                 setPadding(
-                    UiTheme.dp(density, 12f),
-                    UiTheme.dp(density, 8f),
-                    UiTheme.dp(density, 12f),
-                    UiTheme.dp(density, 8f),
+                    UiTheme.dp(density, 4f),
+                    UiTheme.dp(density, 6f),
+                    UiTheme.dp(density, 4f),
+                    UiTheme.dp(density, 6f),
                 )
                 val lp = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -618,10 +645,14 @@ class UiInflater(
     private fun button(node: UiNode, icon: Boolean): View {
         val btn = Button(activity).apply {
             isAllCaps = false
-            textSize = if (icon) 16f else 13f
-            minimumHeight = UiTheme.dp(density, UiTheme.Metrics.BUTTON_MIN_H.toFloat())
-            val padH = UiTheme.dp(density, 16f)
-            setPadding(padH, paddingTop, padH, paddingBottom)
+            textSize = if (icon) 16f else UiTheme.Metrics.INPUT_TEXT
+            includeFontPadding = false
+            val h = UiTheme.dp(density, UiTheme.Metrics.BUTTON_MIN_H.toFloat())
+            minHeight = h
+            minimumHeight = h
+            val padH = UiTheme.dp(density, 12f)
+            val padV = UiTheme.dp(density, 4f)
+            setPadding(padH, padV, padH, padV)
         }
         fun apply(n: UiNode) {
             btn.text = n.propString("label").ifEmpty { n.propString("text") }
@@ -807,7 +838,7 @@ class UiInflater(
             show()
         }
         apply(node)
-        val stepBtnSize = UiTheme.dp(density, 36f)
+        val stepBtnSize = UiTheme.dp(density, UiTheme.Metrics.BUTTON_MIN_H.toFloat())
         val minus = Button(activity).apply {
             text = "−"
             isAllCaps = false
