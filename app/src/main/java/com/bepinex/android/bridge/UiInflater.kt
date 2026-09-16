@@ -252,8 +252,11 @@ class UiInflater(
             TextView(activity).apply {
                 text = if (expanded) "▾" else "▸"
                 setTextColor(UiTheme.TEXT_MUTED)
-                textSize = 14f
-                setPadding(0, 0, UiTheme.dp(density, 4f), 0)
+                textSize = 20f
+                includeFontPadding = false
+                gravity = Gravity.CENTER
+                val pad = UiTheme.dp(density, 4f)
+                setPadding(pad, 0, pad, 0)
             }
         } else {
             null
@@ -267,7 +270,11 @@ class UiInflater(
             )
             if (chevron != null) addView(chevron)
         }
-        val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+        val body = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            val bodyPad = UiTheme.dp(density, UiTheme.Metrics.GROUP_BODY_PAD.toFloat())
+            setPadding(0, bodyPad, 0, 0)
+        }
         val bodyGap = UiTheme.dp(density, 8f)
         node.children.forEachIndexed { index, child ->
             val childView = build(child)
@@ -289,8 +296,7 @@ class UiInflater(
             orientation = LinearLayout.VERTICAL
             background = UiTheme.groupBackground(density)
             val p = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD.toFloat())
-            val pTop = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD_TOP.toFloat())
-            setPadding(p, pTop, p, p)
+            setPadding(p, p, p, p)
         }
         pad(root, node)
         val fill = LinearLayout.LayoutParams(

@@ -101,7 +101,7 @@ object UiTheme {
         const val INPUT_MIN_H = 32
         const val INPUT_TEXT = 13f
         const val GROUP_PAD = 8
-        const val GROUP_PAD_TOP = 12
+        const val GROUP_BODY_PAD = 12
         const val LIST_ITEM_PAD = 8
         const val FAB_DEFAULT = 48
     }
