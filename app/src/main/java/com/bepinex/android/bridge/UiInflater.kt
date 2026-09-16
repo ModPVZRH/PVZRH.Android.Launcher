@@ -162,6 +162,10 @@ class UiInflater(
             }
             layout.addView(childView, lp)
         }
+        layout.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        )
         return layout
     }
 
@@ -174,19 +178,48 @@ class UiInflater(
             }
         }
         pad(content, node)
+        val verticalScroll = node.propString("axis", "vertical") != "horizontal"
         node.children.forEach { child ->
             val childView = build(child)
+            val existing = childView.layoutParams
             val lp = LinearLayout.LayoutParams(
-                childView.layoutParams?.width ?: LinearLayout.LayoutParams.WRAP_CONTENT,
-                childView.layoutParams?.height ?: LinearLayout.LayoutParams.WRAP_CONTENT,
+                if (verticalScroll) {
+                    if (existing != null && existing.width > 0) existing.width
+                    else LinearLayout.LayoutParams.MATCH_PARENT
+                } else {
+                    existing?.width ?: LinearLayout.LayoutParams.WRAP_CONTENT
+                },
+                if (verticalScroll) {
+                    existing?.height ?: LinearLayout.LayoutParams.WRAP_CONTENT
+                } else {
+                    LinearLayout.LayoutParams.MATCH_PARENT
+                },
             )
             UiLayout.applyMargin(lp, child, density)
             content.addView(childView, lp)
         }
-        return if (node.propString("axis", "vertical") == "horizontal") {
-            HorizontalScrollView(activity).apply { addView(content) }
+        val contentLp = FrameLayout.LayoutParams(
+            if (verticalScroll) FrameLayout.LayoutParams.MATCH_PARENT else FrameLayout.LayoutParams.WRAP_CONTENT,
+            if (verticalScroll) FrameLayout.LayoutParams.WRAP_CONTENT else FrameLayout.LayoutParams.MATCH_PARENT,
+        )
+        return if (verticalScroll) {
+            ScrollView(activity).apply {
+                isFillViewport = true
+                addView(content, contentLp)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                )
+            }
         } else {
-            ScrollView(activity).apply { addView(content) }
+            HorizontalScrollView(activity).apply {
+                isFillViewport = true
+                addView(content, contentLp)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+            }
         }
     }
 
@@ -241,8 +274,13 @@ class UiInflater(
             setPadding(p, p, p, p)
         }
         pad(root, node)
-        root.addView(title)
-        root.addView(body)
+        val fill = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        )
+        root.addView(title, fill)
+        root.addView(body, LinearLayout.LayoutParams(fill))
+        root.layoutParams = LinearLayout.LayoutParams(fill)
         if (node.propBool("collapsible", node.type == WidgetType.COLLAPSIBLE)) {
             title.setOnClickListener {
                 expanded = !expanded
@@ -267,13 +305,19 @@ class UiInflater(
         pad(frame, node)
         node.children.forEach { child ->
             val childView = build(child)
+            val existing = childView.layoutParams
             val lp = FrameLayout.LayoutParams(
-                childView.layoutParams?.width ?: FrameLayout.LayoutParams.WRAP_CONTENT,
-                childView.layoutParams?.height ?: FrameLayout.LayoutParams.WRAP_CONTENT,
+                if (existing != null && existing.width > 0) existing.width
+                else FrameLayout.LayoutParams.MATCH_PARENT,
+                existing?.height ?: FrameLayout.LayoutParams.WRAP_CONTENT,
             )
             UiLayout.applyMargin(lp, child, density)
             frame.addView(childView, lp)
         }
+        frame.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+        )
         return frame
     }
 
@@ -315,7 +359,13 @@ class UiInflater(
         node.children.forEach { child ->
             val page = build(child)
             pages += child.id to page
-            content.addView(page)
+            content.addView(
+                page,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                ),
+            )
             val label = child.propString("title").ifEmpty { child.propString("label").ifEmpty { child.id } }
             val chip = TextView(activity).apply {
                 text = label
@@ -339,8 +389,25 @@ class UiInflater(
             }
             header.addView(chip)
         }
-        root.addView(header)
-        root.addView(content)
+        root.addView(
+            header,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ),
+        )
+        root.addView(
+            content,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f,
+            ),
+        )
+        root.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.MATCH_PARENT,
+        )
         refresh()
         register(node.id) { props ->
             val n = UiNode(node.id, node.type, props)
