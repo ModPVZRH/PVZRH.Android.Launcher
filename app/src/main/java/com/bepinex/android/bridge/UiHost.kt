@@ -2,9 +2,7 @@ package com.bepinex.android.bridge
 
 import android.app.Activity
 import android.content.res.Resources
-import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
@@ -123,6 +121,7 @@ object UiHost {
         }
 
         this.activity = activity
+        UiTheme.bind(activity)
         density = activity.resources.displayMetrics.density
         val dm = activity.resources.displayMetrics
         val decorW = decorView.width.takeIf { it > 0 } ?: dm.widthPixels
@@ -145,7 +144,7 @@ object UiHost {
 
         val fabLabel = TextView(activity).apply {
             text = "M"
-            setTextColor(Color.WHITE)
+            setTextColor(UiTheme.ON_PRIMARY)
             textSize = 16f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
@@ -173,7 +172,7 @@ object UiHost {
 
         val titleView = TextView(activity).apply {
             text = titleText
-            setTextColor(UiTheme.ACCENT)
+            setTextColor(UiTheme.PRIMARY)
             textSize = 11f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(UiTheme.dp(density, 8f), UiTheme.dp(density, 6f), UiTheme.dp(density, 6f), UiTheme.dp(density, 4f))
@@ -193,11 +192,7 @@ object UiHost {
             textSize = 20f
             gravity = Gravity.CENTER
             includeFontPadding = false
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                cornerRadius = 8f * density
-                setColor(UiTheme.SURFACE)
-            }
+            background = UiTheme.chipBackground(density, false)
             layoutParams = LinearLayout.LayoutParams(
                 UiTheme.dp(density, 32f),
                 UiTheme.dp(density, 32f)
@@ -475,7 +470,7 @@ object UiHost {
             val selected = entry.sessionId == selectedId
             val chip = TextView(act).apply {
                 text = entry.name.ifBlank { entry.sessionId }
-                setTextColor(if (selected) Color.WHITE else UiTheme.TEXT)
+                setTextColor(UiTheme.chipText(selected))
                 textSize = 11f
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END

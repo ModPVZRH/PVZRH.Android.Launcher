@@ -1,44 +1,112 @@
 package com.bepinex.android.bridge
 
+import android.content.Context
+import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import com.bepinex.android.settings.AppSettings
 
 /**
- * Shared colors and drawables for the in-game TCP UI overlay.
+ * In-game overlay palette matching [com.bepinex.android.ui.theme.BepInExTheme].
  *
- * Palette matches [com.bepinex.android.log.GameLogOverlay]; [PRIMARY] is launcher mint.
+ * Call [bind] before inflating views so light/dark follows launcher settings.
  */
 object UiTheme {
 
-    val PANEL_BG: Int = Color.parseColor("#DD1E1E2E")
-    val TEXT: Int = Color.parseColor("#CDD6F4")
-    val TEXT_MUTED: Int = Color.parseColor("#A6ADC8")
-    val ACCENT: Int = Color.parseColor("#89B4FA")
-    val PRIMARY: Int = Color.parseColor("#FF00897B")
-    val SURFACE: Int = Color.parseColor("#331E1E2E")
-    val ERROR: Int = Color.parseColor("#FFFF6B6B")
-    /** Slider track. */
-    val TRACK: Int = Color.parseColor("#4489B4FA")
-    val FAB_BG: Int = PRIMARY
+    private data class Palette(
+        val panel: Int,
+        val surface: Int,
+        val surfaceVariant: Int,
+        val onSurface: Int,
+        val onSurfaceVariant: Int,
+        val primary: Int,
+        val onPrimary: Int,
+        val primaryContainer: Int,
+        val onPrimaryContainer: Int,
+        val outline: Int,
+        val error: Int,
+        val track: Int,
+    )
+
+    private val Dark = Palette(
+        panel = Color.argb(0xF2, 0x19, 0x1C, 0x1B),
+        surface = Color.argb(0xFF, 0x19, 0x1C, 0x1B),
+        surfaceVariant = Color.argb(0xFF, 0x3F, 0x49, 0x46),
+        onSurface = Color.parseColor("#E1E3E1"),
+        onSurfaceVariant = Color.parseColor("#BEC9C6"),
+        primary = Color.parseColor("#80CBC4"),
+        onPrimary = Color.parseColor("#003731"),
+        primaryContainer = Color.parseColor("#005047"),
+        onPrimaryContainer = Color.parseColor("#B2DFDB"),
+        outline = Color.parseColor("#899390"),
+        error = Color.parseColor("#FFB4AB"),
+        track = Color.argb(0x66, 0x80, 0xCB, 0xC4),
+    )
+
+    private val Light = Palette(
+        panel = Color.argb(0xF5, 0xF5, 0xFB, 0xF9),
+        surface = Color.parseColor("#F5FBF9"),
+        surfaceVariant = Color.parseColor("#DAE5E2"),
+        onSurface = Color.parseColor("#191C1B"),
+        onSurfaceVariant = Color.parseColor("#3F4946"),
+        primary = Color.parseColor("#00897B"),
+        onPrimary = Color.WHITE,
+        primaryContainer = Color.parseColor("#B2DFDB"),
+        onPrimaryContainer = Color.parseColor("#00332E"),
+        outline = Color.parseColor("#6F7976"),
+        error = Color.parseColor("#BA1A1A"),
+        track = Color.argb(0x66, 0x00, 0x89, 0x7B),
+    )
+
+    var PANEL_BG: Int = Dark.panel
+        private set
+    var SURFACE: Int = Dark.surface
+        private set
+    var SURFACE_VARIANT: Int = Dark.surfaceVariant
+        private set
+    var TEXT: Int = Dark.onSurface
+        private set
+    var TEXT_MUTED: Int = Dark.onSurfaceVariant
+        private set
+    var PRIMARY: Int = Dark.primary
+        private set
+    var ON_PRIMARY: Int = Dark.onPrimary
+        private set
+    var PRIMARY_CONTAINER: Int = Dark.primaryContainer
+        private set
+    var ON_PRIMARY_CONTAINER: Int = Dark.onPrimaryContainer
+        private set
+    var OUTLINE: Int = Dark.outline
+        private set
+    var ERROR: Int = Dark.error
+        private set
+    var TRACK: Int = Dark.track
+        private set
+    var ACCENT: Int = Dark.primary
+        private set
+    var FAB_BG: Int = Dark.primary
+        private set
 
     private const val DISABLED_ALPHA = 0.4f
 
+    fun bind(context: Context) {
+        if (isDark(context)) apply(Dark) else apply(Light)
+    }
+
     fun dp(density: Float, value: Float): Int = (value * density + 0.5f).toInt()
 
-    /** Returns [value] unchanged; [android.widget.TextView.setTextSize] already treats it as sp. */
     @Suppress("UNUSED_PARAMETER")
     fun sp(density: Float, value: Float): Float = value
 
-    /** Overlay panel with 10dp corners. */
     fun panelBackground(density: Float): GradientDrawable =
-        roundedRect(density, PANEL_BG, cornerDp = 10f)
+        roundedRect(density, PANEL_BG, cornerDp = 16f)
 
-    /** Circular FAB filled with [FAB_BG]. */
     @Suppress("UNUSED_PARAMETER")
     fun fabBackground(density: Float): GradientDrawable =
         GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(FAB_BG)
+            setColor(PRIMARY)
         }
 
     fun buttonBackground(
@@ -59,25 +127,64 @@ object UiTheme {
         }
     }
 
+    fun buttonText(filled: Boolean): Int = if (filled) ON_PRIMARY else PRIMARY
+
     fun groupBackground(density: Float): GradientDrawable =
-        roundedRect(density, SURFACE, cornerDp = 8f, strokeColor = withAlpha(TEXT, 0.12f))
+        roundedRect(density, SURFACE_VARIANT, cornerDp = 12f, strokeColor = withAlpha(OUTLINE, 0.5f))
 
     fun inputBackground(density: Float): GradientDrawable =
-        roundedRect(density, SURFACE, cornerDp = 8f, strokeColor = TEXT_MUTED)
+        roundedRect(density, SURFACE_VARIANT, cornerDp = 8f, strokeColor = OUTLINE)
 
     fun chipBackground(density: Float, selected: Boolean): GradientDrawable =
         if (selected) {
-            roundedRect(density, PRIMARY, cornerDp = 16f)
+            roundedRect(density, PRIMARY_CONTAINER, cornerDp = 16f)
         } else {
-            roundedRect(density, SURFACE, cornerDp = 16f, strokeColor = TEXT_MUTED)
+            roundedRect(density, SURFACE_VARIANT, cornerDp = 16f, strokeColor = OUTLINE)
         }
+
+    fun chipText(selected: Boolean): Int =
+        if (selected) ON_PRIMARY_CONTAINER else TEXT
 
     fun tabBackground(density: Float, selected: Boolean): GradientDrawable =
         if (selected) {
-            roundedRect(density, PRIMARY, cornerDp = 8f)
+            roundedRect(density, PRIMARY_CONTAINER, cornerDp = 8f)
         } else {
-            roundedRect(density, SURFACE, cornerDp = 8f)
+            roundedRect(density, SURFACE_VARIANT, cornerDp = 8f)
         }
+
+    fun tabText(selected: Boolean): Int =
+        if (selected) ON_PRIMARY_CONTAINER else TEXT_MUTED
+
+    fun controlTint(): ColorStateList = ColorStateList.valueOf(PRIMARY)
+
+    private fun apply(p: Palette) {
+        PANEL_BG = p.panel
+        SURFACE = p.surface
+        SURFACE_VARIANT = p.surfaceVariant
+        TEXT = p.onSurface
+        TEXT_MUTED = p.onSurfaceVariant
+        PRIMARY = p.primary
+        ON_PRIMARY = p.onPrimary
+        PRIMARY_CONTAINER = p.primaryContainer
+        ON_PRIMARY_CONTAINER = p.onPrimaryContainer
+        OUTLINE = p.outline
+        ERROR = p.error
+        TRACK = p.track
+        ACCENT = p.primary
+        FAB_BG = p.primary
+    }
+
+    private fun isDark(context: Context): Boolean {
+        val app = context.applicationContext
+        return when (AppSettings.getThemeMode(app)) {
+            AppSettings.ThemeMode.DARK -> true
+            AppSettings.ThemeMode.LIGHT -> false
+            AppSettings.ThemeMode.SYSTEM -> {
+                val night = app.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                night == Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    }
 
     private fun roundedRect(
         density: Float,

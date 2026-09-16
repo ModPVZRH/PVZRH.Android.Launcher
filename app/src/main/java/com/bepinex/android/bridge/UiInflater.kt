@@ -3,6 +3,7 @@ package com.bepinex.android.bridge
 import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.BitmapFactory
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -47,6 +48,10 @@ class UiInflater(
     private val density = activity.resources.displayMetrics.density
     private val binders = mutableMapOf<String, (Map<String, Any?>) -> Unit>()
     private var applying = false
+
+    init {
+        UiTheme.bind(activity)
+    }
 
     fun inflate(node: UiNode): View {
         binders.clear()
@@ -258,7 +263,7 @@ class UiInflater(
                 val chip = header.getChildAt(index) as? TextView ?: return@forEachIndexed
                 val selected = id == active
                 chip.background = UiTheme.tabBackground(density, selected)
-                chip.setTextColor(if (selected) Color.WHITE else UiTheme.TEXT)
+                chip.setTextColor(UiTheme.tabText(selected))
             }
         }
         node.children.forEach { child ->
@@ -307,8 +312,8 @@ class UiInflater(
 
     private fun divider(): View {
         return View(activity).apply {
-            setBackgroundColor(UiTheme.ACCENT)
-            alpha = 0.4f
+            setBackgroundColor(UiTheme.OUTLINE)
+            alpha = 0.55f
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 UiTheme.dp(density, 1f),
@@ -449,6 +454,8 @@ class UiInflater(
         }
         val bar = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000
+            progressTintList = UiTheme.controlTint()
+            progressBackgroundTintList = ColorStateList.valueOf(UiTheme.TRACK)
         }
         fun apply(n: UiNode) {
             label.text = n.propString("label")
@@ -469,7 +476,7 @@ class UiInflater(
 
     private fun badge(node: UiNode): View {
         val tv = TextView(activity).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(UiTheme.chipText(true))
             textSize = 11f
             background = UiTheme.chipBackground(density, true)
             val p = UiTheme.dp(density, 6f)
@@ -494,16 +501,17 @@ class UiInflater(
     private fun button(node: UiNode, icon: Boolean): View {
         val btn = Button(activity).apply {
             isAllCaps = false
-            setTextColor(Color.WHITE)
             textSize = if (icon) 16f else 13f
         }
         fun apply(n: UiNode) {
             btn.text = n.propString("label").ifEmpty { n.propString("text") }
             val enabled = n.propBool("enabled", true)
+            val filled = n.propString("style", "filled") != "outline"
             btn.isEnabled = enabled
+            btn.setTextColor(UiTheme.buttonText(filled))
             btn.background = UiTheme.buttonBackground(
                 density,
-                filled = n.propString("style", "filled") != "outline",
+                filled = filled,
                 enabled = enabled,
             )
         }
@@ -518,7 +526,14 @@ class UiInflater(
             setTextColor(UiTheme.TEXT)
             textSize = 13f
         }
-        val control: View = if (switch) Switch(activity) else CheckBox(activity)
+        val control: View = if (switch) {
+            Switch(activity).apply {
+                thumbTintList = UiTheme.controlTint()
+                trackTintList = UiTheme.controlTint()
+            }
+        } else {
+            CheckBox(activity).apply { buttonTintList = UiTheme.controlTint() }
+        }
         fun checked(): Boolean = when (control) {
             is Switch -> control.isChecked
             is CheckBox -> control.isChecked
@@ -547,7 +562,10 @@ class UiInflater(
     }
 
     private fun radio(node: UiNode): View {
-        val rb = RadioButton(activity).apply { setTextColor(UiTheme.TEXT) }
+        val rb = RadioButton(activity).apply {
+            setTextColor(UiTheme.TEXT)
+            buttonTintList = UiTheme.controlTint()
+        }
         fun apply(n: UiNode) {
             rb.text = n.propString("label")
             rb.isEnabled = n.propBool("enabled", true)
@@ -577,6 +595,7 @@ class UiInflater(
                     text = opt.label
                     tag = opt.id
                     setTextColor(UiTheme.TEXT)
+                    buttonTintList = UiTheme.controlTint()
                     isChecked = opt.id == selected
                     isEnabled = n.propBool("enabled", true)
                 }
@@ -600,7 +619,11 @@ class UiInflater(
     private fun slider(node: UiNode): View {
         val label = TextView(activity).apply { setTextColor(UiTheme.TEXT); textSize = 13f }
         val valueView = TextView(activity).apply { setTextColor(UiTheme.ACCENT); textSize = 12f }
-        val seek = SeekBar(activity)
+        val seek = SeekBar(activity).apply {
+            progressTintList = UiTheme.controlTint()
+            thumbTintList = UiTheme.controlTint()
+            progressBackgroundTintList = ColorStateList.valueOf(UiTheme.TRACK)
+        }
         var min = node.propDouble("min", 0.0)
         var max = node.propDouble("max", 100.0)
         var step = node.propDouble("step", 1.0).let { if (it <= 0) 1.0 else it }
@@ -664,6 +687,8 @@ class UiInflater(
         val minus = Button(activity).apply {
             text = "−"
             isAllCaps = false
+            setTextColor(UiTheme.buttonText(false))
+            background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
                 value = (value - step).coerceIn(min, max)
                 show()
@@ -673,6 +698,8 @@ class UiInflater(
         val plus = Button(activity).apply {
             text = "+"
             isAllCaps = false
+            setTextColor(UiTheme.buttonText(false))
+            background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
                 value = (value + step).coerceIn(min, max)
                 show()
@@ -821,7 +848,7 @@ class UiInflater(
                 }
                 row.addView(TextView(activity).apply {
                     text = opt.label
-                    setTextColor(UiTheme.TEXT)
+                    setTextColor(UiTheme.chipText(opt.id == selected))
                     textSize = 13f
                 })
                 if (opt.subtitle.isNotEmpty()) {
@@ -926,7 +953,7 @@ class UiInflater(
                     text = opt.label
                     textSize = 12f
                     val selectedChip = opt.id == selected
-                    setTextColor(if (selectedChip) Color.WHITE else UiTheme.TEXT)
+                    setTextColor(UiTheme.chipText(selectedChip))
                     background = UiTheme.chipBackground(density, selectedChip)
                     val p = UiTheme.dp(density, 8f)
                     setPadding(p, UiTheme.dp(density, 4f), p, UiTheme.dp(density, 4f))
