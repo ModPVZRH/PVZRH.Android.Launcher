@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.StateListDrawable
+import android.util.StateSet
 import android.os.Build
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -177,9 +181,9 @@ object UiTheme {
         density: Float,
         filled: Boolean = true,
         enabled: Boolean = true,
-    ): GradientDrawable {
+    ): Drawable {
         val alpha = if (enabled) 1f else DISABLED_ALPHA
-        return if (filled) {
+        val rest = if (filled) {
             roundedRect(density, withAlpha(PRIMARY, alpha), cornerDp = 8f)
         } else {
             roundedRect(
@@ -189,6 +193,29 @@ object UiTheme {
                 strokeColor = withAlpha(PRIMARY, alpha),
             )
         }
+        if (!enabled) return rest
+
+        val pressed = if (filled) {
+            roundedRect(density, darken(PRIMARY, 0.78f), cornerDp = 8f)
+        } else {
+            roundedRect(
+                density,
+                withAlpha(PRIMARY, 0.22f),
+                cornerDp = 8f,
+                strokeColor = PRIMARY,
+            )
+        }
+        val states = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_pressed), pressed)
+            addState(StateSet.WILD_CARD, rest)
+        }
+        val rippleColor = if (filled) {
+            withAlpha(Color.WHITE, 0.35f)
+        } else {
+            withAlpha(PRIMARY, 0.32f)
+        }
+        val mask = roundedRect(density, Color.WHITE, cornerDp = 8f)
+        return RippleDrawable(ColorStateList.valueOf(rippleColor), states, mask)
     }
 
     fun buttonText(filled: Boolean): Int = if (filled) ON_PRIMARY else PRIMARY
@@ -287,5 +314,12 @@ object UiTheme {
         if (factor >= 1f) return color
         val a = (Color.alpha(color) * factor).toInt().coerceIn(0, 255)
         return Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
+    }
+
+    private fun darken(color: Int, factor: Float): Int {
+        val r = (Color.red(color) * factor).toInt().coerceIn(0, 255)
+        val g = (Color.green(color) * factor).toInt().coerceIn(0, 255)
+        val b = (Color.blue(color) * factor).toInt().coerceIn(0, 255)
+        return Color.argb(Color.alpha(color), r, g, b)
     }
 }

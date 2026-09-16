@@ -665,7 +665,9 @@ class UiInflater(
             val enabled = n.propBool("enabled", true)
             val filled = n.propString("style", "filled") != "outline"
             btn.isEnabled = enabled
+            btn.isClickable = enabled
             btn.setTextColor(UiTheme.buttonText(filled))
+            btn.backgroundTintList = null
             btn.background = UiTheme.buttonBackground(
                 density,
                 filled = filled,
@@ -853,6 +855,7 @@ class UiInflater(
             minimumWidth = stepBtnSize
             minimumHeight = stepBtnSize
             setTextColor(UiTheme.buttonText(false))
+            backgroundTintList = null
             background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
                 value = (value - step).coerceIn(min, max)
@@ -868,6 +871,7 @@ class UiInflater(
             minimumWidth = stepBtnSize
             minimumHeight = stepBtnSize
             setTextColor(UiTheme.buttonText(false))
+            backgroundTintList = null
             background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
                 value = (value + step).coerceIn(min, max)
