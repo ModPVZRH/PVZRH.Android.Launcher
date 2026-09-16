@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Animation
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -74,6 +75,7 @@ fun SettingsScreen(
     dynamicColor: Boolean,
     animationDisabled: Boolean,
     floatingLogInGame: Boolean,
+    floatingModMenu: Boolean,
     useUnstrippedLibUnity: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
@@ -81,6 +83,7 @@ fun SettingsScreen(
     onDynamicColorChanged: (Boolean) -> Unit,
     onAnimationDisabledChanged: (Boolean) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
+    onFloatingModMenuChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
@@ -195,6 +198,20 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { onFloatingLogInGameChanged(!floatingLogInGame) }
+                )
+            }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_floating_mod_menu),
+                    summary = stringResource(R.string.settings_floating_mod_menu_desc),
+                    icon = { Icon(Icons.Outlined.Widgets, contentDescription = null) },
+                    trailing = {
+                        Switch(
+                            checked = floatingModMenu,
+                            onCheckedChange = { checked -> onFloatingModMenuChanged(checked) }
+                        )
+                    },
+                    onClick = { onFloatingModMenuChanged(!floatingModMenu) }
                 )
             }
             item {

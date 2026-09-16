@@ -15,6 +15,7 @@ object AppSettings {
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_LANGUAGE = "language"
     private const val KEY_FLOATING_LOG_IN_GAME = "floating_log_in_game"
+    private const val KEY_FLOATING_MOD_MENU = "floating_mod_menu"
     private const val KEY_ACTIVE_MODPACK_PREFIX = "active_modpack_"
     private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
     private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
@@ -137,6 +138,13 @@ object AppSettings {
 
     fun setFloatingLogInGameEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_FLOATING_LOG_IN_GAME, enabled).apply()
+    }
+
+    fun isFloatingModMenuEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_FLOATING_MOD_MENU, true) // default ON
+
+    fun setFloatingModMenuEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_FLOATING_MOD_MENU, enabled).apply()
     }
 
     fun getActiveModpack(context: Context, packageName: String): String? =
