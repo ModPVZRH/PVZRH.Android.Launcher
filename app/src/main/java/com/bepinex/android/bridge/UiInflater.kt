@@ -1,5 +1,6 @@
 package com.bepinex.android.bridge
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.AlertDialog
 import android.graphics.BitmapFactory
@@ -250,7 +251,8 @@ class UiInflater(
         }
         val chevron = if (collapsible) {
             TextView(activity).apply {
-                text = if (expanded) "▾" else "▸"
+                text = "▾"
+                rotation = if (expanded) 0f else -90f
                 setTextColor(UiTheme.TEXT_MUTED)
                 textSize = 20f
                 includeFontPadding = false
@@ -272,6 +274,8 @@ class UiInflater(
         }
         val body = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
+            clipChildren = true
+            clipToPadding = true
             val bodyPad = UiTheme.dp(density, UiTheme.Metrics.GROUP_BODY_PAD.toFloat())
             setPadding(0, bodyPad, 0, 0)
         }
@@ -294,6 +298,7 @@ class UiInflater(
         body.visibility = if (expanded) View.VISIBLE else View.GONE
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
+            clipChildren = true
             background = UiTheme.groupBackground(density)
             val p = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD.toFloat())
             setPadding(p, p, p, p)
@@ -306,14 +311,24 @@ class UiInflater(
         root.addView(header, fill)
         root.addView(body, LinearLayout.LayoutParams(fill))
         root.layoutParams = LinearLayout.LayoutParams(fill)
-        fun syncChevron() {
-            chevron?.text = if (expanded) "▾" else "▸"
+        var heightAnim: ValueAnimator? = null
+        fun applyExpanded(next: Boolean, animate: Boolean) {
+            if (next == expanded && animate) return
+            expanded = next
+            if (animate) {
+                heightAnim = UiAnim.height(body, expanded, heightAnim)
+                chevron?.let { UiAnim.rotation(it, if (expanded) 0f else -90f, animate = true) }
+            } else {
+                heightAnim?.cancel()
+                heightAnim = null
+                body.visibility = if (expanded) View.VISIBLE else View.GONE
+                body.layoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT
+                chevron?.let { UiAnim.rotation(it, if (expanded) 0f else -90f, animate = false) }
+            }
         }
         if (collapsible) {
             header.setOnClickListener {
-                expanded = !expanded
-                body.visibility = if (expanded) View.VISIBLE else View.GONE
-                syncChevron()
+                applyExpanded(!expanded, animate = true)
                 emit(node.id, "change", expanded)
             }
         }
@@ -322,9 +337,7 @@ class UiInflater(
             val t = n.propString("title").ifEmpty { n.propString("label") }
             if (t.isNotEmpty()) title.text = t
             if (props.containsKey("collapsed")) {
-                expanded = !n.propBool("collapsed", false)
-                body.visibility = if (expanded) View.VISIBLE else View.GONE
-                syncChevron()
+                applyExpanded(!n.propBool("collapsed", false), animate = true)
             }
         }
         return root
@@ -377,17 +390,49 @@ class UiInflater(
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, UiTheme.dp(density, 4f), 0, UiTheme.dp(density, 4f))
         }
-        val content = FrameLayout(activity)
+        val content = FrameLayout(activity).apply {
+            clipChildren = true
+            clipToPadding = true
+        }
         var active = node.propString("active").ifEmpty { node.children.firstOrNull()?.id.orEmpty() }
         val pages = mutableListOf<Pair<String, View>>()
-        fun refresh() {
-            pages.forEachIndexed { index, (id, page) ->
-                page.visibility = if (id == active) View.VISIBLE else View.GONE
+        var tabGen = 0
+        fun paintChips() {
+            pages.forEachIndexed { index, (id, _) ->
                 val chip = header.getChildAt(index) as? TextView ?: return@forEachIndexed
                 val selected = id == active
                 chip.background = UiTheme.tabBackground(density, selected)
                 chip.setTextColor(UiTheme.tabText(selected))
             }
+        }
+        fun resetPage(page: View, visible: Boolean) {
+            page.animate().cancel()
+            page.visibility = if (visible) View.VISIBLE else View.GONE
+            page.alpha = 1f
+            page.translationX = 0f
+        }
+        fun showPage(nextId: String, fromId: String?, animate: Boolean) {
+            val incoming = pages.firstOrNull { it.first == nextId }?.second ?: return
+            if (!animate) {
+                tabGen++
+                pages.forEach { (id, page) -> resetPage(page, id == nextId) }
+                return
+            }
+            val outgoing = fromId?.let { id -> pages.firstOrNull { it.first == id }?.second }
+            val fromIndex = pages.indexOfFirst { it.first == fromId }
+            val toIndex = pages.indexOfFirst { it.second === incoming }
+            val gen = ++tabGen
+            pages.forEach { (_, page) ->
+                if (page !== incoming && page !== outgoing) resetPage(page, false)
+            }
+            UiAnim.tabSwitch(
+                outgoing = outgoing,
+                incoming = incoming,
+                forward = fromIndex < 0 || toIndex >= fromIndex,
+                containerWidth = content.width,
+                generation = gen,
+                currentGeneration = { tabGen },
+            )
         }
         node.children.forEach { child ->
             val page = build(child)
@@ -415,8 +460,11 @@ class UiInflater(
                 ).apply { marginEnd = UiTheme.dp(density, 8f) }
                 layoutParams = lp
                 setOnClickListener {
+                    if (active == child.id) return@setOnClickListener
+                    val previous = active
                     active = child.id
-                    refresh()
+                    paintChips()
+                    showPage(child.id, fromId = previous, animate = true)
                     emit(node.id, "change", child.id)
                 }
             }
@@ -441,13 +489,16 @@ class UiInflater(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.MATCH_PARENT,
         )
-        refresh()
+        paintChips()
+        showPage(active, fromId = null, animate = false)
         register(node.id) { props ->
             val n = UiNode(node.id, node.type, props)
             val next = n.propString("active")
-            if (next.isNotEmpty()) {
+            if (next.isNotEmpty() && next != active) {
+                val previous = active
                 active = next
-                refresh()
+                paintChips()
+                showPage(next, fromId = previous, animate = true)
             }
         }
         return root
