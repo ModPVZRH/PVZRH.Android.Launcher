@@ -91,11 +91,13 @@ object UiTheme {
     private const val DISABLED_ALPHA = 0.4f
 
     object Metrics {
-        const val BUTTON_MIN_H = 40
-        const val ROW_MIN_H = 44
-        const val INPUT_PAD = 12
-        const val GROUP_PAD = 12
-        const val LIST_ITEM_PAD = 12
+        const val BUTTON_MIN_H = 32
+        const val ROW_MIN_H = 36
+        const val INPUT_PAD = 8
+        const val INPUT_MIN_H = 32
+        const val INPUT_TEXT = 13f
+        const val GROUP_PAD = 8
+        const val LIST_ITEM_PAD = 8
         const val FAB_DEFAULT = 48
     }
 

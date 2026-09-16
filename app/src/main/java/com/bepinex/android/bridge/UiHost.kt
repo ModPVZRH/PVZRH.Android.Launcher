@@ -352,7 +352,7 @@ object UiHost {
         val host = FrameLayout(activity)
         val scroll = ScrollView(activity).apply {
             isFillViewport = true
-            val pad = UiTheme.dp(density, 8f)
+            val pad = UiTheme.dp(density, 4f)
             setPadding(pad, pad, pad, pad)
             addView(
                 host,

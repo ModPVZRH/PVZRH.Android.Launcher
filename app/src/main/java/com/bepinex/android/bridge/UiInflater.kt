@@ -789,12 +789,7 @@ class UiInflater(
     private fun textField(node: UiNode): View {
         val label = TextView(activity).apply { setTextColor(UiTheme.TEXT); textSize = 13f }
         val edit = EditText(activity).apply {
-            setTextColor(UiTheme.TEXT)
-            setHintTextColor(UiTheme.TEXT_MUTED)
-            background = UiTheme.inputBackground(density)
-            val p = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
-            setPadding(p, p, p, p)
-            minimumHeight = UiTheme.dp(density, 40f)
+            styleInput()
         }
         fun apply(n: UiNode) {
             setLabel(label, n.propString("label"))
@@ -826,12 +821,8 @@ class UiInflater(
     private fun numberField(node: UiNode): View {
         val label = TextView(activity).apply { setTextColor(UiTheme.TEXT); textSize = 13f }
         val edit = EditText(activity).apply {
-            setTextColor(UiTheme.TEXT)
+            styleInput()
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED
-            background = UiTheme.inputBackground(density)
-            val p = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
-            setPadding(p, p, p, p)
-            minimumHeight = UiTheme.dp(density, 40f)
         }
         fun apply(n: UiNode) {
             setLabel(label, n.propString("label"))
@@ -857,9 +848,13 @@ class UiInflater(
         val label = TextView(activity).apply { setTextColor(UiTheme.TEXT); textSize = 13f }
         val valueView = TextView(activity).apply {
             setTextColor(UiTheme.TEXT)
+            textSize = UiTheme.Metrics.INPUT_TEXT
+            includeFontPadding = false
             background = UiTheme.inputBackground(density)
-            val p = UiTheme.dp(density, 8f)
+            val p = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
             setPadding(p, p, p, p)
+            minimumHeight = UiTheme.dp(density, UiTheme.Metrics.INPUT_MIN_H.toFloat())
+            gravity = Gravity.CENTER_VERTICAL
         }
         var options = node.propOptions().ifEmpty { node.propOptions("items") }
         var selected = node.propString("value")
@@ -945,9 +940,8 @@ class UiInflater(
             layoutParams = LinearLayout.LayoutParams(UiTheme.dp(density, 28f), UiTheme.dp(density, 28f))
         }
         val edit = EditText(activity).apply {
-            setTextColor(UiTheme.TEXT)
+            styleInput()
             inputType = InputType.TYPE_CLASS_TEXT
-            background = UiTheme.inputBackground(density)
         }
         val swatches = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL }
         val presets = listOf(
@@ -1055,6 +1049,19 @@ class UiInflater(
             addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(control)
         }
+    }
+
+    private fun EditText.styleInput() {
+        setTextColor(UiTheme.TEXT)
+        setHintTextColor(UiTheme.TEXT_MUTED)
+        textSize = UiTheme.Metrics.INPUT_TEXT
+        includeFontPadding = false
+        background = UiTheme.inputBackground(density)
+        val h = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
+        val v = UiTheme.dp(density, 4f)
+        setPadding(h, v, h, v)
+        minimumHeight = UiTheme.dp(density, UiTheme.Metrics.INPUT_MIN_H.toFloat())
+        setLineSpacing(0f, 1f)
     }
 
     private fun setLabel(tv: TextView, text: String) {
