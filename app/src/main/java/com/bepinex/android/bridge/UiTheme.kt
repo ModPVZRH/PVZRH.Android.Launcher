@@ -90,6 +90,15 @@ object UiTheme {
 
     private const val DISABLED_ALPHA = 0.4f
 
+    object Metrics {
+        const val BUTTON_MIN_H = 40
+        const val ROW_MIN_H = 44
+        const val INPUT_PAD = 12
+        const val GROUP_PAD = 12
+        const val LIST_ITEM_PAD = 12
+        const val FAB_DEFAULT = 48
+    }
+
     fun bind(context: Context) {
         if (isDark(context)) apply(Dark) else apply(Light)
     }
@@ -156,6 +165,24 @@ object UiTheme {
         if (selected) ON_PRIMARY_CONTAINER else TEXT_MUTED
 
     fun controlTint(): ColorStateList = ColorStateList.valueOf(PRIMARY)
+
+    fun resolvedPanelBg(style: PanelStyle): Int = style.backgroundArgb ?: PANEL_BG
+
+    fun resolvedHeader(style: PanelStyle): Int = style.headerArgb ?: PRIMARY_CONTAINER
+
+    fun resolvedTitle(style: PanelStyle): Int = style.titleArgb ?: ON_PRIMARY_CONTAINER
+
+    fun panelDrawable(density: Float, style: PanelStyle): GradientDrawable =
+        roundedRect(density, resolvedPanelBg(style), cornerDp = style.cornerRadiusDp)
+
+    fun headerDrawable(density: Float, style: PanelStyle): GradientDrawable {
+        val r = style.cornerRadiusDp * density
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(resolvedHeader(style))
+            setCornerRadii(floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f))
+        }
+    }
 
     private fun apply(p: Palette) {
         PANEL_BG = p.panel

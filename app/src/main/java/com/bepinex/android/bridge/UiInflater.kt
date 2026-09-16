@@ -108,6 +108,7 @@ class UiInflater(
             else -> text(node.copy(props = node.props + ("text" to "[${node.type}]")))
         }
         if (node.id.isNotEmpty()) view.tag = node.id
+        UiLayout.apply(view, node, density)
         return view
     }
 
@@ -151,8 +152,13 @@ class UiInflater(
         node.children.forEachIndexed { index, child ->
             val childView = build(child)
             val lp = childLp(vertical, stretch)
+            childView.layoutParams?.let { existing ->
+                if (existing.width > 0) lp.width = existing.width
+                if (existing.height > 0) lp.height = existing.height
+            }
+            UiLayout.applyMargin(lp, child, density)
             if (index > 0) {
-                if (vertical) lp.topMargin = g else lp.marginStart = g
+                if (vertical) lp.topMargin += g else lp.marginStart += g
             }
             layout.addView(childView, lp)
         }
@@ -168,7 +174,15 @@ class UiInflater(
             }
         }
         pad(content, node)
-        node.children.forEach { content.addView(build(it)) }
+        node.children.forEach { child ->
+            val childView = build(child)
+            val lp = LinearLayout.LayoutParams(
+                childView.layoutParams?.width ?: LinearLayout.LayoutParams.WRAP_CONTENT,
+                childView.layoutParams?.height ?: LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            UiLayout.applyMargin(lp, child, density)
+            content.addView(childView, lp)
+        }
         return if (node.propString("axis", "vertical") == "horizontal") {
             HorizontalScrollView(activity).apply { addView(content) }
         } else {
@@ -179,19 +193,42 @@ class UiInflater(
     private fun wrap(node: UiNode): View {
         val flow = FlowLayout(activity, gap(node))
         pad(flow, node)
-        node.children.forEach { flow.addView(build(it)) }
+        node.children.forEach { child ->
+            val childView = build(child)
+            val lp = ViewGroup.MarginLayoutParams(
+                childView.layoutParams?.width ?: ViewGroup.LayoutParams.WRAP_CONTENT,
+                childView.layoutParams?.height ?: ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            UiLayout.applyMargin(lp, child, density)
+            flow.addView(childView, lp)
+        }
         return flow
     }
 
     private fun group(node: UiNode): View {
         val title = TextView(activity).apply {
             text = node.propString("title").ifEmpty { node.propString("label") }
-            setTextColor(UiTheme.ACCENT)
-            textSize = 13f
+            setTextColor(UiTheme.PRIMARY)
+            textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
         }
         val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        node.children.forEach { body.addView(build(it)) }
+        val bodyGap = UiTheme.dp(density, 8f)
+        node.children.forEachIndexed { index, child ->
+            val childView = build(child)
+            val lp = when (val existing = childView.layoutParams) {
+                is LinearLayout.LayoutParams -> existing
+                is ViewGroup.MarginLayoutParams -> LinearLayout.LayoutParams(existing)
+                is ViewGroup.LayoutParams -> LinearLayout.LayoutParams(existing)
+                else -> LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                )
+            }
+            UiLayout.applyMargin(lp, child, density)
+            if (index > 0) lp.topMargin += bodyGap
+            body.addView(childView, lp)
+        }
         var expanded = !node.propBool("collapsed", false)
         if (node.type == WidgetType.GROUP && !node.propBool("collapsible", false)) {
             expanded = true
@@ -200,7 +237,7 @@ class UiInflater(
         val root = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             background = UiTheme.groupBackground(density)
-            val p = UiTheme.dp(density, 8f)
+            val p = UiTheme.dp(density, UiTheme.Metrics.GROUP_PAD.toFloat())
             setPadding(p, p, p, p)
         }
         pad(root, node)
@@ -228,7 +265,15 @@ class UiInflater(
     private fun stack(node: UiNode): View {
         val frame = FrameLayout(activity)
         pad(frame, node)
-        node.children.forEach { frame.addView(build(it)) }
+        node.children.forEach { child ->
+            val childView = build(child)
+            val lp = FrameLayout.LayoutParams(
+                childView.layoutParams?.width ?: FrameLayout.LayoutParams.WRAP_CONTENT,
+                childView.layoutParams?.height ?: FrameLayout.LayoutParams.WRAP_CONTENT,
+            )
+            UiLayout.applyMargin(lp, child, density)
+            frame.addView(childView, lp)
+        }
         return frame
     }
 
@@ -243,6 +288,7 @@ class UiInflater(
                 val lp = TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f).apply {
                     setMargins(g / 2, g / 2, g / 2, g / 2)
                 }
+                UiLayout.applyMargin(lp, child, density)
                 row.addView(build(child), lp)
             }
             table.addView(row)
@@ -274,12 +320,16 @@ class UiInflater(
             val chip = TextView(activity).apply {
                 text = label
                 textSize = 12f
-                val p = UiTheme.dp(density, 8f)
-                setPadding(p, UiTheme.dp(density, 4f), p, UiTheme.dp(density, 4f))
+                setPadding(
+                    UiTheme.dp(density, 12f),
+                    UiTheme.dp(density, 8f),
+                    UiTheme.dp(density, 12f),
+                    UiTheme.dp(density, 8f),
+                )
                 val lp = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { marginEnd = UiTheme.dp(density, 6f) }
+                ).apply { marginEnd = UiTheme.dp(density, 8f) }
                 layoutParams = lp
                 setOnClickListener {
                     active = child.id
@@ -458,7 +508,7 @@ class UiInflater(
             progressBackgroundTintList = ColorStateList.valueOf(UiTheme.TRACK)
         }
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             label.visibility = if (label.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             bar.isIndeterminate = n.propBool("indeterminate", false)
             val raw = n.propDouble("value", 0.0)
@@ -502,6 +552,9 @@ class UiInflater(
         val btn = Button(activity).apply {
             isAllCaps = false
             textSize = if (icon) 16f else 13f
+            minimumHeight = UiTheme.dp(density, UiTheme.Metrics.BUTTON_MIN_H.toFloat())
+            val padH = UiTheme.dp(density, 16f)
+            setPadding(padH, paddingTop, padH, paddingBottom)
         }
         fun apply(n: UiNode) {
             btn.text = n.propString("label").ifEmpty { n.propString("text") }
@@ -546,7 +599,7 @@ class UiInflater(
             }
         }
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             val enabled = n.propBool("enabled", true)
             control.isEnabled = enabled
             label.isEnabled = enabled
@@ -585,7 +638,8 @@ class UiInflater(
         val group = RadioGroup(activity)
         var options = node.propOptions().ifEmpty { node.propOptions("items") }
         fun rebuild(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
+            label.visibility = if (label.text.isNullOrEmpty()) View.GONE else View.VISIBLE
             options = n.propOptions().ifEmpty { n.propOptions("items") }
             val selected = n.propString("value")
             group.removeAllViews()
@@ -623,6 +677,8 @@ class UiInflater(
             progressTintList = UiTheme.controlTint()
             thumbTintList = UiTheme.controlTint()
             progressBackgroundTintList = ColorStateList.valueOf(UiTheme.TRACK)
+            val vPad = UiTheme.dp(density, 4f)
+            setPadding(paddingStart, vPad, paddingEnd, vPad)
         }
         var min = node.propDouble("min", 0.0)
         var max = node.propDouble("max", 100.0)
@@ -633,7 +689,7 @@ class UiInflater(
             if (n.props.containsKey("min")) min = n.propDouble("min", min)
             if (n.props.containsKey("max")) max = n.propDouble("max", max)
             if (n.props.containsKey("step")) step = n.propDouble("step", step).let { if (it <= 0) 1.0 else it }
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             seek.isEnabled = n.propBool("enabled", true)
             seek.max = toProgress(max)
             val value = n.propDouble("value", fromProgress(seek.progress))
@@ -680,13 +736,18 @@ class UiInflater(
             if (n.props.containsKey("max")) max = n.propDouble("max", max)
             if (n.props.containsKey("step")) step = n.propDouble("step", step).let { if (it <= 0) 1.0 else it }
             if (n.props.containsKey("value")) value = n.propDouble("value", value)
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             show()
         }
         apply(node)
+        val stepBtnSize = UiTheme.dp(density, 36f)
         val minus = Button(activity).apply {
             text = "−"
             isAllCaps = false
+            minWidth = stepBtnSize
+            minHeight = stepBtnSize
+            minimumWidth = stepBtnSize
+            minimumHeight = stepBtnSize
             setTextColor(UiTheme.buttonText(false))
             background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
@@ -698,6 +759,10 @@ class UiInflater(
         val plus = Button(activity).apply {
             text = "+"
             isAllCaps = false
+            minWidth = stepBtnSize
+            minHeight = stepBtnSize
+            minimumWidth = stepBtnSize
+            minimumHeight = stepBtnSize
             setTextColor(UiTheme.buttonText(false))
             background = UiTheme.buttonBackground(density, filled = false)
             setOnClickListener {
@@ -727,11 +792,12 @@ class UiInflater(
             setTextColor(UiTheme.TEXT)
             setHintTextColor(UiTheme.TEXT_MUTED)
             background = UiTheme.inputBackground(density)
-            val p = UiTheme.dp(density, 8f)
+            val p = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
             setPadding(p, p, p, p)
+            minimumHeight = UiTheme.dp(density, 40f)
         }
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             edit.hint = n.propString("placeholder")
             edit.isEnabled = n.propBool("enabled", true)
             edit.inputType = when {
@@ -763,11 +829,12 @@ class UiInflater(
             setTextColor(UiTheme.TEXT)
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED
             background = UiTheme.inputBackground(density)
-            val p = UiTheme.dp(density, 8f)
+            val p = UiTheme.dp(density, UiTheme.Metrics.INPUT_PAD.toFloat())
             setPadding(p, p, p, p)
+            minimumHeight = UiTheme.dp(density, 40f)
         }
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             edit.isEnabled = n.propBool("enabled", true)
             if (n.props.containsKey("value")) {
                 val text = formatNumber(n.propDouble("value", 0.0))
@@ -798,7 +865,7 @@ class UiInflater(
         var selected = node.propString("value")
         fun caption(): String = options.firstOrNull { it.id == selected }?.label ?: selected
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             options = n.propOptions().ifEmpty { n.propOptions("items") }.ifEmpty { options }
             if (n.props.containsKey("value")) selected = n.propString("value")
             valueView.text = caption()
@@ -838,7 +905,7 @@ class UiInflater(
                     orientation = LinearLayout.VERTICAL
                     isClickable = true
                     background = UiTheme.chipBackground(density, opt.id == selected)
-                    val p = UiTheme.dp(density, 8f)
+                    val p = UiTheme.dp(density, UiTheme.Metrics.LIST_ITEM_PAD.toFloat())
                     setPadding(p, p, p, p)
                     val lp = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
@@ -901,7 +968,7 @@ class UiInflater(
             if (notify) emit(node.id, "change", current)
         }
         fun apply(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             edit.isEnabled = n.propBool("enabled", true)
             if (n.props.containsKey("value")) applyColor(n.propString("value", current), false)
         }
@@ -944,7 +1011,7 @@ class UiInflater(
         var options = node.propOptions().ifEmpty { node.propOptions("items") }
         var selected = node.propString("value")
         fun rebuild(n: UiNode) {
-            label.text = n.propString("label")
+            setLabel(label, n.propString("label"))
             options = n.propOptions().ifEmpty { n.propOptions("items") }.ifEmpty { options }
             if (n.props.containsKey("value")) selected = n.propString("value")
             row.removeAllViews()
@@ -984,9 +1051,15 @@ class UiInflater(
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = UiTheme.dp(density, UiTheme.Metrics.ROW_MIN_H.toFloat())
             addView(label, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(control)
         }
+    }
+
+    private fun setLabel(tv: TextView, text: String) {
+        tv.text = text
+        tv.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
     }
 
     private fun register(id: String, binder: (Map<String, Any?>) -> Unit) {
@@ -1008,6 +1081,20 @@ class UiInflater(
         context: android.content.Context,
         private val gap: Int,
     ) : ViewGroup(context) {
+        override fun generateDefaultLayoutParams(): LayoutParams =
+            MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+
+        override fun generateLayoutParams(p: LayoutParams): LayoutParams = MarginLayoutParams(p)
+
+        override fun generateLayoutParams(attrs: android.util.AttributeSet): LayoutParams =
+            MarginLayoutParams(context, attrs)
+
+        override fun checkLayoutParams(p: LayoutParams): Boolean = p is MarginLayoutParams
+
+        private fun margins(child: View): MarginLayoutParams =
+            child.layoutParams as? MarginLayoutParams
+                ?: MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val width = MeasureSpec.getSize(widthMeasureSpec)
             var x = paddingLeft
@@ -1017,8 +1104,9 @@ class UiInflater(
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
                 measureChild(child, widthMeasureSpec, heightMeasureSpec)
-                val cw = child.measuredWidth
-                val ch = child.measuredHeight
+                val m = margins(child)
+                val cw = child.measuredWidth + m.leftMargin + m.rightMargin
+                val ch = child.measuredHeight + m.topMargin + m.bottomMargin
                 if (x + cw + paddingRight > width && x > paddingLeft) {
                     x = paddingLeft
                     y += rowH + gap
@@ -1042,14 +1130,17 @@ class UiInflater(
             var rowH = 0
             for (i in 0 until childCount) {
                 val child = getChildAt(i)
-                val cw = child.measuredWidth
-                val ch = child.measuredHeight
+                val m = margins(child)
+                val cw = child.measuredWidth + m.leftMargin + m.rightMargin
+                val ch = child.measuredHeight + m.topMargin + m.bottomMargin
                 if (x + cw + paddingRight > width && x > paddingLeft) {
                     x = paddingLeft
                     y += rowH + gap
                     rowH = 0
                 }
-                child.layout(x, y, x + cw, y + ch)
+                val left = x + m.leftMargin
+                val top = y + m.topMargin
+                child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)
                 x += cw + gap
                 rowH = maxOf(rowH, ch)
             }

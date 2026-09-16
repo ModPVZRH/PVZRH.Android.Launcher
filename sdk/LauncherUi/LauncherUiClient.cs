@@ -269,6 +269,72 @@ public sealed class LauncherUiClient : IDisposable
     }
 
     /// <summary>
+    /// Sets this plugin's launcher icon from a PNG (transparency is preserved).
+    /// If omitted, the launcher uses a default letter FAB.
+    /// </summary>
+    /// <param name="pngBytes">Raw PNG bytes. Must not be null.</param>
+    public void SetIconPng(byte[] pngBytes)
+    {
+        if (pngBytes is null)
+        {
+            throw new ArgumentNullException(nameof(pngBytes));
+        }
+
+        Send(BridgeJson.SetIcon("image/png", Convert.ToBase64String(pngBytes)));
+    }
+
+    /// <summary>
+    /// Sets this plugin's launcher icon by reading a PNG file (transparency is preserved).
+    /// If omitted, the launcher uses a default letter FAB.
+    /// </summary>
+    /// <param name="path">Path to a PNG file. Must not be null.</param>
+    public void SetIconFile(string path)
+    {
+        if (path is null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+
+        SetIconPng(File.ReadAllBytes(path));
+    }
+
+    /// <summary>
+    /// Applies panel chrome (size, colors, corner radius, elevation) for this plugin.
+    /// </summary>
+    /// <param name="style">Panel style. Must not be null.</param>
+    public void SetPanelStyle(PanelStyle style)
+    {
+        if (style is null)
+        {
+            throw new ArgumentNullException(nameof(style));
+        }
+
+        Send(BridgeJson.SetPanel(
+            style.Width,
+            style.Height,
+            style.CornerRadius,
+            style.Background,
+            style.HeaderColor,
+            style.TitleColor,
+            style.Elevation));
+    }
+
+    /// <summary>
+    /// Sets the floating action button label and size. If no icon is set, the launcher uses a default letter FAB.
+    /// </summary>
+    /// <param name="label">FAB label. Must not be null.</param>
+    /// <param name="sizeDp">FAB size in density-independent pixels. Defaults to 48.</param>
+    public void SetFab(string label, int sizeDp = 48)
+    {
+        if (label is null)
+        {
+            throw new ArgumentNullException(nameof(label));
+        }
+
+        Send(BridgeJson.SetFab(label, sizeDp));
+    }
+
+    /// <summary>
     /// Updates properties on a single widget. Null property values are omitted, matching <see cref="UiNode.ToJson"/>.
     /// </summary>
     /// <param name="widgetId">Target widget id.</param>

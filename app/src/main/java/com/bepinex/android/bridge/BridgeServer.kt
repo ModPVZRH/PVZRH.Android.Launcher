@@ -38,6 +38,19 @@ object BridgeServer {
             UiHost.upsertPlugin(session.sessionId, session.pluginName, tree, session::sendEvent)
         }
 
+        override fun onSetIcon(session: BridgeSession, mime: String, data: String) {
+            val bitmap = IconDecoder.decode(data, mime) ?: return
+            UiHost.setIcon(session.sessionId, bitmap)
+        }
+
+        override fun onSetPanel(session: BridgeSession, raw: org.json.JSONObject) {
+            UiHost.setPanelStyle(session.sessionId, PanelStyleParser.panel(raw))
+        }
+
+        override fun onSetFab(session: BridgeSession, label: String, sizeDp: Int) {
+            UiHost.setFabStyle(session.sessionId, PanelStyleParser.fab(label, sizeDp))
+        }
+
         override fun onUpdate(session: BridgeSession, widgetId: String, props: Map<String, Any?>) {
             UiHost.updateWidget(session.sessionId, widgetId, props)
         }

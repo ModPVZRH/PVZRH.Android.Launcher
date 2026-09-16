@@ -22,6 +22,9 @@ class BridgeSession(
     interface Listener {
         fun onHello(session: BridgeSession, pluginId: String, name: String, version: String)
         fun onSetTree(session: BridgeSession, tree: UiNode)
+        fun onSetIcon(session: BridgeSession, mime: String, data: String)
+        fun onSetPanel(session: BridgeSession, raw: org.json.JSONObject)
+        fun onSetFab(session: BridgeSession, label: String, sizeDp: Int)
         fun onUpdate(session: BridgeSession, widgetId: String, props: Map<String, Any?>)
         fun onToast(session: BridgeSession, text: String)
         fun onClose(session: BridgeSession, reason: String?)
@@ -124,6 +127,12 @@ class BridgeSession(
                 BepInExLog.w("Bridge session $sessionId: unexpected hello ignored")
             is BridgeInbound.SetTree ->
                 emit { onSetTree(this@BridgeSession, UiNode.fromJson(msg.tree)) }
+            is BridgeInbound.SetIcon ->
+                emit { onSetIcon(this@BridgeSession, msg.mime, msg.data) }
+            is BridgeInbound.SetPanel ->
+                emit { onSetPanel(this@BridgeSession, msg.raw) }
+            is BridgeInbound.SetFab ->
+                emit { onSetFab(this@BridgeSession, msg.label, msg.sizeDp) }
             is BridgeInbound.Update ->
                 emit { onUpdate(this@BridgeSession, msg.widgetId, UiNode.propsFromJson(msg.props)) }
             is BridgeInbound.Toast ->

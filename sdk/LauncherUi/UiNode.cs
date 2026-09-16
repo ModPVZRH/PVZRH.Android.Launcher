@@ -67,6 +67,98 @@ namespace PVZRH.LauncherUi
         }
 
         /// <summary>
+        /// Sets <c>width</c> and <c>height</c> in density-independent pixels. Zero means unconstrained.
+        /// </summary>
+        /// <param name="width">Width in dp, or 0 for unconstrained.</param>
+        /// <param name="height">Height in dp, or 0 for unconstrained.</param>
+        /// <returns>This node.</returns>
+        public UiNode Size(int width = 0, int height = 0)
+        {
+            With("width", width);
+            With("height", height);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets <c>minWidth</c> and <c>minHeight</c> in density-independent pixels. Zero means no minimum.
+        /// </summary>
+        /// <param name="minWidth">Minimum width in dp, or 0 for none.</param>
+        /// <param name="minHeight">Minimum height in dp, or 0 for none.</param>
+        /// <returns>This node.</returns>
+        public UiNode MinSize(int minWidth = 0, int minHeight = 0)
+        {
+            With("minWidth", minWidth);
+            With("minHeight", minHeight);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets uniform <c>padding</c> in density-independent pixels.
+        /// </summary>
+        /// <param name="all">Padding applied to all sides.</param>
+        /// <returns>This node.</returns>
+        public UiNode Padding(int all)
+            => With("padding", all);
+
+        /// <summary>
+        /// Sets horizontal and vertical padding in density-independent pixels.
+        /// </summary>
+        public UiNode Padding(int horizontal, int vertical)
+        {
+            With("paddingH", horizontal);
+            With("paddingV", vertical);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets per-side padding in density-independent pixels.
+        /// </summary>
+        public UiNode Padding(int left, int top, int right, int bottom)
+        {
+            With("paddingLeft", left);
+            With("paddingTop", top);
+            With("paddingRight", right);
+            With("paddingBottom", bottom);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets uniform <c>margin</c> in density-independent pixels.
+        /// </summary>
+        public UiNode Margin(int all)
+            => With("margin", all);
+
+        /// <summary>
+        /// Sets horizontal and vertical margin in density-independent pixels.
+        /// </summary>
+        public UiNode Margin(int horizontal, int vertical)
+        {
+            With("marginH", horizontal);
+            With("marginV", vertical);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets per-side margin in density-independent pixels.
+        /// </summary>
+        public UiNode Margin(int left, int top, int right, int bottom)
+        {
+            With("marginLeft", left);
+            With("marginTop", top);
+            With("marginRight", right);
+            With("marginBottom", bottom);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets <c>textSize</c> in scaled pixels (sp).
+        /// </summary>
+        /// <param name="sp">Font size in sp.</param>
+        /// <returns>This node.</returns>
+        public UiNode TextSize(double sp)
+            => With("textSize", sp);
+
+        /// <summary>
         /// Serializes this node to a compact JSON object with <c>id</c>, <c>type</c>, <c>props</c>, and <c>children</c>.
         /// </summary>
         public string ToJson()

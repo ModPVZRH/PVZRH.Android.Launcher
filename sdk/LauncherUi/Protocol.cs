@@ -240,6 +240,87 @@ public static class BridgeJson
             .Add("reason", reason)
             .ToJson();
     }
+
+    /// <summary>
+    /// Launcher icon. <paramref name="base64Data"/> is the image payload (optionally a data URI).
+    /// </summary>
+    /// <returns><c>{"v":1,"type":"set_icon","mime":"...","data":"..."}</c></returns>
+    public static string SetIcon(string mime, string base64Data)
+    {
+        if (mime is null)
+        {
+            throw new ArgumentNullException(nameof(mime));
+        }
+
+        if (base64Data is null)
+        {
+            throw new ArgumentNullException(nameof(base64Data));
+        }
+
+        return new JsonObject()
+            .Add("v", FrameCodec.Version)
+            .Add("type", "set_icon")
+            .Add("mime", mime)
+            .Add("data", base64Data)
+            .ToJson();
+    }
+
+    /// <summary>
+    /// Panel chrome. Null color keys are omitted so Android can apply defaults.
+    /// Fields are inlined on the message object (not nested under <c>panel</c>).
+    /// </summary>
+    /// <returns><c>{"v":1,"type":"set_panel","width":...,"height":...,...}</c></returns>
+    public static string SetPanel(
+        int width,
+        int height,
+        double cornerRadius,
+        string? background,
+        string? headerColor,
+        string? titleColor,
+        double elevation)
+    {
+        JsonObject obj = new JsonObject()
+            .Add("v", FrameCodec.Version)
+            .Add("type", "set_panel")
+            .Add("width", width)
+            .Add("height", height)
+            .Add("cornerRadius", cornerRadius);
+        if (background is not null)
+        {
+            obj.Add("background", background);
+        }
+
+        if (headerColor is not null)
+        {
+            obj.Add("headerColor", headerColor);
+        }
+
+        if (titleColor is not null)
+        {
+            obj.Add("titleColor", titleColor);
+        }
+
+        return obj.Add("elevation", elevation).ToJson();
+    }
+
+    /// <summary>
+    /// Floating action button label and size in dp.
+    /// </summary>
+    /// <returns><c>{"v":1,"type":"set_fab","label":"...","size":...}</c></returns>
+    public static string SetFab(string label, int size)
+    {
+        if (label is null)
+        {
+            throw new ArgumentNullException(nameof(label));
+        }
+
+        return new JsonObject()
+            .Add("v", FrameCodec.Version)
+            .Add("type", "set_fab")
+            .Add("label", label)
+            .Add("size", size)
+            .ToJson();
+    }
 }
 
 /// <summary>
@@ -373,6 +454,13 @@ internal sealed class JsonObject
     }
 
     public JsonObject Add(string key, int value)
+    {
+        BeginField(key);
+        _sb.Append(value.ToString(CultureInfo.InvariantCulture));
+        return this;
+    }
+
+    public JsonObject Add(string key, double value)
     {
         BeginField(key);
         _sb.Append(value.ToString(CultureInfo.InvariantCulture));

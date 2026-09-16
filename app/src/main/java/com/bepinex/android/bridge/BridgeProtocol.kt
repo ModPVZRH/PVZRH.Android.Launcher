@@ -89,6 +89,15 @@ object BridgeProtocol {
                     null
                 }
             )
+            "set_icon" -> BridgeInbound.SetIcon(
+                mime = raw.optString("mime", "image/png"),
+                data = raw.optString("data")
+            )
+            "set_panel" -> BridgeInbound.SetPanel(raw = raw)
+            "set_fab" -> BridgeInbound.SetFab(
+                label = raw.optString("label"),
+                sizeDp = raw.optInt("size", 48)
+            )
             else -> BridgeInbound.Unknown(type, raw)
         }
     }
@@ -162,6 +171,15 @@ sealed class BridgeInbound {
 
     /** Session close. */
     data class Close(val reason: String?) : BridgeInbound()
+
+    /** Launcher icon; [data] is base64 and may include a data-URI prefix. */
+    data class SetIcon(val mime: String, val data: String) : BridgeInbound()
+
+    /** Full panel style object for later parsing. */
+    data class SetPanel(val raw: JSONObject) : BridgeInbound()
+
+    /** Floating action button label and size. */
+    data class SetFab(val label: String, val sizeDp: Int) : BridgeInbound()
 
     /** Unrecognized or untyped payload. */
     data class Unknown(
