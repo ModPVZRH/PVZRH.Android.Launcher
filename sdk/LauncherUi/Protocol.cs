@@ -304,22 +304,41 @@ public static class BridgeJson
     }
 
     /// <summary>
-    /// Floating action button label and size in dp.
+    /// Floating action button chrome. Null <paramref name="background"/> is omitted (launcher default).
     /// </summary>
-    /// <returns><c>{"v":1,"type":"set_fab","label":"...","size":...}</c></returns>
-    public static string SetFab(string label, int size)
+    public static string SetFab(
+        string label,
+        int size,
+        string? background = null,
+        string? shape = null,
+        double? cornerRadius = null)
     {
         if (label is null)
         {
             throw new ArgumentNullException(nameof(label));
         }
 
-        return new JsonObject()
+        JsonObject obj = new JsonObject()
             .Add("v", FrameCodec.Version)
             .Add("type", "set_fab")
             .Add("label", label)
-            .Add("size", size)
-            .ToJson();
+            .Add("size", size);
+        if (background is not null)
+        {
+            obj.Add("background", background);
+        }
+
+        if (shape is not null)
+        {
+            obj.Add("shape", shape);
+        }
+
+        if (cornerRadius is not null)
+        {
+            obj.Add("cornerRadius", cornerRadius.Value);
+        }
+
+        return obj.ToJson();
     }
 }
 

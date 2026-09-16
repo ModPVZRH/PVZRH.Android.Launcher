@@ -149,10 +149,29 @@ object UiTheme {
 
     @Suppress("UNUSED_PARAMETER")
     fun fabBackground(density: Float): GradientDrawable =
-        GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(PRIMARY)
+        fabDrawable(density, PRIMARY, FabShape.CIRCLE, 12f)
+
+    fun fabDrawable(
+        density: Float,
+        color: Int,
+        shape: FabShape,
+        cornerRadiusDp: Float = 12f,
+    ): GradientDrawable = GradientDrawable().apply {
+        setColor(color)
+        when (shape) {
+            FabShape.CIRCLE -> {
+                this.shape = GradientDrawable.OVAL
+            }
+            FabShape.SQUARE -> {
+                this.shape = GradientDrawable.RECTANGLE
+                cornerRadius = 0f
+            }
+            FabShape.ROUNDED -> {
+                this.shape = GradientDrawable.RECTANGLE
+                cornerRadius = cornerRadiusDp * density
+            }
         }
+    }
 
     fun buttonBackground(
         density: Float,

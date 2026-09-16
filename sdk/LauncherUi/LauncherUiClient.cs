@@ -335,6 +335,25 @@ public sealed class LauncherUiClient : IDisposable
     }
 
     /// <summary>
+    /// Sets floating-button chrome (label, size, background, shape). Unset color/shape keep launcher defaults.
+    /// </summary>
+    public void SetFab(FabStyle style)
+    {
+        if (style is null)
+        {
+            throw new ArgumentNullException(nameof(style));
+        }
+
+        string shape = style.Shape switch
+        {
+            FabShape.Rounded => "rounded",
+            FabShape.Square => "square",
+            _ => "circle",
+        };
+        Send(BridgeJson.SetFab(style.Label ?? "", style.Size, style.Background, shape, style.CornerRadius));
+    }
+
+    /// <summary>
     /// Updates properties on a single widget. Null property values are omitted, matching <see cref="UiNode.ToJson"/>.
     /// </summary>
     /// <param name="widgetId">Target widget id.</param>

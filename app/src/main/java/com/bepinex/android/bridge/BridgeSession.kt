@@ -24,7 +24,7 @@ class BridgeSession(
         fun onSetTree(session: BridgeSession, tree: UiNode)
         fun onSetIcon(session: BridgeSession, mime: String, data: String)
         fun onSetPanel(session: BridgeSession, raw: org.json.JSONObject)
-        fun onSetFab(session: BridgeSession, label: String, sizeDp: Int)
+        fun onSetFab(session: BridgeSession, raw: org.json.JSONObject)
         fun onUpdate(session: BridgeSession, widgetId: String, props: Map<String, Any?>)
         fun onToast(session: BridgeSession, text: String)
         fun onClose(session: BridgeSession, reason: String?)
@@ -132,7 +132,7 @@ class BridgeSession(
             is BridgeInbound.SetPanel ->
                 emit { onSetPanel(this@BridgeSession, msg.raw) }
             is BridgeInbound.SetFab ->
-                emit { onSetFab(this@BridgeSession, msg.label, msg.sizeDp) }
+                emit { onSetFab(this@BridgeSession, msg.raw) }
             is BridgeInbound.Update ->
                 emit { onUpdate(this@BridgeSession, msg.widgetId, UiNode.propsFromJson(msg.props)) }
             is BridgeInbound.Toast ->

@@ -47,8 +47,8 @@ object BridgeServer {
             UiHost.setPanelStyle(session.sessionId, PanelStyleParser.panel(raw))
         }
 
-        override fun onSetFab(session: BridgeSession, label: String, sizeDp: Int) {
-            UiHost.setFabStyle(session.sessionId, PanelStyleParser.fab(label, sizeDp))
+        override fun onSetFab(session: BridgeSession, raw: org.json.JSONObject) {
+            UiHost.setFabStyle(session.sessionId, PanelStyleParser.fab(raw))
         }
 
         override fun onUpdate(session: BridgeSession, widgetId: String, props: Map<String, Any?>) {

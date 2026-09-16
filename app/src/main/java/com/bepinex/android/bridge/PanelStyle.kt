@@ -17,10 +17,19 @@ data class PanelStyle(
     val elevationDp: Float = 16f,
 )
 
-/** Floating action button label and size. Empty [label] is filled by the host. */
+enum class FabShape {
+    CIRCLE,
+    ROUNDED,
+    SQUARE,
+}
+
+/** Floating action button chrome. Null [backgroundArgb] uses the launcher default. */
 data class FabStyle(
     val label: String = "",
     val sizeDp: Int = 48,
+    val backgroundArgb: Int? = null,
+    val shape: FabShape = FabShape.CIRCLE,
+    val cornerRadiusDp: Float = 12f,
 )
 
 /** Parses plugin-supplied overlay chrome from JSON. */
@@ -60,10 +69,29 @@ object PanelStyleParser {
 
     /** Clamps [sizeDp] to 36..64 and keeps at most two characters of [label]. */
     fun fab(label: String, sizeDp: Int): FabStyle =
-        FabStyle(
-            label = label.trim().take(2),
-            sizeDp = sizeDp.coerceIn(36, 64),
+        fab(
+            JSONObject()
+                .put("label", label)
+                .put("size", sizeDp),
         )
+
+    fun fab(obj: JSONObject?): FabStyle {
+        if (obj == null) return FabStyle()
+        return FabStyle(
+            label = obj.optString("label").trim().take(2),
+            sizeDp = jsonInt(obj, "size", 48).coerceIn(36, 64),
+            backgroundArgb = parseColor(jsonString(obj, "background")),
+            shape = parseFabShape(jsonString(obj, "shape")),
+            cornerRadiusDp = jsonFloat(obj, "cornerRadius", 12f).coerceIn(0f, 24f),
+        )
+    }
+
+    private fun parseFabShape(raw: String?): FabShape =
+        when (raw?.trim()?.lowercase()) {
+            "rounded", "roundrect", "rect" -> FabShape.ROUNDED
+            "square" -> FabShape.SQUARE
+            else -> FabShape.CIRCLE
+        }
 
     private fun jsonInt(obj: JSONObject, key: String, default: Int): Int {
         if (!obj.has(key) || obj.isNull(key)) return default

@@ -94,10 +94,7 @@ object BridgeProtocol {
                 data = raw.optString("data")
             )
             "set_panel" -> BridgeInbound.SetPanel(raw = raw)
-            "set_fab" -> BridgeInbound.SetFab(
-                label = raw.optString("label"),
-                sizeDp = raw.optInt("size", 48)
-            )
+            "set_fab" -> BridgeInbound.SetFab(raw = raw)
             else -> BridgeInbound.Unknown(type, raw)
         }
     }
@@ -179,7 +176,7 @@ sealed class BridgeInbound {
     data class SetPanel(val raw: JSONObject) : BridgeInbound()
 
     /** Floating action button label and size. */
-    data class SetFab(val label: String, val sizeDp: Int) : BridgeInbound()
+    data class SetFab(val raw: JSONObject) : BridgeInbound()
 
     /** Unrecognized or untyped payload. */
     data class Unknown(

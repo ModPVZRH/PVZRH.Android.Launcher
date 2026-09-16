@@ -254,14 +254,13 @@ object UiHost {
 
     private fun buildFab(activity: Activity, window: PluginWindow, fabSize: Int): View {
         val icon = window.icon
-        val child: View = if (icon != null) {
+        val hasIcon = icon != null
+        val style = window.fabStyle
+        val child: View = if (hasIcon) {
             ImageView(activity).apply {
                 setImageBitmap(icon)
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 setBackgroundColor(Color.TRANSPARENT)
-                val pad = UiTheme.dp(density, 8f)
-                setPadding(pad, pad, pad, pad)
-                cropToPadding = true
             }
         } else {
             TextView(activity).apply {
@@ -275,9 +274,21 @@ object UiHost {
                 ellipsize = TextUtils.TruncateAt.END
             }
         }
+        val bgColor = style.backgroundArgb ?: if (hasIcon) Color.TRANSPARENT else UiTheme.PRIMARY
+        val transparentBg = Color.alpha(bgColor) == 0
         return FrameLayout(activity).apply {
-            background = UiTheme.fabBackground(density)
-            elevation = 10f * density
+            if (transparentBg) {
+                setBackgroundColor(Color.TRANSPARENT)
+                elevation = 0f
+            } else {
+                background = UiTheme.fabDrawable(
+                    density,
+                    bgColor,
+                    style.shape,
+                    style.cornerRadiusDp,
+                )
+                elevation = 10f * density
+            }
             contentDescription = displayName(window)
             isClickable = true
             addView(
