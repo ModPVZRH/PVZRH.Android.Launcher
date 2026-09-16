@@ -53,6 +53,28 @@ public sealed class LauncherUiClient : IDisposable
     /// <summary>Raised once when the TCP connection is lost and this instance was not disposed.</summary>
     public event Action? OnDisconnected;
 
+    /// <summary>True when called from Unity's main thread (after <see cref="LauncherUiPlugin"/> loaded).</summary>
+    public static bool IsUnityThread => UnityDispatch.IsMainThread;
+
+    /// <summary>Queue work onto Unity's next Update. Safe from any thread.</summary>
+    public static void PostToUnity(Action action) => UnityDispatch.Post(action);
+
+    /// <summary>
+    /// On the Unity main thread, wait until <paramref name="ready"/> is true, then run <paramref name="action"/> once.
+    /// Use this to fill dropdowns from <c>GameAPP</c> / <c>Lawnf</c> without crashing on the TCP thread.
+    /// </summary>
+    public static void RunWhen(Func<bool> ready, Action action, int timeoutMs = 0) =>
+        UnityDispatch.RunWhen(ready, action, timeoutMs);
+
+    /// <summary>
+    /// Same as <see cref="RunWhen(Func{bool}, Action, int)"/>, passing this client into the fill callback.
+    /// </summary>
+    public void RunWhen(Func<bool> ready, Action<LauncherUiClient> fill, int timeoutMs = 0)
+    {
+        if (fill is null) throw new ArgumentNullException(nameof(fill));
+        UnityDispatch.RunWhen(ready, () => fill(this), timeoutMs);
+    }
+
     private LauncherUiClient(TcpClient tcp, NetworkStream stream, string sessionId)
     {
         _tcp = tcp;

@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 
@@ -44,9 +45,18 @@ public class LauncherUiPlugin : BasePlugin
     public override void Load()
     {
         Instance = this;
+        try
+        {
+            UnityDispatch.Start(this);
+        }
+        catch (Exception ex)
+        {
+            Log.LogError($"Failed to start UnityDispatch: {ex}");
+        }
+
         Log.LogInfo(
             "Launcher UI client loaded. Other plugins: [BepInDependency(\"" +
             PluginGuid +
-            "\")] then LauncherUiClient.Connect(pluginId, pluginName).");
+            "\")] then LauncherUiClient.Connect(pluginId, pluginName). Use UnityDispatch.RunWhen for game APIs.");
     }
 }
