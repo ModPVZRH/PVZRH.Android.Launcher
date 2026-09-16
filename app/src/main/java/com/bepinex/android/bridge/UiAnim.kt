@@ -100,6 +100,36 @@ internal object UiAnim {
             .start()
     }
 
+    fun tabIndicator(
+        view: View,
+        toLeft: Int,
+        toWidth: Int,
+        current: ValueAnimator?,
+        animate: Boolean,
+    ): ValueAnimator? {
+        current?.cancel()
+        val lp = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return current
+        val fromLeft = lp.leftMargin
+        val fromWidth = if (view.width > 0) view.width else lp.width
+        if (!animate || fromWidth <= 0 || toWidth <= 0) {
+            lp.leftMargin = toLeft
+            lp.width = toWidth
+            view.layoutParams = lp
+            return null
+        }
+        return ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = TAB_MS
+            interpolator = Ease
+            addUpdateListener { animator ->
+                val f = animator.animatedFraction
+                lp.leftMargin = (fromLeft + (toLeft - fromLeft) * f).toInt()
+                lp.width = (fromWidth + (toWidth - fromWidth) * f).toInt()
+                view.layoutParams = lp
+            }
+            start()
+        }
+    }
+
     private fun runHeight(
         view: View,
         from: Int,

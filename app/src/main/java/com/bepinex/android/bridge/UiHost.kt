@@ -360,18 +360,9 @@ object UiHost {
             addView(minimizeBtn)
         }
 
-        val host = FrameLayout(activity)
-        val scroll = ScrollView(activity).apply {
-            isFillViewport = true
+        val host = FrameLayout(activity).apply {
             val pad = UiTheme.dp(density, 4f)
             setPadding(pad, pad, pad, pad)
-            addView(
-                host,
-                ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                ),
-            )
         }
 
         val panelLayout = LinearLayout(activity).apply {
@@ -389,7 +380,7 @@ object UiHost {
                 ),
             )
             addView(
-                scroll,
+                host,
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }
@@ -527,7 +518,7 @@ object UiHost {
         val inflater = UiInflater(activity, window.onEvent)
         window.inflater = inflater
         window.content = try {
-            inflater.inflate(window.tree)
+            wrapPanelContent(activity, inflater.inflate(window.tree), window.tree)
         } catch (t: Throwable) {
             BepInExLog.e("UiHost: inflate failed for ${window.sessionId}", t)
             TextView(activity).apply {
@@ -549,9 +540,23 @@ object UiHost {
             content,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
             ),
         )
+    }
+
+    private fun wrapPanelContent(activity: Activity, content: View, tree: UiNode): View {
+        if (tree.type == WidgetType.TABS || tree.type == WidgetType.SCROLL) return content
+        return ScrollView(activity).apply {
+            isFillViewport = true
+            addView(
+                content,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
     }
 
     private fun capturePosition(window: PluginWindow) {

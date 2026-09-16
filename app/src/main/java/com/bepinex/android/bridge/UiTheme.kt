@@ -108,6 +108,10 @@ object UiTheme {
         const val GROUP_BODY_PAD = 12
         const val LIST_ITEM_PAD = 8
         const val FAB_DEFAULT = 48
+        const val TAB_MIN_H = 36
+        const val TAB_TEXT = 12f
+        const val TAB_INDICATOR_H = 3
+        const val TAB_BAR_RADIUS = 12f
     }
 
     fun bind(context: Context) {
@@ -236,6 +240,9 @@ object UiTheme {
     fun chipText(selected: Boolean): Int =
         if (selected) ON_PRIMARY_CONTAINER else TEXT
 
+    fun tabBarBackground(density: Float): GradientDrawable =
+        roundedRect(density, SURFACE_VARIANT, cornerDp = Metrics.TAB_BAR_RADIUS)
+
     fun tabBackground(density: Float, selected: Boolean): GradientDrawable =
         if (selected) {
             roundedRect(density, PRIMARY_CONTAINER, cornerDp = 8f)
@@ -243,8 +250,17 @@ object UiTheme {
             roundedRect(density, SURFACE_VARIANT, cornerDp = 8f)
         }
 
+    fun tabRipple(density: Float): Drawable {
+        val color = withAlpha(PRIMARY, 0.18f)
+        val mask = roundedRect(density, Color.WHITE, cornerDp = 8f)
+        return RippleDrawable(ColorStateList.valueOf(color), null, mask)
+    }
+
+    fun tabIndicator(density: Float): GradientDrawable =
+        roundedRect(density, PRIMARY, cornerDp = 1.5f)
+
     fun tabText(selected: Boolean): Int =
-        if (selected) ON_PRIMARY_CONTAINER else TEXT_MUTED
+        if (selected) PRIMARY else TEXT_MUTED
 
     fun controlTint(): ColorStateList = ColorStateList.valueOf(PRIMARY)
 

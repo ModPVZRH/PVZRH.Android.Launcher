@@ -386,9 +386,29 @@ class UiInflater(
     private fun tabs(node: UiNode): View {
         val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
         pad(root, node)
-        val header = LinearLayout(activity).apply {
+        val indicatorH = UiTheme.dp(density, UiTheme.Metrics.TAB_INDICATOR_H.toFloat())
+        val tabRow = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, UiTheme.dp(density, 4f), 0, UiTheme.dp(density, 4f))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, indicatorH + UiTheme.dp(density, 2f))
+        }
+        val indicator = View(activity).apply {
+            background = UiTheme.tabIndicator(density)
+            layoutParams = FrameLayout.LayoutParams(0, indicatorH).apply {
+                gravity = Gravity.BOTTOM or Gravity.START
+                bottomMargin = UiTheme.dp(density, 2f)
+            }
+        }
+        val tabStrip = FrameLayout(activity).apply {
+            background = UiTheme.tabBarBackground(density)
+            addView(
+                tabRow,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            addView(indicator)
         }
         val content = FrameLayout(activity).apply {
             clipChildren = true
@@ -397,13 +417,30 @@ class UiInflater(
         var active = node.propString("active").ifEmpty { node.children.firstOrNull()?.id.orEmpty() }
         val pages = mutableListOf<Pair<String, View>>()
         var tabGen = 0
+        var indicatorAnim: ValueAnimator? = null
         fun paintChips() {
             pages.forEachIndexed { index, (id, _) ->
-                val chip = header.getChildAt(index) as? TextView ?: return@forEachIndexed
+                val chip = tabRow.getChildAt(index) as? TextView ?: return@forEachIndexed
                 val selected = id == active
-                chip.background = UiTheme.tabBackground(density, selected)
                 chip.setTextColor(UiTheme.tabText(selected))
+                chip.typeface = if (selected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             }
+        }
+        fun moveIndicator(animate: Boolean) {
+            val index = pages.indexOfFirst { it.first == active }.coerceAtLeast(0)
+            val tab = tabRow.getChildAt(index) ?: return
+            val run = {
+                if (tab.width > 0) {
+                    indicatorAnim = UiAnim.tabIndicator(
+                        indicator,
+                        tab.left,
+                        tab.width,
+                        indicatorAnim,
+                        animate && indicator.width > 0,
+                    )
+                }
+            }
+            if (tab.width > 0) run() else tabRow.post(run)
         }
         fun resetPage(page: View, visible: Boolean) {
             page.animate().cancel()
@@ -434,11 +471,33 @@ class UiInflater(
                 currentGeneration = { tabGen },
             )
         }
+        fun selectTab(nextId: String, animate: Boolean) {
+            if (nextId.isEmpty() || nextId == active && animate) return
+            val previous = active
+            active = nextId
+            paintChips()
+            moveIndicator(animate)
+            showPage(nextId, fromId = previous, animate = animate)
+        }
+        val tabMinH = UiTheme.dp(density, UiTheme.Metrics.TAB_MIN_H.toFloat())
+        val tabPadH = UiTheme.dp(density, 6f)
+        val tabPadV = UiTheme.dp(density, 8f)
         node.children.forEach { child ->
             val page = build(child)
-            pages += child.id to page
+            val scroller = ScrollView(activity).apply {
+                isFillViewport = true
+                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                addView(
+                    page,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            }
+            pages += child.id to scroller
             content.addView(
-                page,
+                scroller,
                 FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT,
@@ -447,35 +506,31 @@ class UiInflater(
             val label = child.propString("title").ifEmpty { child.propString("label").ifEmpty { child.id } }
             val chip = TextView(activity).apply {
                 text = label
-                textSize = 12f
-                setPadding(
-                    UiTheme.dp(density, 4f),
-                    UiTheme.dp(density, 6f),
-                    UiTheme.dp(density, 4f),
-                    UiTheme.dp(density, 6f),
-                )
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { marginEnd = UiTheme.dp(density, 8f) }
-                layoutParams = lp
+                textSize = UiTheme.Metrics.TAB_TEXT
+                gravity = Gravity.CENTER
+                includeFontPadding = false
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                minHeight = tabMinH
+                setPadding(tabPadH, tabPadV, tabPadH, tabPadV)
+                background = UiTheme.tabRipple(density)
+                isClickable = true
+                isFocusable = true
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                 setOnClickListener {
                     if (active == child.id) return@setOnClickListener
-                    val previous = active
-                    active = child.id
-                    paintChips()
-                    showPage(child.id, fromId = previous, animate = true)
+                    selectTab(child.id, animate = true)
                     emit(node.id, "change", child.id)
                 }
             }
-            header.addView(chip)
+            tabRow.addView(chip)
         }
         root.addView(
-            header,
+            tabStrip,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
+            ).apply { bottomMargin = UiTheme.dp(density, 6f) },
         )
         root.addView(
             content,
@@ -491,14 +546,12 @@ class UiInflater(
         )
         paintChips()
         showPage(active, fromId = null, animate = false)
+        tabRow.post { moveIndicator(animate = false) }
         register(node.id) { props ->
             val n = UiNode(node.id, node.type, props)
             val next = n.propString("active")
             if (next.isNotEmpty() && next != active) {
-                val previous = active
-                active = next
-                paintChips()
-                showPage(next, fromId = previous, animate = true)
+                selectTab(next, animate = true)
             }
         }
         return root
