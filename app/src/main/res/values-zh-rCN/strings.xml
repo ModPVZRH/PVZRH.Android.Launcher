@@ -541,7 +541,6 @@
     <string name="market_sort_views">浏览最多</string>
     <string name="market_sort_name">名称</string>
     <string name="market_result_count">共 %d 个</string>
-
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">正在启动游戏</string>
     <string name="bootstrap_status_preparing">正在准备目标包…</string>
