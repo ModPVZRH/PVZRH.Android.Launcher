@@ -31,6 +31,7 @@ app/.cxx/
 app/build/
 TestPlugin/bin/
 TestPlugin/obj/
+sdk/_bepinex_refs/
 debug-pulled/
 tombstone_*
 

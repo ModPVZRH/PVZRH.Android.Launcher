@@ -34,6 +34,7 @@ object UnityPlayerHooks {
     private const val KILL_BLOCK_WINDOW_MS = 5_000L
 
     private val killHookInstalled = AtomicBoolean(false)
+    private val destroyHookInstalled = AtomicBoolean(false)
     @Volatile
     private var killInitTimestamp = 0L
 
@@ -148,6 +149,15 @@ object UnityPlayerHooks {
                         } catch (e: Exception) {
                             BepInExLog.e("Failed to launch log overlay", e)
                         }
+                        try {
+                            val modMenu = com.bepinex.android.settings.AppSettings.isFloatingModMenuEnabled(act)
+                            if (modMenu) {
+                                com.bepinex.android.bridge.BridgeServer.start(act, gameContext.packageName)
+                                BepInExLog.i("UI bridge server started")
+                            }
+                        } catch (e: Exception) {
+                            BepInExLog.e("Failed to start UI bridge", e)
+                        }
                     }, 2000)
                 }
             })
@@ -231,6 +241,27 @@ object UnityPlayerHooks {
             }
         })
         BepInExLog.i("Activity.attachBaseContext hook installed")
+
+        if (!destroyHookInstalled.compareAndSet(false, true)) {
+            BepInExLog.i("Activity.onDestroy hook already installed")
+            return
+        }
+        try {
+            val destroyMethod = Activity::class.java.getDeclaredMethod("onDestroy")
+                .apply { isAccessible = true }
+            Pine.hook(destroyMethod, object : MethodHook() {
+                override fun afterCall(frame: Pine.CallFrame) {
+                    val activity = frame.thisObject as? Activity ?: return
+                    if (activity.javaClass.classLoader === gameClassLoader) {
+                        com.bepinex.android.bridge.BridgeServer.stop()
+                    }
+                }
+            })
+            BepInExLog.i("Activity.onDestroy hook installed")
+        } catch (e: Exception) {
+            destroyHookInstalled.set(false)
+            BepInExLog.e("Failed to hook Activity.onDestroy", e)
+        }
     }
 
     private fun showLoadingOverlay(activity: Activity, statusText: String): View? {

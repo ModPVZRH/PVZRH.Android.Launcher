@@ -382,6 +382,7 @@ class BootstrapActivity : Activity() {
         fileExtractor.extractBepInExIfNeeded(targetPackage) { status ->
             BepInExLog.i(status)
         }
+        fileExtractor.installLauncherUiPlugin(targetPackage)
 
         // Extract dotnet to internal storage
         updateProgress(getString(R.string.bootstrap_status_extracting_runtime), "", 25)

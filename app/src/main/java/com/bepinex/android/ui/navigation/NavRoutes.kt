@@ -14,6 +14,7 @@ object NavRoutes {
     const val VIEWER_SETTINGS = "viewer_settings"
     const val MOD_FILE_BROWSER = "mod_file_browser/{packageName}/{modpackName}"
     const val SAVE_IMPORT = "save_import/{packageName}"
+    const val MARKET_MOD_DETAIL = "market_mod_detail/{modId}"
 
     fun modpackDetail(packageName: String, modpackName: String) =
         "modpack_detail/$packageName/$modpackName"
@@ -23,4 +24,5 @@ object NavRoutes {
     fun modFileBrowser(packageName: String, modpackName: String) =
         "mod_file_browser/$packageName/$modpackName"
     fun saveImport(packageName: String) = "save_import/$packageName"
+    fun marketModDetail(modId: String) = "market_mod_detail/$modId"
 }

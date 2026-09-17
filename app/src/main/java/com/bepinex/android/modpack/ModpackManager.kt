@@ -11,6 +11,7 @@ import android.os.storage.StorageManager
 import android.provider.MediaStore
 import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
+import com.bepinex.android.FileExtractor
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -29,13 +30,28 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
+ * Per-mod extras stored in modpack.json.
+ *
+ * Default-only entries (file-name display, enabled, no category) are omitted.
+ */
+data class StoredModInfo(
+    val displayName: String? = null,
+    val enabled: Boolean = true,
+    val category: String? = null
+) {
+    fun isDefault(fileName: String): Boolean {
+        val name = displayName?.trim().orEmpty()
+        return enabled &&
+            category.isNullOrBlank() &&
+            (name.isEmpty() || name == fileName)
+    }
+}
+
+/**
  * Metadata for a modpack.
  *
- * [dllNames] maps a plugin-relative DLL path to a display name. Older
- * modpack.json files omit this field; missing entries fall back to the file name.
- *
- * [disabledDlls] lists plugin-relative DLL paths that should not be copied into
- * the runtime plugins directory. Older files omit this field; missing means all enabled.
+ * [mods] maps a plugin-relative DLL path to optional display name, enabled
+ * flag, and category. Older files used dllNames/disabledDlls/dllCategories.
  */
 data class ModpackMeta(
     val name: String,
@@ -43,9 +59,12 @@ data class ModpackMeta(
     val createdAt: Long = System.currentTimeMillis(),
     val modCount: Int = 0,
     val createShortcut: Boolean = false,
-    val dllNames: Map<String, String> = emptyMap(),
-    val disabledDlls: Set<String> = emptySet()
+    val gameVersion: String = "",
+    val mods: Map<String, StoredModInfo> = emptyMap()
 ) {
+    val disabledDlls: Set<String>
+        get() = mods.filterValues { !it.enabled }.keys
+
     val enabledModCount: Int
         get() = (modCount - disabledDlls.size).coerceAtLeast(0)
 }
@@ -55,7 +74,18 @@ data class ModpackMod(
     val file: File,
     val relativePath: String,
     val displayName: String,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val category: String? = null
+)
+
+data class PeekedModpackInfo(
+    val name: String,
+    val gameVersion: String
+)
+
+data class ModImportResult(
+    val importedMods: Int,
+    val importedConfigs: Int
 )
 
 data class ModpackExportProgress(
@@ -84,8 +114,33 @@ class ModpackManager {
         const val MODPACK_MIME_TYPE = "application/octet-stream"
 
         private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
+        private const val MODS_KEY = "mods"
+        private const val GAME_VERSION_KEY = "gameVersion"
         private const val DLL_NAMES_KEY = "dllNames"
         private const val DISABLED_DLLS_KEY = "disabledDlls"
+        private const val DLL_CATEGORIES_KEY = "dllCategories"
+
+        fun isGameVersionCompatible(required: String?, actual: String?): Boolean {
+            val tokens = parseGameVersionTokens(required)
+            if (tokens.isEmpty()) return true
+            val current = normalizeGameVersion(actual)
+            if (current.isEmpty()) return true
+            return tokens.any { token ->
+                token.equals(current, ignoreCase = true)
+            }
+        }
+
+        private fun parseGameVersionTokens(value: String?): List<String> =
+            value.orEmpty()
+                .split(',', ';', '/', '|', '、')
+                .map(::normalizeGameVersion)
+                .filter { it.isNotEmpty() }
+
+        private fun normalizeGameVersion(value: String?): String =
+            value.orEmpty()
+                .substringBefore('(')
+                .substringBefore(' ')
+                .trim()
         private val EXTRA_DOWNLOAD_RELATIVE_PATHS = listOf(
             "Download",
             "Downloads",
@@ -150,7 +205,11 @@ class ModpackManager {
             ?: emptyList()
     }
 
-    fun createModpack(packageName: String, name: String): ModpackMeta? {
+    fun createModpack(
+        packageName: String,
+        name: String,
+        gameVersion: String = ""
+    ): ModpackMeta? {
         val safeName = normalizeModpackName(name)
         if (safeName.isEmpty()) return null
 
@@ -163,7 +222,11 @@ class ModpackManager {
             getModpackConfigDir(packageName, safeName).mkdirs()
             getModpackLogsDir(packageName, safeName).mkdirs()
 
-            val meta = ModpackMeta(name = safeName, packageName = packageName)
+            val meta = ModpackMeta(
+                name = safeName,
+                packageName = packageName,
+                gameVersion = gameVersion.trim()
+            )
             writeMeta(meta)
             BepInExLog.i("Created modpack: $safeName")
             meta
@@ -240,16 +303,16 @@ class ModpackManager {
 
     fun listModEntries(packageName: String, modpackName: String): List<ModpackMod> {
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        val meta = readMeta(packageName, modpackName)
-        val mappings = meta?.dllNames.orEmpty()
-        val disabled = meta?.disabledDlls.orEmpty()
+        val stored = readMeta(packageName, modpackName)?.mods.orEmpty()
         return listMods(packageName, modpackName).map { file ->
             val relativePath = dllRelativePath(pluginsDir, file)
+            val info = lookupModInfo(stored, relativePath, file.name)
             ModpackMod(
                 file = file,
                 relativePath = relativePath,
-                displayName = resolveDllDisplayName(mappings, relativePath, file.name),
-                enabled = isDllEnabled(disabled, relativePath, file.name)
+                displayName = info?.displayName?.takeIf { it.isNotBlank() } ?: file.name,
+                enabled = info?.enabled ?: true,
+                category = info?.category?.takeIf { it.isNotBlank() }
             )
         }
     }
@@ -263,14 +326,27 @@ class ModpackManager {
         val name = displayName.trim()
         if (name.isEmpty()) return false
         val current = readMeta(packageName, modpackName) ?: return false
-        val dllNames = syncedDllNames(packageName, modpackName, current.dllNames).toMutableMap()
-        dllNames[normalizeDllKey(relativePath)] = name
+        val fileName = normalizeDllKey(relativePath).substringAfterLast('/')
         writeMeta(
-            current.copy(
-                modCount = getModCount(packageName, modpackName),
-                dllNames = dllNames,
-                disabledDlls = syncedDisabledDlls(packageName, modpackName, current.disabledDlls)
-            )
+            updateModInfo(current, packageName, modpackName, relativePath) { info ->
+                info.copy(displayName = name.takeUnless { it == fileName })
+            }
+        )
+        return true
+    }
+
+    fun setDllCategory(
+        packageName: String,
+        modpackName: String,
+        relativePath: String,
+        category: String?
+    ): Boolean {
+        val current = readMeta(packageName, modpackName) ?: return false
+        val name = category?.trim().orEmpty()
+        writeMeta(
+            updateModInfo(current, packageName, modpackName, relativePath) { info ->
+                info.copy(category = name.takeIf { it.isNotEmpty() })
+            }
         )
         return true
     }
@@ -282,20 +358,10 @@ class ModpackManager {
         enabled: Boolean
     ): Boolean {
         val current = readMeta(packageName, modpackName) ?: return false
-        val key = normalizeDllKey(relativePath)
-        if (key.isEmpty()) return false
-        val disabled = syncedDisabledDlls(packageName, modpackName, current.disabledDlls).toMutableSet()
-        if (enabled) {
-            disabled.remove(key)
-            disabled.remove(key.substringAfterLast('/'))
-        } else {
-            disabled.add(key)
-        }
         writeMeta(
-            current.copy(
-                modCount = getModCount(packageName, modpackName),
-                disabledDlls = disabled
-            )
+            updateModInfo(current, packageName, modpackName, relativePath) { info ->
+                info.copy(enabled = enabled)
+            }
         )
         return true
     }
@@ -347,6 +413,147 @@ class ModpackManager {
             BepInExLog.e("Failed to add mod from URI", e)
             null
         }
+    }
+
+    /**
+     * Copy selected plugins from [sourceModpack] into [destModpack], including
+     * matching config files and extra files that sit beside the DLL.
+     */
+    fun importModsFromModpack(
+        packageName: String,
+        sourceModpack: String,
+        destModpack: String,
+        relativePaths: Collection<String>
+    ): ModImportResult {
+        if (sourceModpack == destModpack) return ModImportResult(0, 0)
+        val selectedKeys = relativePaths.map(::normalizeDllKey).filter { it.isNotEmpty() }.toSet()
+        if (selectedKeys.isEmpty()) return ModImportResult(0, 0)
+
+        val sourcePlugins = getModpackPluginsDir(packageName, sourceModpack)
+        val destPlugins = getModpackPluginsDir(packageName, destModpack)
+        destPlugins.mkdirs()
+        getModpackConfigDir(packageName, destModpack).mkdirs()
+
+        val selectedMods = listModEntries(packageName, sourceModpack)
+            .filter { normalizeDllKey(it.relativePath) in selectedKeys }
+
+        var importedMods = 0
+        selectedMods.forEach { mod ->
+            try {
+                copyFilePreserve(mod.file, File(destPlugins, mod.relativePath))
+                copyPluginExtras(sourcePlugins, destPlugins, mod, selectedKeys)
+                importedMods++
+            } catch (e: Exception) {
+                BepInExLog.e("Failed to import mod ${mod.relativePath}", e)
+            }
+        }
+
+        val importedConfigs = copyMatchingConfigs(
+            packageName,
+            sourceModpack,
+            destModpack,
+            selectedMods
+        )
+
+        val destMeta = readMeta(packageName, destModpack)
+            ?: ModpackMeta(name = destModpack, packageName = packageName)
+        val mods = syncedMods(packageName, destModpack, destMeta.mods).toMutableMap()
+        selectedMods.forEach { mod ->
+            val key = normalizeDllKey(mod.relativePath)
+            val fileName = key.substringAfterLast('/')
+            val info = StoredModInfo(
+                displayName = mod.displayName.takeIf { it.isNotBlank() && it != fileName },
+                enabled = mod.enabled,
+                category = mod.category?.trim()?.takeIf { it.isNotEmpty() }
+            )
+            if (info.isDefault(fileName)) {
+                mods.remove(key)
+                mods.remove(fileName)
+            } else {
+                mods.remove(fileName)
+                mods[key] = info
+            }
+        }
+        writeMeta(
+            destMeta.copy(
+                modCount = getModCount(packageName, destModpack),
+                mods = mods
+            )
+        )
+        BepInExLog.i(
+            "Imported $importedMods mod(s) and $importedConfigs config(s) from $sourceModpack -> $destModpack"
+        )
+        return ModImportResult(importedMods, importedConfigs)
+    }
+
+    private fun copyFilePreserve(source: File, dest: File) {
+        dest.parentFile?.mkdirs()
+        source.copyTo(dest, overwrite = true)
+    }
+
+    private fun copyPluginExtras(
+        sourcePlugins: File,
+        destPlugins: File,
+        mod: ModpackMod,
+        selectedKeys: Set<String>
+    ) {
+        val parentRel = mod.relativePath.substringBeforeLast('/', "")
+        if (parentRel.isNotEmpty()) {
+            val srcDir = File(sourcePlugins, parentRel)
+            if (!srcDir.isDirectory) return
+            srcDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                val rel = normalizeDllKey(file.relativeTo(sourcePlugins).invariantSeparatorsPath)
+                if (file.extension.equals("dll", ignoreCase = true) && rel !in selectedKeys) return@forEach
+                copyFilePreserve(file, File(destPlugins, rel))
+            }
+            return
+        }
+
+        val stem = mod.file.nameWithoutExtension
+        sourcePlugins.listFiles()?.forEach { file ->
+            if (!file.isFile) return@forEach
+            if (file.extension.equals("dll", ignoreCase = true)) return@forEach
+            if (!file.nameWithoutExtension.equals(stem, ignoreCase = true)) return@forEach
+            copyFilePreserve(file, File(destPlugins, file.name))
+        }
+    }
+
+    private fun copyMatchingConfigs(
+        packageName: String,
+        sourceModpack: String,
+        destModpack: String,
+        selectedMods: List<ModpackMod>
+    ): Int {
+        val srcConfig = getModpackConfigDir(packageName, sourceModpack)
+        val destConfig = getModpackConfigDir(packageName, destModpack)
+        if (!srcConfig.isDirectory || selectedMods.isEmpty()) return 0
+
+        val copied = linkedSetOf<String>()
+        srcConfig.walkTopDown().filter { it.isFile }.forEach { file ->
+            val rel = normalizeDllKey(file.relativeTo(srcConfig).invariantSeparatorsPath)
+            if (rel in copied) return@forEach
+            if (selectedMods.none { configMatchesMod(rel, it) }) return@forEach
+            copyFilePreserve(file, File(destConfig, rel))
+            copied += rel
+        }
+        return copied.size
+    }
+
+    private fun configMatchesMod(relativePath: String, mod: ModpackMod): Boolean {
+        val cfgPath = normalizeDllKey(relativePath).lowercase()
+        val cfgName = cfgPath.substringAfterLast('/').substringBeforeLast('.')
+        val dllStem = mod.file.nameWithoutExtension.lowercase()
+        val dllFolder = mod.relativePath.substringBeforeLast('/', "").lowercase()
+        if (dllStem.isNotEmpty()) {
+            if (cfgName == dllStem) return true
+            if (cfgName.substringAfterLast('.') == dllStem) return true
+        }
+        if (dllFolder.isNotEmpty()) {
+            if (cfgName == dllFolder) return true
+            if (cfgName.substringAfterLast('.') == dllFolder) return true
+            if (cfgPath.startsWith("$dllFolder/")) return true
+        }
+        return false
     }
 
     fun removeMod(file: File): Boolean {
@@ -456,6 +663,7 @@ class ModpackManager {
         syncDirContents(File(srcRoot, "config"), configDir)
         // Do NOT restore LogOutput.log from modpack — let each session start fresh.
         // persistRuntimeState() will save the latest logs when the session ends.
+        FileExtractor.copyStagedLauncherUiPlugin(packageName)
         BepInExLog.i("Restored runtime cfg from ${srcRoot.absolutePath}")
     }
 
@@ -697,10 +905,39 @@ class ModpackManager {
     }
 
     fun scanDownloadModpacks(context: Context): List<File> {
+        return scanDownloadCandidates(
+            context = context,
+            extension = MODPACK_EXTENSION,
+            downloadsOnlyMediaStore = false
+        )
+            .filter { containsModpackMetadata(it) }
+            .let(::dedupeScanFiles)
+    }
+
+    fun scanDownloadDlls(context: Context): List<File> {
+        return scanDownloadCandidates(
+            context = context,
+            extension = "dll",
+            downloadsOnlyMediaStore = true,
+            extraFilter = { !isLauncherManagedPath(it) }
+        )
+            .let(::dedupeScanFiles)
+            .groupBy { it.name.lowercase() }
+            .map { (_, copies) -> copies.minWithOrNull(scanFileComparator) ?: copies.first() }
+            .sortedByDescending { it.lastModified() }
+    }
+
+    private fun scanDownloadCandidates(
+        context: Context,
+        extension: String,
+        downloadsOnlyMediaStore: Boolean,
+        extraFilter: (File) -> Boolean = { true }
+    ): List<File> {
         val byPath = linkedMapOf<String, File>()
         fun addCandidate(file: File) {
             if (!file.isFile) return
-            if (!file.extension.equals(MODPACK_EXTENSION, ignoreCase = true)) return
+            if (!file.extension.equals(extension, ignoreCase = true)) return
+            if (!extraFilter(file)) return
             val key = runCatching { file.canonicalPath }.getOrDefault(file.absolutePath)
             val existing = byPath[key]
             if (existing == null || compareScanFiles(file, existing) < 0) {
@@ -715,13 +952,28 @@ class ModpackManager {
                     .forEach(::addCandidate)
             }
         }
-        scanMediaStoreRhpFiles(context, byPath.values).forEach(::addCandidate)
+        scanMediaStoreFiles(
+            context = context,
+            extension = extension,
+            alreadyFound = byPath.values,
+            downloadsOnly = downloadsOnlyMediaStore
+        ).forEach(::addCandidate)
 
-        return byPath.values
-            .filter { containsModpackMetadata(it) }
+        return byPath.values.toList()
+    }
+
+    private fun dedupeScanFiles(files: Collection<File>): List<File> =
+        files
             .groupBy { scanIdentity(it) }
             .map { (_, copies) -> copies.minWithOrNull(scanFileComparator) ?: copies.first() }
             .sortedByDescending { it.lastModified() }
+
+    private fun isLauncherManagedPath(file: File): Boolean {
+        val path = file.absolutePath
+        val sep = File.separator
+        return path.contains("${sep}PVZRH_Launcher${sep}") ||
+            path.contains("${sep}Android${sep}data${sep}") ||
+            path.contains("${sep}Android${sep}obb${sep}")
     }
 
     private fun scanIdentity(file: File): String {
@@ -784,6 +1036,75 @@ class ModpackManager {
         }
     }
 
+    fun peekModpackInfo(file: File): PeekedModpackInfo? {
+        if (!file.isFile) return null
+        return try {
+            ZipFile(file).use { zip ->
+                val entry = zip.entries().asSequence().firstOrNull { item ->
+                    !item.isDirectory &&
+                        item.name.replace('\\', '/')
+                            .substringAfterLast('/')
+                            .equals("modpack.json", ignoreCase = true)
+                } ?: return null
+                zip.getInputStream(entry).bufferedReader().use { reader ->
+                    parsePeekedModpackInfo(reader.readText(), file.name)
+                }
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack ${file.name}: ${e.message}")
+            null
+        }
+    }
+
+    fun peekModpackInfo(context: Context, uri: Uri, archiveName: String? = null): PeekedModpackInfo? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                peekModpackInfoFromStream(input, archiveName)
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack URI: ${e.message}")
+            null
+        }
+    }
+
+    private fun peekModpackInfoFromStream(input: InputStream, archiveName: String?): PeekedModpackInfo? {
+        val zis = ZipInputStream(BufferedInputStream(input))
+        try {
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val entryName = entry.name.replace('\\', '/')
+                    .substringAfterLast('/')
+                if (!entry.isDirectory && entryName.equals("modpack.json", ignoreCase = true)) {
+                    return parsePeekedModpackInfo(String(zis.readBytes(), Charsets.UTF_8), archiveName)
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack stream: ${e.message}")
+        } finally {
+            zis.close()
+        }
+        return null
+    }
+
+    private fun parsePeekedModpackInfo(jsonText: String, archiveName: String?): PeekedModpackInfo? {
+        return try {
+            val json = JSONObject(jsonText)
+            val fallbackName = archiveName
+                ?.substringBeforeLast('.')
+                ?.let(::normalizeModpackName)
+                .orEmpty()
+            PeekedModpackInfo(
+                name = json.optString("name").trim().ifEmpty { fallbackName },
+                gameVersion = json.optString(GAME_VERSION_KEY).trim()
+            )
+        } catch (e: Exception) {
+            BepInExLog.w("Invalid peeked modpack.json: ${e.message}")
+            null
+        }
+    }
+
     private fun downloadDirectories(context: Context): List<File> {
         val dirs = linkedSetOf<File>()
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)?.let { dirs.add(it) }
@@ -819,17 +1140,26 @@ class ModpackManager {
         }
     }
 
-    private fun scanMediaStoreRhpFiles(context: Context, alreadyFound: Collection<File> = emptyList()): List<File> {
+    private fun scanMediaStoreFiles(
+        context: Context,
+        extension: String,
+        alreadyFound: Collection<File> = emptyList(),
+        downloadsOnly: Boolean = false
+    ): List<File> {
         val files = mutableListOf<File>()
         val collections = linkedSetOf<Uri>()
-        collections.add(MediaStore.Files.getContentUri("external"))
+        if (!downloadsOnly) {
+            collections.add(MediaStore.Files.getContentUri("external"))
+        }
         if (Build.VERSION.SDK_INT >= 29) {
             runCatching {
                 collections.add(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL))
             }
             runCatching {
                 MediaStore.getExternalVolumeNames(context).forEach { volume ->
-                    collections.add(MediaStore.Files.getContentUri(volume))
+                    if (!downloadsOnly) {
+                        collections.add(MediaStore.Files.getContentUri(volume))
+                    }
                     runCatching {
                         collections.add(MediaStore.Downloads.getContentUri(volume))
                     }
@@ -843,7 +1173,7 @@ class ModpackManager {
             MediaStore.MediaColumns.DATA
         )
         val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
-        val selectionArgs = arrayOf("%.rhp")
+        val selectionArgs = arrayOf("%.$extension")
 
         collections.forEach { collection ->
             try {
@@ -859,11 +1189,7 @@ class ModpackManager {
                     val dataIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
                     while (cursor.moveToNext()) {
                         val name = nameIdx.takeIf { it >= 0 }?.let(cursor::getString)
-                        if (!isModpackFileName(name) ||
-                            name?.substringAfterLast('.', "")?.equals(MODPACK_EXTENSION, true) != true
-                        ) {
-                            continue
-                        }
+                        if (!isScannedMediaStoreName(name, extension)) continue
                         val path = dataIdx.takeIf { it >= 0 }?.let(cursor::getString)
                         val direct = path?.takeIf { it.isNotBlank() }?.let(::File)
                         if (direct?.isFile == true) {
@@ -873,7 +1199,7 @@ class ModpackManager {
                         if (idIdx < 0 || name.isNullOrBlank()) continue
                         if (alreadyFound.any { it.name.equals(name, ignoreCase = true) }) continue
                         val itemUri = ContentUris.withAppendedId(collection, cursor.getLong(idIdx))
-                        copyMediaStoreItemToCache(context, itemUri, name)?.let(files::add)
+                        copyMediaStoreItemToCache(context, itemUri, name, extension)?.let(files::add)
                     }
                 }
             } catch (error: Exception) {
@@ -883,11 +1209,33 @@ class ModpackManager {
         return files
     }
 
-    private fun copyMediaStoreItemToCache(context: Context, uri: Uri, displayName: String): File? {
+    private fun isScannedMediaStoreName(name: String?, extension: String): Boolean {
+        if (name.isNullOrBlank()) return false
+        if (!name.substringAfterLast('.', "").equals(extension, ignoreCase = true)) return false
+        return if (extension.equals("dll", ignoreCase = true)) {
+            isModFileName(name)
+        } else {
+            isModpackFileName(name)
+        }
+    }
+
+    private fun copyMediaStoreItemToCache(
+        context: Context,
+        uri: Uri,
+        displayName: String,
+        extension: String
+    ): File? {
         return try {
-            val cacheDir = File(context.cacheDir, "download-scan")
-            cacheDir.mkdirs()
-            val target = File(cacheDir, "${uri.lastPathSegment}-$displayName")
+            val safeName = displayName.substringAfterLast('/').ifBlank { "download.$extension" }
+            val target = if (extension.equals("dll", ignoreCase = true)) {
+                val cacheDir = File(context.cacheDir, "download-scan/dll/${uri.lastPathSegment}")
+                cacheDir.mkdirs()
+                File(cacheDir, safeName)
+            } else {
+                val cacheDir = File(context.cacheDir, "download-scan")
+                cacheDir.mkdirs()
+                File(cacheDir, "${uri.lastPathSegment}-$safeName")
+            }
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             } ?: return null
@@ -979,8 +1327,8 @@ class ModpackManager {
                 file.isFile && file.name.equals("modpack.json", ignoreCase = true)
             } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
             val importedJson = JSONObject(metadataFile.readText())
-            val importedDllNames = parseDllNames(importedJson)
-            val importedDisabledDlls = parseDisabledDlls(importedJson)
+            val importedMods = parseMods(importedJson)
+            val importedGameVersion = importedJson.optString(GAME_VERSION_KEY).trim()
             val contentRoot = metadataFile.parentFile
                 ?: throw java.io.IOException("Invalid modpack metadata location")
 
@@ -1000,8 +1348,8 @@ class ModpackManager {
                 createdAt = importedJson.optLong("createdAt", System.currentTimeMillis()),
                 modCount = getModCount(packageName, resolvedName),
                 createShortcut = importedJson.optBoolean("createShortcut", false),
-                dllNames = syncedDllNames(packageName, resolvedName, importedDllNames),
-                disabledDlls = syncedDisabledDlls(packageName, resolvedName, importedDisabledDlls)
+                gameVersion = importedGameVersion,
+                mods = syncedMods(packageName, resolvedName, importedMods)
             )
             writeMeta(meta)
             BepInExLog.i("Imported modpack: $resolvedName")
@@ -1029,24 +1377,24 @@ class ModpackManager {
         }
         return try {
             val json = JSONObject(file.readText())
-            val dllNames = syncedDllNames(packageName, name, parseDllNames(json))
-            val disabledDlls = syncedDisabledDlls(packageName, name, parseDisabledDlls(json))
+            val parsedMods = parseMods(json)
+            val mods = syncedMods(packageName, name, parsedMods)
             val meta = ModpackMeta(
                 name = name,
                 packageName = packageName,
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
                 modCount = actualModCount,
                 createShortcut = json.optBoolean("createShortcut", false),
-                dllNames = dllNames,
-                disabledDlls = disabledDlls
+                gameVersion = json.optString(GAME_VERSION_KEY).trim(),
+                mods = mods
             )
             val storedModCount = json.optInt("modCount", -1)
-            val storedDllNames = parseDllNames(json)
-            val storedDisabledDlls = parseDisabledDlls(json)
             val shouldRewrite =
                 storedModCount != actualModCount ||
-                    storedDllNames != dllNames ||
-                    json.has(DISABLED_DLLS_KEY) && storedDisabledDlls != disabledDlls
+                    parsedMods != mods ||
+                    json.has(DLL_NAMES_KEY) ||
+                    json.has(DISABLED_DLLS_KEY) ||
+                    json.has(DLL_CATEGORIES_KEY)
             if (shouldRewrite) {
                 writeMeta(meta)
             }
@@ -1064,16 +1412,108 @@ class ModpackManager {
             put("createdAt", meta.createdAt)
             put("modCount", meta.modCount)
             put("createShortcut", meta.createShortcut)
-            put(DLL_NAMES_KEY, JSONObject().apply {
-                meta.dllNames.toSortedMap().forEach { (path, displayName) ->
-                    put(path, displayName)
-                }
-            })
-            put(DISABLED_DLLS_KEY, JSONArray().apply {
-                meta.disabledDlls.sorted().forEach { put(it) }
-            })
+            if (meta.gameVersion.isNotBlank()) {
+                put(GAME_VERSION_KEY, meta.gameVersion.trim())
+            }
+            val modsJson = JSONObject()
+            meta.mods.toSortedMap().forEach { (path, info) ->
+                val fileName = path.substringAfterLast('/')
+                if (info.isDefault(fileName)) return@forEach
+                val entry = JSONObject()
+                info.displayName?.trim()
+                    ?.takeIf { it.isNotEmpty() && it != fileName }
+                    ?.let { entry.put("displayName", it) }
+                if (!info.enabled) entry.put("enabled", false)
+                info.category?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { entry.put("category", it) }
+                if (entry.length() > 0) modsJson.put(path, entry)
+            }
+            if (modsJson.length() > 0) put(MODS_KEY, modsJson)
         }
         getMetaFile(meta.packageName, meta.name).writeText(json.toString(2))
+    }
+
+    private fun updateModInfo(
+        current: ModpackMeta,
+        packageName: String,
+        modpackName: String,
+        relativePath: String,
+        transform: (StoredModInfo) -> StoredModInfo
+    ): ModpackMeta {
+        val key = normalizeDllKey(relativePath)
+        if (key.isEmpty()) return current
+        val fileName = key.substringAfterLast('/')
+        val mods = syncedMods(packageName, modpackName, current.mods).toMutableMap()
+        val updated = transform(lookupModInfo(mods, key, fileName) ?: StoredModInfo())
+        mods.remove(fileName)
+        if (updated.isDefault(fileName)) {
+            mods.remove(key)
+        } else {
+            mods[key] = updated
+        }
+        return current.copy(
+            modCount = getModCount(packageName, modpackName),
+            mods = mods
+        )
+    }
+
+    private fun parseMods(json: JSONObject): Map<String, StoredModInfo> {
+        val fromNew = parseModsObject(json)
+        val fromLegacy = parseLegacyMods(json)
+        if (fromNew.isEmpty()) return fromLegacy
+        if (fromLegacy.isEmpty()) return fromNew
+        val result = linkedMapOf<String, StoredModInfo>()
+        (fromNew.keys + fromLegacy.keys).forEach { path ->
+            val newer = fromNew[path]
+            val older = fromLegacy[path]
+            result[path] = StoredModInfo(
+                displayName = newer?.displayName ?: older?.displayName,
+                enabled = newer?.enabled ?: older?.enabled ?: true,
+                category = newer?.category ?: older?.category
+            )
+        }
+        return result
+    }
+
+    private fun parseModsObject(json: JSONObject): Map<String, StoredModInfo> {
+        val obj = json.optJSONObject(MODS_KEY) ?: return emptyMap()
+        val result = linkedMapOf<String, StoredModInfo>()
+        obj.keys().forEach { key ->
+            val path = normalizeDllKey(key)
+            if (path.isEmpty()) return@forEach
+            val entry = obj.optJSONObject(key) ?: return@forEach
+            val fileName = path.substringAfterLast('/')
+            val info = StoredModInfo(
+                displayName = entry.optString("displayName").trim().takeIf { it.isNotEmpty() },
+                enabled = if (entry.has("enabled")) entry.optBoolean("enabled", true) else true,
+                category = entry.optString("category").trim().takeIf { it.isNotEmpty() }
+            )
+            if (!info.isDefault(fileName)) result[path] = info
+        }
+        return result
+    }
+
+    private fun parseLegacyMods(json: JSONObject): Map<String, StoredModInfo> {
+        val names = parseDllNames(json)
+        val disabled = parseDisabledDlls(json)
+        val categories = parseDllCategories(json)
+        if (names.isEmpty() && disabled.isEmpty() && categories.isEmpty()) return emptyMap()
+
+        val result = linkedMapOf<String, StoredModInfo>()
+        (names.keys + disabled + categories.keys).forEach { raw ->
+            val path = normalizeDllKey(raw)
+            if (path.isEmpty()) return@forEach
+            val fileName = path.substringAfterLast('/')
+            val displayName = names[path] ?: names[fileName]
+            val info = StoredModInfo(
+                displayName = displayName?.takeIf { it.isNotBlank() && it != fileName },
+                enabled = path !in disabled && fileName !in disabled,
+                category = (categories[path] ?: categories[fileName])?.takeIf { it.isNotBlank() }
+            )
+            if (!info.isDefault(fileName)) result[path] = info
+        }
+        return result
     }
 
     private fun parseDllNames(json: JSONObject): Map<String, String> {
@@ -1088,39 +1528,16 @@ class ModpackManager {
         return result
     }
 
-    private fun syncedDllNames(
-        packageName: String,
-        modpackName: String,
-        existing: Map<String, String>
-    ): Map<String, String> {
-        val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        val knownFiles = listMods(packageName, modpackName).associate { file ->
-            val relativePath = dllRelativePath(pluginsDir, file)
-            relativePath to file.name
-        }
-        if (knownFiles.isEmpty()) return emptyMap()
-
+    private fun parseDllCategories(json: JSONObject): Map<String, String> {
+        val categories = json.optJSONObject(DLL_CATEGORIES_KEY) ?: return emptyMap()
         val result = linkedMapOf<String, String>()
-        knownFiles.forEach { (relativePath, fileName) ->
-            result[relativePath] = resolveDllDisplayName(existing, relativePath, fileName)
+        categories.keys().forEach { key ->
+            val category = categories.optString(key).trim()
+            if (key.isNotBlank() && category.isNotEmpty()) {
+                result[normalizeDllKey(key)] = category
+            }
         }
         return result
-    }
-
-    private fun dllRelativePath(pluginsDir: File, file: File): String =
-        normalizeDllKey(file.relativeTo(pluginsDir).invariantSeparatorsPath)
-
-    private fun normalizeDllKey(path: String): String =
-        path.replace('\\', '/').trimStart('/')
-
-    private fun resolveDllDisplayName(
-        mappings: Map<String, String>,
-        relativePath: String,
-        fileName: String
-    ): String {
-        mappings[relativePath]?.takeIf { it.isNotBlank() }?.let { return it }
-        mappings[fileName]?.takeIf { it.isNotBlank() }?.let { return it }
-        return fileName
     }
 
     private fun parseDisabledDlls(json: JSONObject): Set<String> {
@@ -1133,41 +1550,58 @@ class ModpackManager {
         return result
     }
 
-    private fun syncedDisabledDlls(
+    private fun syncedMods(
         packageName: String,
         modpackName: String,
-        existing: Set<String>
-    ): Set<String> {
-        if (existing.isEmpty()) return emptySet()
+        existing: Map<String, StoredModInfo>
+    ): Map<String, StoredModInfo> {
+        if (existing.isEmpty()) return emptyMap()
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        val knownPaths = listMods(packageName, modpackName)
-            .map { dllRelativePath(pluginsDir, it) }
-            .toSet()
-        if (knownPaths.isEmpty()) return emptySet()
+        val knownFiles = listMods(packageName, modpackName).associate { file ->
+            dllRelativePath(pluginsDir, file) to file.name
+        }
+        if (knownFiles.isEmpty()) return emptyMap()
 
-        return existing.map(::normalizeDllKey).mapNotNull { path ->
-            when {
-                path in knownPaths -> path
-                else -> knownPaths.firstOrNull { known ->
-                    known.substringAfterLast('/') == path
-                }
-            }
-        }.toSet()
+        val result = linkedMapOf<String, StoredModInfo>()
+        knownFiles.forEach { (relativePath, fileName) ->
+            val info = lookupModInfo(existing, relativePath, fileName) ?: return@forEach
+            val normalized = StoredModInfo(
+                displayName = info.displayName?.trim()?.takeIf { it.isNotEmpty() && it != fileName },
+                enabled = info.enabled,
+                category = info.category?.trim()?.takeIf { it.isNotEmpty() }
+            )
+            if (!normalized.isDefault(fileName)) result[relativePath] = normalized
+        }
+        return result
     }
 
-    private fun isDllEnabled(
-        disabled: Set<String>,
+    private fun lookupModInfo(
+        mods: Map<String, StoredModInfo>,
         relativePath: String,
         fileName: String
-    ): Boolean {
-        if (disabled.isEmpty()) return true
-        val key = normalizeDllKey(relativePath)
-        return key !in disabled && fileName !in disabled
+    ): StoredModInfo? {
+        mods[relativePath]?.let { return it }
+        mods[fileName]?.let { return it }
+        return mods.entries.firstOrNull { it.key.substringAfterLast('/') == fileName }?.value
     }
 
-    fun updateMeta(packageName: String, modpackName: String, createShortcut: Boolean): ModpackMeta? {
+    private fun dllRelativePath(pluginsDir: File, file: File): String =
+        normalizeDllKey(file.relativeTo(pluginsDir).invariantSeparatorsPath)
+
+    private fun normalizeDllKey(path: String): String =
+        path.replace('\\', '/').trimStart('/')
+
+    fun updateMeta(
+        packageName: String,
+        modpackName: String,
+        createShortcut: Boolean,
+        gameVersion: String? = null
+    ): ModpackMeta? {
         val current = readMeta(packageName, modpackName) ?: return null
-        val updated = current.copy(createShortcut = createShortcut)
+        val updated = current.copy(
+            createShortcut = createShortcut,
+            gameVersion = gameVersion?.trim() ?: current.gameVersion
+        )
         writeMeta(updated)
         return updated
     }

@@ -7,10 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +32,7 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Animation
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -74,6 +79,7 @@ fun SettingsScreen(
     dynamicColor: Boolean,
     animationDisabled: Boolean,
     floatingLogInGame: Boolean,
+    floatingModMenu: Boolean,
     useUnstrippedLibUnity: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
@@ -81,6 +87,7 @@ fun SettingsScreen(
     onDynamicColorChanged: (Boolean) -> Unit,
     onAnimationDisabledChanged: (Boolean) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
+    onFloatingModMenuChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
@@ -114,10 +121,14 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
+                windowInsets = WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Horizontal + WindowInsetsSides.Top
+                ),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -195,6 +206,20 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { onFloatingLogInGameChanged(!floatingLogInGame) }
+                )
+            }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_floating_mod_menu),
+                    summary = stringResource(R.string.settings_floating_mod_menu_desc),
+                    icon = { Icon(Icons.Outlined.Widgets, contentDescription = null) },
+                    trailing = {
+                        Switch(
+                            checked = floatingModMenu,
+                            onCheckedChange = { checked -> onFloatingModMenuChanged(checked) }
+                        )
+                    },
+                    onClick = { onFloatingModMenuChanged(!floatingModMenu) }
                 )
             }
             item {
