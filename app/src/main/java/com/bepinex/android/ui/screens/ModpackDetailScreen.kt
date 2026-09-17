@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +51,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
@@ -61,6 +63,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,6 +131,7 @@ fun ModpackDetailScreen(
     onAddMod: () -> Unit,
     onDeleteMod: (ModpackMod) -> Unit,
     onRenameMod: (ModpackMod, String) -> Unit,
+    onSetModCategory: (ModpackMod, String?) -> Unit,
     onToggleMod: (ModpackMod, Boolean) -> Unit,
     onOpenConfig: (File) -> Unit,
     onViewLog: () -> Unit,
@@ -141,9 +145,11 @@ fun ModpackDetailScreen(
     val scanScope = rememberCoroutineScope()
     var modPendingDelete by remember { mutableStateOf<ModpackMod?>(null) }
     var modPendingRename by remember { mutableStateOf<ModpackMod?>(null) }
+    var modPendingCategory by remember { mutableStateOf<ModpackMod?>(null) }
     var sortMode by remember { mutableStateOf(ModSortMode.DISPLAY_NAME) }
     var sortMenuOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var categoryFilter by remember { mutableStateOf<ModCategoryFilter>(ModCategoryFilter.All) }
     var downloadCandidates by remember { mutableStateOf<List<File>>(emptyList()) }
     var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var scanningDownloads by remember { mutableStateOf(false) }
@@ -153,11 +159,28 @@ fun ModpackDetailScreen(
     var importSourceMods by remember { mutableStateOf<List<ModpackMod>>(emptyList()) }
     var selectedImportPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
-    val filteredMods = remember(sortedMods, searchQuery) {
-        sortedMods.filter { it.matchesSearch(searchQuery) }
+    val categoryNames = remember(mods) {
+        mods.mapNotNull { it.category?.takeIf(String::isNotBlank) }
+            .distinct()
+            .sortedWith(String.CASE_INSENSITIVE_ORDER)
     }
-    val filteredConfigs = remember(configFiles, searchQuery) {
-        configFiles.filter { it.matchesSearch(searchQuery) }
+    val hasUncategorized = remember(mods) { mods.any { it.category.isNullOrBlank() } }
+    val activeCategoryFilter = when (val filter = categoryFilter) {
+        is ModCategoryFilter.Named ->
+            if (filter.name in categoryNames) filter else ModCategoryFilter.All
+        ModCategoryFilter.Uncategorized ->
+            if (hasUncategorized) filter else ModCategoryFilter.All
+        ModCategoryFilter.All -> filter
+    }
+    val filteredMods = remember(sortedMods, searchQuery, activeCategoryFilter) {
+        sortedMods.filter { it.matchesSearch(searchQuery) && it.matchesCategory(activeCategoryFilter) }
+    }
+    val filteredConfigs = remember(configFiles, searchQuery, activeCategoryFilter) {
+        if (activeCategoryFilter != ModCategoryFilter.All) {
+            emptyList()
+        } else {
+            configFiles.filter { it.matchesSearch(searchQuery) }
+        }
     }
     val listState = rememberLazyListState()
 
@@ -361,6 +384,14 @@ fun ModpackDetailScreen(
                             query = searchQuery,
                             onQueryChange = { searchQuery = it }
                         )
+                        if (categoryNames.isNotEmpty()) {
+                            ModCategoryFilterRow(
+                                selected = activeCategoryFilter,
+                                categoryNames = categoryNames,
+                                showUncategorized = hasUncategorized,
+                                onSelect = { categoryFilter = it }
+                            )
+                        }
                     }
                 }
             }
@@ -433,6 +464,7 @@ fun ModpackDetailScreen(
                         mod = mod,
                         onToggle = { enabled -> onToggleMod(mod, enabled) },
                         onRename = { modPendingRename = mod },
+                        onSetCategory = { modPendingCategory = mod },
                         onDelete = { modPendingDelete = mod }
                     )
                 }
@@ -493,7 +525,7 @@ fun ModpackDetailScreen(
         }
             ListScrollbar(
                 listState = listState,
-                itemLabels = remember(filteredMods, filteredConfigs, mods, searchQuery) {
+                itemLabels = remember(filteredMods, filteredConfigs, mods, searchQuery, activeCategoryFilter) {
                     buildList {
                         add("")
                         add("")
@@ -556,6 +588,18 @@ fun ModpackDetailScreen(
             onConfirm = { newName ->
                 onRenameMod(mod, newName)
                 modPendingRename = null
+            }
+        )
+    }
+
+    modPendingCategory?.let { mod ->
+        SetModCategoryDialog(
+            mod = mod,
+            existingCategories = categoryNames,
+            onDismiss = { modPendingCategory = null },
+            onConfirm = { category ->
+                onSetModCategory(mod, category)
+                modPendingCategory = null
             }
         )
     }
@@ -774,7 +818,20 @@ private fun ModpackMod.matchesSearch(query: String): Boolean {
     if (needle.isEmpty()) return true
     return displayName.contains(needle, ignoreCase = true) ||
         file.name.contains(needle, ignoreCase = true) ||
-        relativePath.contains(needle, ignoreCase = true)
+        relativePath.contains(needle, ignoreCase = true) ||
+        category.orEmpty().contains(needle, ignoreCase = true)
+}
+
+private fun ModpackMod.matchesCategory(filter: ModCategoryFilter): Boolean = when (filter) {
+    ModCategoryFilter.All -> true
+    ModCategoryFilter.Uncategorized -> category.isNullOrBlank()
+    is ModCategoryFilter.Named -> category.equals(filter.name, ignoreCase = true)
+}
+
+private sealed class ModCategoryFilter {
+    data object All : ModCategoryFilter()
+    data object Uncategorized : ModCategoryFilter()
+    data class Named(val name: String) : ModCategoryFilter()
 }
 
 private fun File.matchesSearch(query: String): Boolean {
@@ -857,15 +914,126 @@ private fun RenameDllDialog(
 }
 
 @Composable
+private fun SetModCategoryDialog(
+    mod: ModpackMod,
+    existingCategories: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (String?) -> Unit
+) {
+    var name by remember(mod.relativePath) { mutableStateOf(mod.category.orEmpty()) }
+    val trimmed = name.trim()
+    val suggestions = remember(existingCategories, mod.category) {
+        existingCategories.filter { it != mod.category }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.modpack_mod_category_set)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.modpack_mod_file_name, mod.relativePath),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.modpack_mod_category)) },
+                    supportingText = {
+                        Text(stringResource(R.string.modpack_mod_category_hint))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (suggestions.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.modpack_mod_category_existing),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(suggestions, key = { it }) { category ->
+                            FilterChip(
+                                selected = false,
+                                onClick = { name = category },
+                                label = { Text(category) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row {
+                if (mod.category != null) {
+                    TextButton(onClick = { onConfirm(null) }) {
+                        Text(stringResource(R.string.modpack_mod_category_clear))
+                    }
+                }
+                TextButton(onClick = { onConfirm(trimmed.ifEmpty { null }) }) {
+                    Text(stringResource(R.string.ok))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.confirm_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ModCategoryFilterRow(
+    selected: ModCategoryFilter,
+    categoryNames: List<String>,
+    showUncategorized: Boolean,
+    onSelect: (ModCategoryFilter) -> Unit
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "all") {
+            FilterChip(
+                selected = selected is ModCategoryFilter.All,
+                onClick = { onSelect(ModCategoryFilter.All) },
+                label = { Text(stringResource(R.string.modpack_mod_category_all)) }
+            )
+        }
+        if (showUncategorized) {
+            item(key = "uncategorized") {
+                FilterChip(
+                    selected = selected is ModCategoryFilter.Uncategorized,
+                    onClick = { onSelect(ModCategoryFilter.Uncategorized) },
+                    label = { Text(stringResource(R.string.modpack_mod_category_uncategorized)) }
+                )
+            }
+        }
+        items(categoryNames, key = { it }) { category ->
+            FilterChip(
+                selected = selected is ModCategoryFilter.Named && selected.name == category,
+                onClick = { onSelect(ModCategoryFilter.Named(category)) },
+                label = { Text(category) }
+            )
+        }
+    }
+}
+
+@Composable
 private fun ModItemCard(
     mod: ModpackMod,
     onToggle: (Boolean) -> Unit,
     onRename: () -> Unit,
+    onSetCategory: () -> Unit,
     onDelete: () -> Unit
 ) {
     val showsMappedName = mod.displayName != mod.file.name
     val enableLabel = stringResource(R.string.modpack_mod_enable)
     val subtitle = buildString {
+        val category = mod.category?.takeIf { it.isNotBlank() }
+        if (category != null) {
+            append(category)
+            append(" · ")
+        }
         if (showsMappedName || mod.relativePath.contains('/')) {
             append(mod.relativePath)
             append(" · ")
@@ -956,6 +1124,15 @@ private fun ModItemCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                TextButton(onClick = onSetCategory) {
+                    Icon(
+                        imageVector = Icons.Outlined.Category,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.modpack_mod_category))
+                }
                 TextButton(onClick = onRename) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,

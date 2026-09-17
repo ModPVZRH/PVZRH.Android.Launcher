@@ -811,6 +811,15 @@ fun BepInExNavHost(
                             )
                             mods = modpackManager.listModEntries(packageName, modpackName)
                         },
+                        onSetModCategory = { mod, category ->
+                            modpackManager.setDllCategory(
+                                packageName,
+                                modpackName,
+                                mod.relativePath,
+                                category
+                            )
+                            mods = modpackManager.listModEntries(packageName, modpackName)
+                        },
                         onToggleMod = { mod, enabled ->
                             modpackManager.setDllEnabled(
                                 packageName,

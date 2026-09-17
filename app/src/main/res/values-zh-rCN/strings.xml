@@ -119,6 +119,13 @@
     <string name="modpack_mod_display_name_hint">仅在启动器中显示，不会修改 DLL 文件名</string>
     <string name="modpack_mod_file_name">文件：%s</string>
     <string name="modpack_mod_rename_failed">显示名称不能为空</string>
+    <string name="modpack_mod_category">分类</string>
+    <string name="modpack_mod_category_set">设置分类</string>
+    <string name="modpack_mod_category_hint">可选。用于在此整合包中筛选模组。</string>
+    <string name="modpack_mod_category_all">全部</string>
+    <string name="modpack_mod_category_uncategorized">未分类</string>
+    <string name="modpack_mod_category_existing">已有分类</string>
+    <string name="modpack_mod_category_clear">清除</string>
     <string name="modpack_mod_enable">加载此模组</string>
     <string name="modpack_mod_disabled">已关闭</string>
     <string name="modpack_mod_disabled_count">已关闭 %d 个</string>

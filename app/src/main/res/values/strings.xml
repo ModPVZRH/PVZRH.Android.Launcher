@@ -125,6 +125,13 @@
     <string name="modpack_mod_display_name_hint">Shown in this launcher only. The DLL file name is unchanged.</string>
     <string name="modpack_mod_file_name">File: %s</string>
     <string name="modpack_mod_rename_failed">Display name cannot be empty</string>
+    <string name="modpack_mod_category">Category</string>
+    <string name="modpack_mod_category_set">Set category</string>
+    <string name="modpack_mod_category_hint">Optional. Used to filter mods in this pack.</string>
+    <string name="modpack_mod_category_all">All</string>
+    <string name="modpack_mod_category_uncategorized">Uncategorized</string>
+    <string name="modpack_mod_category_existing">Existing categories</string>
+    <string name="modpack_mod_category_clear">Remove</string>
     <string name="modpack_mod_enable">Load this mod</string>
     <string name="modpack_mod_disabled">Disabled</string>
     <string name="modpack_mod_disabled_count">%d disabled</string>
