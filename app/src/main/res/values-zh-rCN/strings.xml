@@ -146,6 +146,7 @@
     <string name="modpack_search_mods">搜索模组</string>
     <string name="modpack_search_clear">清除搜索</string>
     <string name="modpack_search_no_results">没有匹配的模组</string>
+    <string name="modpack_scroll_to_top">回到顶部</string>
     <string name="modpack_scrollbar">滚动列表</string>
     <!-- Config Editor -->
     <string name="config_editor_title">配置编辑器</string>
