@@ -118,6 +118,8 @@
     <string name="modpack_import_from_other_no_mods">This modpack has no mods</string>
     <string name="modpack_import_from_other_mods_title">Mods in %s</string>
     <string name="modpack_import_from_other_mods_message">Selected mods and their matching configs will be copied into this modpack.</string>
+    <string name="modpack_import_from_other_select_all">Select all</string>
+    <string name="modpack_import_from_other_deselect_all">Deselect all</string>
     <string name="modpack_import_from_other_imported">Imported %1$d of %2$d mod(s) (%3$d config file(s))</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Add Mod</string>

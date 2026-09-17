@@ -103,6 +103,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -677,6 +678,13 @@ fun ModpackDetailScreen(
                     selectedImportPaths + mod.relativePath
                 } else {
                     selectedImportPaths - mod.relativePath
+                }
+            },
+            onSelectAll = { selectAll ->
+                selectedImportPaths = if (selectAll) {
+                    importSourceMods.map { it.relativePath }.toSet()
+                } else {
+                    emptySet()
                 }
             },
             onImport = {
@@ -1550,9 +1558,16 @@ private fun ImportModsFromModpackDialog(
     mods: List<ModpackMod>,
     selectedPaths: Set<String>,
     onToggle: (ModpackMod, Boolean) -> Unit,
+    onSelectAll: (Boolean) -> Unit,
     onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
+    val selectAllState = when {
+        mods.isEmpty() || selectedPaths.none { path -> mods.any { it.relativePath == path } } ->
+            ToggleableState.Off
+        mods.all { it.relativePath in selectedPaths } -> ToggleableState.On
+        else -> ToggleableState.Indeterminate
+    }
     AlertDialog(
         onDismissRequest = onSkip,
         title = { Text(stringResource(R.string.modpack_import_from_other_mods_title, sourceName)) },
@@ -1599,16 +1614,32 @@ private fun ImportModsFromModpackDialog(
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = onImport,
-                enabled = selectedPaths.isNotEmpty()
-            ) {
-                Text(stringResource(R.string.modpack_scan_downloads_import))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onSkip) {
-                Text(stringResource(R.string.modpack_scan_downloads_skip))
+            Box(modifier = Modifier.fillMaxWidth()) {
+                TextButton(
+                    onClick = { onSelectAll(selectAllState != ToggleableState.On) },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (selectAllState == ToggleableState.On) {
+                                R.string.modpack_import_from_other_deselect_all
+                            } else {
+                                R.string.modpack_import_from_other_select_all
+                            }
+                        )
+                    )
+                }
+                Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    TextButton(onClick = onSkip) {
+                        Text(stringResource(R.string.modpack_scan_downloads_skip))
+                    }
+                    TextButton(
+                        onClick = onImport,
+                        enabled = selectedPaths.isNotEmpty()
+                    ) {
+                        Text(stringResource(R.string.modpack_scan_downloads_import))
+                    }
+                }
             }
         }
     )
