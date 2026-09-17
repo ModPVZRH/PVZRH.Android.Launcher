@@ -881,6 +881,47 @@ fun BepInExNavHost(
                         },
                         onExportModpack = {
                             startModpackExport(packageName, modpackName)
+                        },
+                        onImportDownloadDlls = { files ->
+                            composeScope.launch(Dispatchers.IO) {
+                                var importedCount = 0
+                                try {
+                                    files.forEach { file ->
+                                        val added = modpackManager.addMod(
+                                            packageName,
+                                            modpackName,
+                                            file
+                                        )
+                                        if (added != null) importedCount++
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        mods = modpackManager.listModEntries(
+                                            packageName,
+                                            modpackName
+                                        )
+                                        modpackRefreshKey++
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.modpack_scan_dlls_imported,
+                                                importedCount,
+                                                files.size
+                                            ),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } catch (_: CancellationException) {
+                                } catch (error: Exception) {
+                                    com.bepinex.android.BepInExLog.e("DLL download import failed", error)
+                                    withContext(Dispatchers.Main) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.import_failed),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
                         }
                     )
 

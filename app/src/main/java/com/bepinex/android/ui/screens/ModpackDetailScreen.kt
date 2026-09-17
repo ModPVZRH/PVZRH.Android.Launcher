@@ -1,7 +1,9 @@
 package com.bepinex.android.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -32,7 +35,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -47,12 +52,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -73,10 +80,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -86,12 +95,16 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import com.bepinex.android.R
+import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMod
 import java.io.File
 
@@ -112,13 +125,21 @@ fun ModpackDetailScreen(
     onOpenConfig: (File) -> Unit,
     onViewLog: () -> Unit,
     onExportModpack: () -> Unit,
-    onBrowseModFiles: () -> Unit = {}
+    onBrowseModFiles: () -> Unit = {},
+    onImportDownloadDlls: (List<File>) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val manager = remember { ModpackManager() }
+    val scanScope = rememberCoroutineScope()
     var modPendingDelete by remember { mutableStateOf<ModpackMod?>(null) }
     var modPendingRename by remember { mutableStateOf<ModpackMod?>(null) }
     var sortMode by remember { mutableStateOf(ModSortMode.DISPLAY_NAME) }
     var sortMenuOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var downloadCandidates by remember { mutableStateOf<List<File>>(emptyList()) }
+    var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var scanningDownloads by remember { mutableStateOf(false) }
+    var addMenuOpen by remember { mutableStateOf(false) }
     val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
     val filteredMods = remember(sortedMods, searchQuery) {
         sortedMods.filter { it.matchesSearch(searchQuery) }
@@ -127,6 +148,32 @@ fun ModpackDetailScreen(
         configFiles.filter { it.matchesSearch(searchQuery) }
     }
     val listState = rememberLazyListState()
+
+    fun scanDownloads() {
+        if (scanningDownloads) return
+        scanningDownloads = true
+        scanScope.launch {
+            try {
+                val existingNames = mods.map { it.file.name.lowercase() }.toSet()
+                val found = withContext(Dispatchers.IO) {
+                    manager.scanDownloadDlls(context)
+                        .filter { it.name.lowercase() !in existingNames }
+                }
+                if (found.isEmpty()) {
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.modpack_scan_dlls_empty),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    downloadCandidates = found
+                    selectedDownloadPaths = found.map { it.absolutePath }.toSet()
+                }
+            } finally {
+                scanningDownloads = false
+            }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -160,12 +207,13 @@ fun ModpackDetailScreen(
                             contentDescription = stringResource(R.string.modpack_export)
                         )
                     }
-                    IconButton(onClick = onAddMod) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = stringResource(R.string.modpack_add_mod)
-                        )
-                    }
+                    AddModActionsButton(
+                        expanded = addMenuOpen,
+                        onExpandedChange = { addMenuOpen = it },
+                        scanning = scanningDownloads,
+                        onManualImport = onAddMod,
+                        onAutoScan = { scanDownloads() }
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -173,11 +221,19 @@ fun ModpackDetailScreen(
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .navigationBarsPadding()
+        ) {
+            if (scanningDownloads) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
         ) {
         LazyColumn(
             state = listState,
@@ -403,6 +459,7 @@ fun ModpackDetailScreen(
                     .padding(top = 12.dp, bottom = 12.dp, end = 2.dp)
             )
         }
+        }
     }
 
     modPendingDelete?.let { mod ->
@@ -445,6 +502,28 @@ fun ModpackDetailScreen(
             onConfirm = { newName ->
                 onRenameMod(mod, newName)
                 modPendingRename = null
+            }
+        )
+    }
+
+    if (downloadCandidates.isNotEmpty()) {
+        DownloadDllScanDialog(
+            files = downloadCandidates,
+            selectedPaths = selectedDownloadPaths,
+            onToggle = { file, checked ->
+                selectedDownloadPaths = if (checked) {
+                    selectedDownloadPaths + file.absolutePath
+                } else {
+                    selectedDownloadPaths - file.absolutePath
+                }
+            },
+            onImport = {
+                val selected = downloadCandidates.filter { it.absolutePath in selectedDownloadPaths }
+                downloadCandidates = emptyList()
+                if (selected.isNotEmpty()) onImportDownloadDlls(selected)
+            },
+            onSkip = {
+                downloadCandidates = emptyList()
             }
         )
     }
@@ -956,4 +1035,136 @@ private fun BrowseModFilesCard(onClick: () -> Unit) {
             )
         }
     }
+}
+
+@Composable
+private fun AddModActionsButton(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    scanning: Boolean,
+    onManualImport: () -> Unit,
+    onAutoScan: () -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        label = "addModMenuRotation"
+    )
+
+    Box {
+        IconButton(onClick = { onExpandedChange(!expanded) }) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = stringResource(
+                    if (expanded) R.string.modpack_actions_close else R.string.modpack_add_mod
+                ),
+                modifier = Modifier.rotate(rotation)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            offset = DpOffset(0.dp, 0.dp),
+            shape = RoundedCornerShape(16.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            shadowElevation = 6.dp,
+            tonalElevation = 2.dp
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_import_manual)) },
+                onClick = {
+                    onExpandedChange(false)
+                    onManualImport()
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.FileOpen,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_import_auto_scan)) },
+                onClick = {
+                    onExpandedChange(false)
+                    onAutoScan()
+                },
+                enabled = !scanning,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DownloadDllScanDialog(
+    files: List<File>,
+    selectedPaths: Set<String>,
+    onToggle: (File, Boolean) -> Unit,
+    onImport: () -> Unit,
+    onSkip: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onSkip,
+        title = { Text(stringResource(R.string.modpack_scan_dlls_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.modpack_scan_dlls_message, files.size))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(files, key = { it.absolutePath }) { file ->
+                        val checked = file.absolutePath in selectedPaths
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onToggle(file, !checked) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { onToggle(file, it) }
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = file.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = formatFileSize(file.length()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onImport,
+                enabled = selectedPaths.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.modpack_scan_downloads_import))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onSkip) {
+                Text(stringResource(R.string.modpack_scan_downloads_skip))
+            }
+        }
+    )
 }

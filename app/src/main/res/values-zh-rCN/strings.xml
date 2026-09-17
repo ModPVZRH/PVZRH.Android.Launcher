@@ -93,6 +93,10 @@
     <string name="modpack_scan_downloads_skip">暂不</string>
     <string name="modpack_scan_downloads_empty">下载目录没有 .rhp 整合包</string>
     <string name="modpack_scan_downloads_imported">已导入 %1$d / %2$d 个整合包</string>
+    <string name="modpack_scan_dlls_title">下载目录中的模组</string>
+    <string name="modpack_scan_dlls_message">在下载目录找到 %d 个 .dll 文件，要导入到此整合包吗？</string>
+    <string name="modpack_scan_dlls_empty">下载目录没有 .dll 模组</string>
+    <string name="modpack_scan_dlls_imported">已导入 %1$d / %2$d 个模组</string>
     <string name="modpack_no_mods">此整合包中暂无模组</string>
     <string name="modpack_add_mod">添加模组</string>
     <string name="modpack_invalid_mod_file">仅可添加 .dll 后缀的模组</string>

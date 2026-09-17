@@ -99,6 +99,10 @@
     <string name="modpack_scan_downloads_skip">Not now</string>
     <string name="modpack_scan_downloads_empty">No .rhp modpacks found in Downloads</string>
     <string name="modpack_scan_downloads_imported">Imported %1$d of %2$d modpack(s)</string>
+    <string name="modpack_scan_dlls_title">Mods in Downloads</string>
+    <string name="modpack_scan_dlls_message">Found %d .dll file(s) in Downloads. Import the selected files into this modpack?</string>
+    <string name="modpack_scan_dlls_empty">No .dll mods found in Downloads</string>
+    <string name="modpack_scan_dlls_imported">Imported %1$d of %2$d mod(s)</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Add Mod</string>
     <string name="modpack_invalid_mod_file">Only .dll mod files can be added</string>
