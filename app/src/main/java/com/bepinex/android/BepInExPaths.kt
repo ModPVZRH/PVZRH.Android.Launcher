@@ -32,6 +32,10 @@ object BepInExPaths {
     fun getLogFile(packageName: String): File =
         File(getBepInExDir(packageName), "LogOutput.log")
 
+    /** TCP UI bridge discovery file written by the in-game server for C# plugins. */
+    fun getBridgeDiscoveryFile(packageName: String): File =
+        File(getBepInExDir(packageName), "launcher-bridge.json")
+
     /** Sidecar written by the :game process so MainActivity can read logcat after a crash. */
     fun getLogcatCaptureFile(packageName: String): File =
         File(getBepInExDir(packageName), "logcat-capture.txt")

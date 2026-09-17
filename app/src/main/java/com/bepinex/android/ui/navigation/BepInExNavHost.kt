@@ -765,6 +765,9 @@ fun BepInExNavHost(
                                 var floatingLogInGame by remember {
                                     mutableStateOf(AppSettings.isFloatingLogInGameEnabled(settingsContext))
                                 }
+                                var floatingModMenu by remember {
+                                    mutableStateOf(AppSettings.isFloatingModMenuEnabled(settingsContext))
+                                }
                                 var useUnstrippedLibUnity by remember {
                                     mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
                                 }
@@ -780,6 +783,7 @@ fun BepInExNavHost(
                                     dynamicColor = dynamicColor,
                                     animationDisabled = animationDisabledSetting,
                                     floatingLogInGame = floatingLogInGame,
+                                    floatingModMenu = floatingModMenu,
                                     useUnstrippedLibUnity = useUnstrippedLibUnity,
                                     onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                                     onThemeChanged = onThemeChanged,
@@ -796,6 +800,10 @@ fun BepInExNavHost(
                                     onFloatingLogInGameChanged = { enabled ->
                                         AppSettings.setFloatingLogInGameEnabled(settingsContext, enabled)
                                         floatingLogInGame = enabled
+                                    },
+                                    onFloatingModMenuChanged = { enabled ->
+                                        AppSettings.setFloatingModMenuEnabled(settingsContext, enabled)
+                                        floatingModMenu = enabled
                                     },
                                     onUseUnstrippedLibUnityChanged = { enabled ->
                                         AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)

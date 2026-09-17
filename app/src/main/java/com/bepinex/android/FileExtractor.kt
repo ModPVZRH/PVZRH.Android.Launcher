@@ -67,6 +67,47 @@ class FileExtractor(private val context: Context) {
         BepInExPaths.isDotnetExtracted(context.filesDir, packageName)
 
     /**
+     * Stage [ASSET_LAUNCHER_UI] from APK assets and copy it into BepInEx/plugins
+     * so BepInEx loads it. Safe to call on every bootstrap so the plugin can update.
+     */
+    fun installLauncherUiPlugin(packageName: String) {
+        val staged = stagedLauncherUiPlugin(packageName)
+        staged.parentFile?.mkdirs()
+        try {
+            context.assets.open(ASSET_LAUNCHER_UI).use { input ->
+                staged.outputStream().use { output -> input.copyTo(output) }
+            }
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to stage $ASSET_LAUNCHER_UI", e)
+            return
+        }
+        copyStagedLauncherUiPlugin(packageName)
+    }
+
+    companion object {
+        const val ASSET_LAUNCHER_UI = "PVZRH.LauncherUi.dll"
+
+        fun stagedLauncherUiPlugin(packageName: String): File =
+            File(BepInExPaths.getGameRootDir(packageName), "launcher/$ASSET_LAUNCHER_UI")
+
+        /**
+         * Copies the staged Launcher UI plugin into BepInEx/plugins.
+         * Call after any plugins-dir replace (modpack apply / vanilla clear).
+         */
+        fun copyStagedLauncherUiPlugin(packageName: String) {
+            val staged = stagedLauncherUiPlugin(packageName)
+            if (!staged.isFile) {
+                BepInExLog.w("LauncherUi plugin not staged at ${staged.absolutePath}")
+                return
+            }
+            val dest = File(BepInExPaths.getPluginsDir(packageName), ASSET_LAUNCHER_UI)
+            dest.parentFile?.mkdirs()
+            staged.copyTo(dest, overwrite = true)
+            BepInExLog.i("Installed LauncherUi BepInEx plugin: ${dest.absolutePath}")
+        }
+    }
+
+    /**
      * Extract a ZIP asset to a destination directory.
      * Handles Windows path separators (\ → /) for compatibility.
      */

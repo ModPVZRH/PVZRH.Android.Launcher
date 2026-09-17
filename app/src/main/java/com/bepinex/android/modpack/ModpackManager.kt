@@ -11,6 +11,7 @@ import android.os.storage.StorageManager
 import android.provider.MediaStore
 import com.bepinex.android.BepInExLog
 import com.bepinex.android.BepInExPaths
+import com.bepinex.android.FileExtractor
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -456,6 +457,7 @@ class ModpackManager {
         syncDirContents(File(srcRoot, "config"), configDir)
         // Do NOT restore LogOutput.log from modpack — let each session start fresh.
         // persistRuntimeState() will save the latest logs when the session ends.
+        FileExtractor.copyStagedLauncherUiPlugin(packageName)
         BepInExLog.i("Restored runtime cfg from ${srcRoot.absolutePath}")
     }
 
