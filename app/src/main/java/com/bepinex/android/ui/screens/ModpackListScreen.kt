@@ -47,13 +47,14 @@ import java.io.File
 fun ModpackListScreen(
     packageName: String,
     targetGameLabel: String,
+    gameVersion: String,
     modpacks: List<ModpackMeta>,
     activeModpackName: String?,
     isSwitching: Boolean = false,
     iconRefreshKey: Int = 0,
-    onCreateModpack: (String, Boolean, android.graphics.Bitmap?) -> Unit,
+    onCreateModpack: (String, Boolean, android.graphics.Bitmap?, String) -> Unit,
     onDeleteModpack: (String) -> Unit,
-    onEditModpack: (String, String, Boolean, android.graphics.Bitmap?) -> Unit,
+    onEditModpack: (String, String, Boolean, android.graphics.Bitmap?, String) -> Unit,
     onSelectModpack: (String?) -> Unit,
     onOpenModpack: (String) -> Unit,
     onExportModpack: (String) -> Unit,
@@ -229,6 +230,7 @@ fun ModpackListScreen(
                         ModpackCard(
                             modpack = modpack,
                             packageName = packageName,
+                            gameVersion = gameVersion,
                             iconRefreshKey = combinedIconRefreshKey,
                             isActive = activeModpackName == modpack.name,
                             onOpen = { onOpenModpack(modpack.name) },
@@ -288,9 +290,10 @@ fun ModpackListScreen(
         EditModpackDialog(
             modpack = modpack,
             packageName = packageName,
+            currentGameVersion = gameVersion,
             onDismiss = { showEditDialog = null },
-            onSave = { newName, createShortcut, bitmap ->
-                onEditModpack(modpack.name, newName, createShortcut, bitmap)
+            onSave = { newName, createShortcut, bitmap, packGameVersion ->
+                onEditModpack(modpack.name, newName, createShortcut, bitmap, packGameVersion)
                 showEditDialog = null
             }
         )
@@ -322,9 +325,10 @@ fun ModpackListScreen(
     if (showFabCreateDialog) {
         CreateModpackDialog(
             targetGame = targetGameLabel,
+            currentGameVersion = gameVersion,
             onDismiss = { showFabCreateDialog = false },
-            onCreate = { name, createShortcut, bitmap ->
-                onCreateModpack(name, createShortcut, bitmap)
+            onCreate = { name, createShortcut, bitmap, packGameVersion ->
+                onCreateModpack(name, createShortcut, bitmap, packGameVersion)
                 showFabCreateDialog = false
             }
         )
@@ -399,6 +403,7 @@ private fun VanillaCard(
 private fun ModpackCard(
     modpack: ModpackMeta,
     packageName: String,
+    gameVersion: String,
     iconRefreshKey: Int,
     isActive: Boolean,
     onOpen: () -> Unit,
@@ -484,6 +489,26 @@ private fun ModpackCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(Modifier.height(2.dp))
+                    val versionCompatible = ModpackManager.isGameVersionCompatible(
+                        modpack.gameVersion,
+                        gameVersion
+                    )
+                    Text(
+                        text = if (modpack.gameVersion.isBlank()) {
+                            stringResource(R.string.modpack_game_version_unset)
+                        } else {
+                            stringResource(R.string.modpack_game_version_value, modpack.gameVersion)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (!versionCompatible) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     if (isActive) {
                         Spacer(Modifier.height(6.dp))
                         ActiveBadge()
@@ -552,12 +577,14 @@ private fun ActiveBadge() {
 private fun EditModpackDialog(
     modpack: ModpackMeta,
     packageName: String,
+    currentGameVersion: String,
     onDismiss: () -> Unit,
-    onSave: (newName: String, createShortcut: Boolean, bitmap: android.graphics.Bitmap?) -> Unit
+    onSave: (newName: String, createShortcut: Boolean, bitmap: android.graphics.Bitmap?, gameVersion: String) -> Unit
 ) {
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
     var name by remember(modpack.name) { mutableStateOf(modpack.name) }
+    var gameVersion by remember(modpack.name) { mutableStateOf(modpack.gameVersion) }
     var renameFailed by remember(modpack.name) { mutableStateOf(false) }
     var iconBitmap by remember(modpack.name) {
         mutableStateOf(
@@ -646,13 +673,29 @@ private fun EditModpackDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                OutlinedTextField(
+                    value = gameVersion,
+                    onValueChange = { gameVersion = it },
+                    label = { Text(stringResource(R.string.modpack_game_version)) },
+                    placeholder = {
+                        Text(
+                            currentGameVersion.ifBlank {
+                                stringResource(R.string.modpack_game_version_any)
+                            }
+                        )
+                    },
+                    supportingText = { Text(stringResource(R.string.modpack_game_version_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 ShortcutActionButton(
                     enabled = trimmedName.isNotEmpty(),
                     onClick = {
                         if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
                             showPermissionDialog = true
                         } else {
-                            onSave(trimmedName, true, if (hasNewIcon) iconBitmap else null)
+                            onSave(trimmedName, true, if (hasNewIcon) iconBitmap else null, gameVersion.trim())
                         }
                     }
                 )
@@ -664,7 +707,7 @@ private fun EditModpackDialog(
                     if (trimmedName.isEmpty()) {
                         renameFailed = true
                     } else {
-                        onSave(trimmedName, false, if (hasNewIcon) iconBitmap else null)
+                        onSave(trimmedName, false, if (hasNewIcon) iconBitmap else null, gameVersion.trim())
                     }
                 },
                 enabled = trimmedName.isNotEmpty()
@@ -889,10 +932,12 @@ private fun formatDownloadFileSize(bytes: Long): String = when {
 @Composable
 fun CreateModpackDialog(
     targetGame: String,
+    currentGameVersion: String,
     onDismiss: () -> Unit,
-    onCreate: (String, Boolean, android.graphics.Bitmap?) -> Unit
+    onCreate: (String, Boolean, android.graphics.Bitmap?, String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var gameVersion by remember { mutableStateOf(currentGameVersion) }
     var createShortcut by remember { mutableStateOf(false) }
     var iconBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
@@ -975,13 +1020,22 @@ fun CreateModpackDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                OutlinedTextField(
+                    value = gameVersion,
+                    onValueChange = { gameVersion = it },
+                    label = { Text(stringResource(R.string.modpack_game_version)) },
+                    supportingText = { Text(stringResource(R.string.modpack_game_version_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 ShortcutActionButton(
                     enabled = trimmedName.isNotEmpty(),
                     onClick = {
                         if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
                             showPermissionDialog = true
                         } else {
-                            onCreate(trimmedName, true, iconBitmap)
+                            onCreate(trimmedName, true, iconBitmap, gameVersion.trim())
                         }
                     }
                 )
@@ -991,7 +1045,7 @@ fun CreateModpackDialog(
             TextButton(
                 onClick = {
                     if (trimmedName.isNotEmpty()) {
-                        onCreate(trimmedName, createShortcut, iconBitmap)
+                        onCreate(trimmedName, createShortcut, iconBitmap, gameVersion.trim())
                     }
                 },
                 enabled = trimmedName.isNotEmpty()

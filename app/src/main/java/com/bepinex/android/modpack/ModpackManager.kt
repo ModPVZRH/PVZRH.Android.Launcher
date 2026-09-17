@@ -59,6 +59,7 @@ data class ModpackMeta(
     val createdAt: Long = System.currentTimeMillis(),
     val modCount: Int = 0,
     val createShortcut: Boolean = false,
+    val gameVersion: String = "",
     val mods: Map<String, StoredModInfo> = emptyMap()
 ) {
     val disabledDlls: Set<String>
@@ -75,6 +76,11 @@ data class ModpackMod(
     val displayName: String,
     val enabled: Boolean = true,
     val category: String? = null
+)
+
+data class PeekedModpackInfo(
+    val name: String,
+    val gameVersion: String
 )
 
 data class ModImportResult(
@@ -109,9 +115,32 @@ class ModpackManager {
 
         private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
         private const val MODS_KEY = "mods"
+        private const val GAME_VERSION_KEY = "gameVersion"
         private const val DLL_NAMES_KEY = "dllNames"
         private const val DISABLED_DLLS_KEY = "disabledDlls"
         private const val DLL_CATEGORIES_KEY = "dllCategories"
+
+        fun isGameVersionCompatible(required: String?, actual: String?): Boolean {
+            val tokens = parseGameVersionTokens(required)
+            if (tokens.isEmpty()) return true
+            val current = normalizeGameVersion(actual)
+            if (current.isEmpty()) return true
+            return tokens.any { token ->
+                token.equals(current, ignoreCase = true)
+            }
+        }
+
+        private fun parseGameVersionTokens(value: String?): List<String> =
+            value.orEmpty()
+                .split(',', ';', '/', '|', '、')
+                .map(::normalizeGameVersion)
+                .filter { it.isNotEmpty() }
+
+        private fun normalizeGameVersion(value: String?): String =
+            value.orEmpty()
+                .substringBefore('(')
+                .substringBefore(' ')
+                .trim()
         private val EXTRA_DOWNLOAD_RELATIVE_PATHS = listOf(
             "Download",
             "Downloads",
@@ -176,7 +205,11 @@ class ModpackManager {
             ?: emptyList()
     }
 
-    fun createModpack(packageName: String, name: String): ModpackMeta? {
+    fun createModpack(
+        packageName: String,
+        name: String,
+        gameVersion: String = ""
+    ): ModpackMeta? {
         val safeName = normalizeModpackName(name)
         if (safeName.isEmpty()) return null
 
@@ -189,7 +222,11 @@ class ModpackManager {
             getModpackConfigDir(packageName, safeName).mkdirs()
             getModpackLogsDir(packageName, safeName).mkdirs()
 
-            val meta = ModpackMeta(name = safeName, packageName = packageName)
+            val meta = ModpackMeta(
+                name = safeName,
+                packageName = packageName,
+                gameVersion = gameVersion.trim()
+            )
             writeMeta(meta)
             BepInExLog.i("Created modpack: $safeName")
             meta
@@ -999,6 +1036,75 @@ class ModpackManager {
         }
     }
 
+    fun peekModpackInfo(file: File): PeekedModpackInfo? {
+        if (!file.isFile) return null
+        return try {
+            ZipFile(file).use { zip ->
+                val entry = zip.entries().asSequence().firstOrNull { item ->
+                    !item.isDirectory &&
+                        item.name.replace('\\', '/')
+                            .substringAfterLast('/')
+                            .equals("modpack.json", ignoreCase = true)
+                } ?: return null
+                zip.getInputStream(entry).bufferedReader().use { reader ->
+                    parsePeekedModpackInfo(reader.readText(), file.name)
+                }
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack ${file.name}: ${e.message}")
+            null
+        }
+    }
+
+    fun peekModpackInfo(context: Context, uri: Uri, archiveName: String? = null): PeekedModpackInfo? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                peekModpackInfoFromStream(input, archiveName)
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack URI: ${e.message}")
+            null
+        }
+    }
+
+    private fun peekModpackInfoFromStream(input: InputStream, archiveName: String?): PeekedModpackInfo? {
+        val zis = ZipInputStream(BufferedInputStream(input))
+        try {
+            var entry = zis.nextEntry
+            while (entry != null) {
+                val entryName = entry.name.replace('\\', '/')
+                    .substringAfterLast('/')
+                if (!entry.isDirectory && entryName.equals("modpack.json", ignoreCase = true)) {
+                    return parsePeekedModpackInfo(String(zis.readBytes(), Charsets.UTF_8), archiveName)
+                }
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack stream: ${e.message}")
+        } finally {
+            zis.close()
+        }
+        return null
+    }
+
+    private fun parsePeekedModpackInfo(jsonText: String, archiveName: String?): PeekedModpackInfo? {
+        return try {
+            val json = JSONObject(jsonText)
+            val fallbackName = archiveName
+                ?.substringBeforeLast('.')
+                ?.let(::normalizeModpackName)
+                .orEmpty()
+            PeekedModpackInfo(
+                name = json.optString("name").trim().ifEmpty { fallbackName },
+                gameVersion = json.optString(GAME_VERSION_KEY).trim()
+            )
+        } catch (e: Exception) {
+            BepInExLog.w("Invalid peeked modpack.json: ${e.message}")
+            null
+        }
+    }
+
     private fun downloadDirectories(context: Context): List<File> {
         val dirs = linkedSetOf<File>()
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)?.let { dirs.add(it) }
@@ -1222,6 +1328,7 @@ class ModpackManager {
             } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
             val importedJson = JSONObject(metadataFile.readText())
             val importedMods = parseMods(importedJson)
+            val importedGameVersion = importedJson.optString(GAME_VERSION_KEY).trim()
             val contentRoot = metadataFile.parentFile
                 ?: throw java.io.IOException("Invalid modpack metadata location")
 
@@ -1241,6 +1348,7 @@ class ModpackManager {
                 createdAt = importedJson.optLong("createdAt", System.currentTimeMillis()),
                 modCount = getModCount(packageName, resolvedName),
                 createShortcut = importedJson.optBoolean("createShortcut", false),
+                gameVersion = importedGameVersion,
                 mods = syncedMods(packageName, resolvedName, importedMods)
             )
             writeMeta(meta)
@@ -1277,6 +1385,7 @@ class ModpackManager {
                 createdAt = json.optLong("createdAt", System.currentTimeMillis()),
                 modCount = actualModCount,
                 createShortcut = json.optBoolean("createShortcut", false),
+                gameVersion = json.optString(GAME_VERSION_KEY).trim(),
                 mods = mods
             )
             val storedModCount = json.optInt("modCount", -1)
@@ -1303,6 +1412,9 @@ class ModpackManager {
             put("createdAt", meta.createdAt)
             put("modCount", meta.modCount)
             put("createShortcut", meta.createShortcut)
+            if (meta.gameVersion.isNotBlank()) {
+                put(GAME_VERSION_KEY, meta.gameVersion.trim())
+            }
             val modsJson = JSONObject()
             meta.mods.toSortedMap().forEach { (path, info) ->
                 val fileName = path.substringAfterLast('/')
@@ -1479,9 +1591,17 @@ class ModpackManager {
     private fun normalizeDllKey(path: String): String =
         path.replace('\\', '/').trimStart('/')
 
-    fun updateMeta(packageName: String, modpackName: String, createShortcut: Boolean): ModpackMeta? {
+    fun updateMeta(
+        packageName: String,
+        modpackName: String,
+        createShortcut: Boolean,
+        gameVersion: String? = null
+    ): ModpackMeta? {
         val current = readMeta(packageName, modpackName) ?: return null
-        val updated = current.copy(createShortcut = createShortcut)
+        val updated = current.copy(
+            createShortcut = createShortcut,
+            gameVersion = gameVersion?.trim() ?: current.gameVersion
+        )
         writeMeta(updated)
         return updated
     }

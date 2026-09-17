@@ -80,6 +80,15 @@
     <string name="modpack_select_active">激活</string>
     <string name="modpack_vanilla">纯净模式（无模组）</string>
     <string name="modpack_name_hint">整合包名称</string>
+    <string name="modpack_game_version">适配游戏版本</string>
+    <string name="modpack_game_version_hint">留空表示适配所有版本。多个版本用逗号分隔。</string>
+    <string name="modpack_game_version_value">适配 v%s</string>
+    <string name="modpack_game_version_unset">未设置适配版本</string>
+    <string name="modpack_game_version_any">任意版本</string>
+    <string name="modpack_game_version_mismatch_title">版本不匹配</string>
+    <string name="modpack_game_version_mismatch_message">此整合包适配 %1$s，当前游戏版本为 %2$s。仍要导入吗？</string>
+    <string name="modpack_game_version_mismatch_batch">有 %1$d 个整合包的适配版本与当前游戏（%2$s）不一致。仍要导入吗？</string>
+    <string name="modpack_game_version_mismatch_continue">仍然导入</string>
     <string name="modpack_confirm_delete_title">删除整合包</string>
     <string name="modpack_confirm_delete_msg">确定要删除\"%s\"及其所有模组吗？此操作不可撤销。</string>
     <string name="modpack_created">已创建整合包: %s</string>

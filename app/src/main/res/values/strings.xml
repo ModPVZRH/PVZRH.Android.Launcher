@@ -86,6 +86,15 @@
     <string name="modpack_select_active">Activate</string>
     <string name="modpack_vanilla">Vanilla (No Mods)</string>
     <string name="modpack_name_hint">Modpack name</string>
+    <string name="modpack_game_version">Compatible game version</string>
+    <string name="modpack_game_version_hint">Leave empty for any version. Separate multiple versions with commas.</string>
+    <string name="modpack_game_version_value">For v%s</string>
+    <string name="modpack_game_version_unset">No compatible version set</string>
+    <string name="modpack_game_version_any">Any version</string>
+    <string name="modpack_game_version_mismatch_title">Version mismatch</string>
+    <string name="modpack_game_version_mismatch_message">This modpack targets %1$s, but the current game is %2$s. Import anyway?</string>
+    <string name="modpack_game_version_mismatch_batch">%1$d selected modpack(s) target a different version than the current game (%2$s). Import anyway?</string>
+    <string name="modpack_game_version_mismatch_continue">Import anyway</string>
     <string name="modpack_confirm_delete_title">Delete Modpack</string>
     <string name="modpack_confirm_delete_msg">Delete \"%s\" and all its mods? This cannot be undone.</string>
     <string name="modpack_created">Created modpack: %s</string>

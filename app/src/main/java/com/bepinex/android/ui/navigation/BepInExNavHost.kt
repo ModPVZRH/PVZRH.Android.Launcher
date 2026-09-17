@@ -115,6 +115,11 @@ private fun NavHostController.safePopBackStack(): Boolean {
     return if (currentState == Lifecycle.State.RESUMED) popBackStack() else false
 }
 
+private data class VersionMismatchPrompt(
+    val message: String,
+    val onContinue: () -> Unit
+)
+
 /**
  * Root navigation host with bottom navigation bar.
  */
@@ -274,6 +279,7 @@ fun BepInExNavHost(
     // File picker triggers (launcher must be at composable top level)
     var importModpackTrigger by remember { mutableStateOf(false) }
     var addModTrigger by remember { mutableStateOf<String?>(null) }
+    var versionMismatchPrompt by remember { mutableStateOf<VersionMismatchPrompt?>(null) }
 
     // Import modpack file picker — inline import to avoid navigation reset
     val importModpackLauncher = rememberLauncherForActivityResult(
@@ -299,34 +305,56 @@ fun BepInExNavHost(
                 ).show()
                 return@rememberLauncherForActivityResult
             }
-            importJob = composeScope.launch(Dispatchers.IO) {
-                try {
-                    val imported = modpackManager.importModpack(
-                        game.packageName,
-                        uri,
-                        context,
-                        displayName
-                    )
-                    withContext(Dispatchers.Main) {
-                        if (imported != null) {
-                            modpackRefreshKey++
-                        } else {
-                            android.widget.Toast.makeText(
-                                context,
-                                context.getString(R.string.modpack_invalid_archive),
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+            fun runImport() {
+                if (importJob?.isActive == true) return
+                importJob = composeScope.launch(Dispatchers.IO) {
+                    try {
+                        val imported = modpackManager.importModpack(
+                            game.packageName,
+                            uri,
+                            context,
+                            displayName
+                        )
+                        withContext(Dispatchers.Main) {
+                            if (imported != null) {
+                                modpackRefreshKey++
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    context.getString(R.string.modpack_invalid_archive),
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    } catch (_: kotlinx.coroutines.CancellationException) {
+                    } catch (error: Exception) {
+                        com.bepinex.android.BepInExLog.e("Import failed", error)
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } finally {
+                        withContext(NonCancellable + Dispatchers.Main) {
+                            importJob = null
                         }
                     }
-                } catch (_: kotlinx.coroutines.CancellationException) {
-                } catch (error: Exception) {
-                    com.bepinex.android.BepInExLog.e("Import failed", error)
-                    withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                } finally {
-                    withContext(NonCancellable + Dispatchers.Main) {
-                        importJob = null
+                }
+            }
+            composeScope.launch(Dispatchers.IO) {
+                val peeked = modpackManager.peekModpackInfo(context, uri, displayName)
+                withContext(Dispatchers.Main) {
+                    if (peeked != null &&
+                        !ModpackManager.isGameVersionCompatible(peeked.gameVersion, game.versionName)
+                    ) {
+                        versionMismatchPrompt = VersionMismatchPrompt(
+                            message = context.getString(
+                                R.string.modpack_game_version_mismatch_message,
+                                peeked.gameVersion,
+                                game.versionName
+                            ),
+                            onContinue = { runImport() }
+                        )
+                    } else {
+                        runImport()
                     }
                 }
             }
@@ -570,12 +598,17 @@ fun BepInExNavHost(
                                 ModpackListScreen(
                                     packageName = packageName,
                                     targetGameLabel = selectedGame?.label ?: packageName,
+                                    gameVersion = selectedGame?.versionName.orEmpty(),
                                     modpacks = modpacks,
                                     activeModpackName = activeModpackName,
                                     isSwitching = isSwitchingModpack,
                                     iconRefreshKey = modpackIconRefreshKey,
-                                    onCreateModpack = { name, createShortcut, iconBitmap ->
-                                        val created = modpackManager.createModpack(packageName, name)
+                                    onCreateModpack = { name, createShortcut, iconBitmap, gameVersion ->
+                                        val created = modpackManager.createModpack(
+                                            packageName,
+                                            name,
+                                            gameVersion
+                                        )
                                         if (created != null) {
                                             modpackManager.updateMeta(packageName, created.name, createShortcut)
                                             if (iconBitmap != null) {
@@ -608,7 +641,7 @@ fun BepInExNavHost(
                                             }
                                         }
                                     },
-                                    onEditModpack = { oldName, newName, createShortcut, iconBitmap ->
+                                    onEditModpack = { oldName, newName, createShortcut, iconBitmap, gameVersion ->
                                         val existingShortcut = modpackManager.listModpacks(packageName)
                                             .firstOrNull { it.name == oldName }
                                             ?.createShortcut == true
@@ -623,7 +656,8 @@ fun BepInExNavHost(
                                             modpackManager.updateMeta(
                                                 packageName,
                                                 normalizedName,
-                                                shortcutShouldExist
+                                                shortcutShouldExist,
+                                                gameVersion
                                             )
                                             if (createShortcut || (existingShortcut && oldName != normalizedName)) {
                                                 if (oldName != normalizedName) {
@@ -661,7 +695,9 @@ fun BepInExNavHost(
                                     onImportDownloadFiles = { files ->
                                         val game = selectedGame ?: return@ModpackListScreen
                                         if (importJob?.isActive == true) return@ModpackListScreen
-                                        importJob = composeScope.launch(Dispatchers.IO) {
+                                        fun runDownloadImport() {
+                                            if (importJob?.isActive == true) return
+                                            importJob = composeScope.launch(Dispatchers.IO) {
                                             var importedCount = 0
                                             try {
                                                 files.forEach { file ->
@@ -696,6 +732,33 @@ fun BepInExNavHost(
                                             } finally {
                                                 withContext(NonCancellable + Dispatchers.Main) {
                                                     importJob = null
+                                                }
+                                            }
+                                            }
+                                        }
+                                        composeScope.launch(Dispatchers.IO) {
+                                            val mismatched = files.mapNotNull { file ->
+                                                val peeked = modpackManager.peekModpackInfo(file)
+                                                    ?: return@mapNotNull null
+                                                peeked.takeUnless {
+                                                    ModpackManager.isGameVersionCompatible(
+                                                        it.gameVersion,
+                                                        game.versionName
+                                                    )
+                                                }
+                                            }
+                                            withContext(Dispatchers.Main) {
+                                                if (mismatched.isEmpty()) {
+                                                    runDownloadImport()
+                                                } else {
+                                                    versionMismatchPrompt = VersionMismatchPrompt(
+                                                        message = context.getString(
+                                                            R.string.modpack_game_version_mismatch_batch,
+                                                            mismatched.size,
+                                                            game.versionName
+                                                        ),
+                                                        onContinue = { runDownloadImport() }
+                                                    )
                                                 }
                                             }
                                         }
@@ -1165,6 +1228,28 @@ fun BepInExNavHost(
                         },
                         confirmButton = {
                             TextButton(onClick = { importJob?.cancel() }) {
+                                Text(stringResource(R.string.modpack_import_cancel))
+                            }
+                        }
+                    )
+                }
+                versionMismatchPrompt?.let { prompt ->
+                    AlertDialog(
+                        onDismissRequest = { versionMismatchPrompt = null },
+                        title = { Text(stringResource(R.string.modpack_game_version_mismatch_title)) },
+                        text = { Text(prompt.message) },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    versionMismatchPrompt = null
+                                    prompt.onContinue()
+                                }
+                            ) {
+                                Text(stringResource(R.string.modpack_game_version_mismatch_continue))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { versionMismatchPrompt = null }) {
                                 Text(stringResource(R.string.modpack_import_cancel))
                             }
                         }
