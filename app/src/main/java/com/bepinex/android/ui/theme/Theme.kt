@@ -1,12 +1,16 @@
 package com.bepinex.android.ui.theme
 
+import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.bepinex.android.settings.AppSettings
 
 // Brand seed color — mint green matching the documentation site
@@ -104,6 +108,16 @@ fun BepInExTheme(
         large = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     )
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            insetsController.isAppearanceLightStatusBars = !useDarkTheme
+            insetsController.isAppearanceLightNavigationBars = !useDarkTheme
+        }
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

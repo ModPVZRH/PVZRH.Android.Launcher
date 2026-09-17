@@ -1,6 +1,8 @@
 package com.bepinex.android.ui.navigation
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.lifecycle.Lifecycle
@@ -8,11 +10,13 @@ import com.bepinex.android.shortcut.ModpackShortcutHelper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,12 +26,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -428,6 +437,17 @@ fun BepInExNavHost(
 
     val configuration = LocalConfiguration.current
     val isTablet = configuration.screenWidthDp >= 600
+    val density = LocalDensity.current
+    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    val showPhoneBottomBar = showBottomBar && !isTablet
+    val bottomBarFraction by animateFloatAsState(
+        targetValue = if (showPhoneBottomBar) 1f else 0f,
+        animationSpec = if (animationDisabled) snap() else spring(),
+        label = "phoneBottomBar"
+    )
+    val animatedBottomBarPadding = with(density) {
+        (bottomBarHeightPx * bottomBarFraction).toDp()
+    }
     val coachTargets = remember { CoachMarkTargets() }
     var showCoachMarks by remember { mutableStateOf(false) }
     var showModpackCoachMarks by remember { mutableStateOf(false) }
@@ -463,84 +483,14 @@ fun BepInExNavHost(
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            if (!isTablet) {
-            AnimatedVisibility(
-                visible = showBottomBar,
-                enter = if (animationDisabled) EnterTransition.None
-                    else slideInVertically(spring()) { height -> height } + fadeIn(spring()),
-                exit = ExitTransition.None
-            ) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                ) {
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == 0,
-                        onClick = {
-                            if (pagerState.currentPage != 0) {
-                                composeScope.launch {
-                                    if (animationDisabled) pagerState.scrollToPage(0)
-                                    else pagerState.animateScrollToPage(0)
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
-                        label = { Text(stringResource(R.string.nav_games)) }
-                    )
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == 1,
-                        onClick = {
-                            if (selectedGame != null && pagerState.currentPage != 1) {
-                                composeScope.launch {
-                                    if (animationDisabled) pagerState.scrollToPage(1)
-                                    else pagerState.animateScrollToPage(1)
-                                }
-                            }
-                        },
-                        enabled = selectedGame != null,
-                        icon = { Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks)) },
-                        label = { Text(stringResource(R.string.nav_modpacks)) },
-                        modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
-                    )
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == 2,
-                        onClick = {
-                            if (pagerState.currentPage != 2) {
-                                composeScope.launch {
-                                    if (animationDisabled) pagerState.scrollToPage(2)
-                                    else pagerState.animateScrollToPage(2)
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
-                        label = { Text(stringResource(R.string.nav_market)) }
-                    )
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == 3,
-                        onClick = {
-                            if (selectedGame != null && pagerState.currentPage != 3) {
-                                composeScope.launch {
-                                    if (animationDisabled) pagerState.scrollToPage(3)
-                                    else pagerState.animateScrollToPage(3)
-                                }
-                            }
-                        },
-                        enabled = selectedGame != null,
-                        icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
-                        label = { Text(stringResource(R.string.nav_settings)) }
-                    )
-                }
-            }
-            }
-        }
-    ) { innerPadding ->
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { _ ->
         val navContent: @Composable () -> Unit = {
         NavHost(
             navController = navController,
             startDestination = NavRoutes.MAIN,
             modifier = if (isTablet) Modifier.fillMaxSize()
-                else Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+                else Modifier.padding(bottom = animatedBottomBarPadding),
             enterTransition = {
                 if (animationDisabled) EnterTransition.None
                 else slideInHorizontally(
@@ -1215,6 +1165,77 @@ fun BepInExNavHost(
             navContent()
         }
 
+    }
+    if (!isTablet) {
+        NavigationBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .onSizeChanged { bottomBarHeightPx = it.height }
+                .offset {
+                    IntOffset(
+                        x = 0,
+                        y = ((1f - bottomBarFraction) * bottomBarHeightPx).roundToInt()
+                    )
+                },
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            NavigationBarItem(
+                selected = pagerState.currentPage == 0,
+                onClick = {
+                    if (pagerState.currentPage != 0) {
+                        composeScope.launch {
+                            if (animationDisabled) pagerState.scrollToPage(0)
+                            else pagerState.animateScrollToPage(0)
+                        }
+                    }
+                },
+                icon = { Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games)) },
+                label = { Text(stringResource(R.string.nav_games)) }
+            )
+            NavigationBarItem(
+                selected = pagerState.currentPage == 1,
+                onClick = {
+                    if (selectedGame != null && pagerState.currentPage != 1) {
+                        composeScope.launch {
+                            if (animationDisabled) pagerState.scrollToPage(1)
+                            else pagerState.animateScrollToPage(1)
+                        }
+                    }
+                },
+                enabled = selectedGame != null,
+                icon = { Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks)) },
+                label = { Text(stringResource(R.string.nav_modpacks)) },
+                modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
+            )
+            NavigationBarItem(
+                selected = pagerState.currentPage == 2,
+                onClick = {
+                    if (pagerState.currentPage != 2) {
+                        composeScope.launch {
+                            if (animationDisabled) pagerState.scrollToPage(2)
+                            else pagerState.animateScrollToPage(2)
+                        }
+                    }
+                },
+                icon = { Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market)) },
+                label = { Text(stringResource(R.string.nav_market)) }
+            )
+            NavigationBarItem(
+                selected = pagerState.currentPage == 3,
+                onClick = {
+                    if (selectedGame != null && pagerState.currentPage != 3) {
+                        composeScope.launch {
+                            if (animationDisabled) pagerState.scrollToPage(3)
+                            else pagerState.animateScrollToPage(3)
+                        }
+                    }
+                },
+                enabled = selectedGame != null,
+                icon = { Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings)) },
+                label = { Text(stringResource(R.string.nav_settings)) }
+            )
+        }
     }
     if (showCoachMarks && currentRoute == NavRoutes.MAIN) {
         CoachMarkOverlay(

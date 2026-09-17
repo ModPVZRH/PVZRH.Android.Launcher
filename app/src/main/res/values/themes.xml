@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Base launcher theme — follows system DayNight by default -->
-    <style name="Theme.BepInEx.Launcher" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Base launcher theme — Compose draws edge-to-edge over transparent system bars -->
+    <style name="Theme.BepInEx.Launcher" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+    </style>
 
 
     <!-- FusionCore-compatible Unity theme (matches their UnityThemeSelector) -->
