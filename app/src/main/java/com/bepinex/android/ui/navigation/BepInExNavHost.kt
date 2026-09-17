@@ -791,6 +791,7 @@ fun BepInExNavHost(
                     }
 
                     ModpackDetailScreen(
+                        packageName = packageName,
                         modpackName = modpackName,
                         mods = mods,
                         configFiles = configFiles,
@@ -863,6 +864,45 @@ fun BepInExNavHost(
                                 } catch (_: CancellationException) {
                                 } catch (error: Exception) {
                                     com.bepinex.android.BepInExLog.e("DLL download import failed", error)
+                                    withContext(Dispatchers.Main) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.import_failed),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                        },
+                        onImportModsFromModpack = { sourceModpack, relativePaths ->
+                            composeScope.launch(Dispatchers.IO) {
+                                try {
+                                    val result = modpackManager.importModsFromModpack(
+                                        packageName,
+                                        sourceModpack,
+                                        modpackName,
+                                        relativePaths
+                                    )
+                                    withContext(Dispatchers.Main) {
+                                        mods = modpackManager.listModEntries(
+                                            packageName,
+                                            modpackName
+                                        )
+                                        modpackRefreshKey++
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(
+                                                R.string.modpack_import_from_other_imported,
+                                                result.importedMods,
+                                                relativePaths.size,
+                                                result.importedConfigs
+                                            ),
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } catch (_: CancellationException) {
+                                } catch (error: Exception) {
+                                    com.bepinex.android.BepInExLog.e("Import from modpack failed", error)
                                     withContext(Dispatchers.Main) {
                                         android.widget.Toast.makeText(
                                             context,

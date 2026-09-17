@@ -59,6 +59,11 @@ data class ModpackMod(
     val enabled: Boolean = true
 )
 
+data class ModImportResult(
+    val importedMods: Int,
+    val importedConfigs: Int
+)
+
 data class ModpackExportProgress(
     val phase: String,
     val currentFile: String? = null,
@@ -348,6 +353,143 @@ class ModpackManager {
             BepInExLog.e("Failed to add mod from URI", e)
             null
         }
+    }
+
+    /**
+     * Copy selected plugins from [sourceModpack] into [destModpack], including
+     * matching config files and extra files that sit beside the DLL.
+     */
+    fun importModsFromModpack(
+        packageName: String,
+        sourceModpack: String,
+        destModpack: String,
+        relativePaths: Collection<String>
+    ): ModImportResult {
+        if (sourceModpack == destModpack) return ModImportResult(0, 0)
+        val selectedKeys = relativePaths.map(::normalizeDllKey).filter { it.isNotEmpty() }.toSet()
+        if (selectedKeys.isEmpty()) return ModImportResult(0, 0)
+
+        val sourcePlugins = getModpackPluginsDir(packageName, sourceModpack)
+        val destPlugins = getModpackPluginsDir(packageName, destModpack)
+        destPlugins.mkdirs()
+        getModpackConfigDir(packageName, destModpack).mkdirs()
+
+        val selectedMods = listModEntries(packageName, sourceModpack)
+            .filter { normalizeDllKey(it.relativePath) in selectedKeys }
+
+        var importedMods = 0
+        selectedMods.forEach { mod ->
+            try {
+                copyFilePreserve(mod.file, File(destPlugins, mod.relativePath))
+                copyPluginExtras(sourcePlugins, destPlugins, mod, selectedKeys)
+                importedMods++
+            } catch (e: Exception) {
+                BepInExLog.e("Failed to import mod ${mod.relativePath}", e)
+            }
+        }
+
+        val importedConfigs = copyMatchingConfigs(
+            packageName,
+            sourceModpack,
+            destModpack,
+            selectedMods
+        )
+
+        val destMeta = readMeta(packageName, destModpack)
+            ?: ModpackMeta(name = destModpack, packageName = packageName)
+        val dllNames = syncedDllNames(packageName, destModpack, destMeta.dllNames).toMutableMap()
+        val disabled = syncedDisabledDlls(packageName, destModpack, destMeta.disabledDlls).toMutableSet()
+        selectedMods.forEach { mod ->
+            val key = normalizeDllKey(mod.relativePath)
+            dllNames[key] = mod.displayName
+            if (mod.enabled) {
+                disabled.remove(key)
+                disabled.remove(key.substringAfterLast('/'))
+            } else {
+                disabled.add(key)
+            }
+        }
+        writeMeta(
+            destMeta.copy(
+                modCount = getModCount(packageName, destModpack),
+                dllNames = dllNames,
+                disabledDlls = disabled
+            )
+        )
+        BepInExLog.i(
+            "Imported $importedMods mod(s) and $importedConfigs config(s) from $sourceModpack -> $destModpack"
+        )
+        return ModImportResult(importedMods, importedConfigs)
+    }
+
+    private fun copyFilePreserve(source: File, dest: File) {
+        dest.parentFile?.mkdirs()
+        source.copyTo(dest, overwrite = true)
+    }
+
+    private fun copyPluginExtras(
+        sourcePlugins: File,
+        destPlugins: File,
+        mod: ModpackMod,
+        selectedKeys: Set<String>
+    ) {
+        val parentRel = mod.relativePath.substringBeforeLast('/', "")
+        if (parentRel.isNotEmpty()) {
+            val srcDir = File(sourcePlugins, parentRel)
+            if (!srcDir.isDirectory) return
+            srcDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                val rel = normalizeDllKey(file.relativeTo(sourcePlugins).invariantSeparatorsPath)
+                if (file.extension.equals("dll", ignoreCase = true) && rel !in selectedKeys) return@forEach
+                copyFilePreserve(file, File(destPlugins, rel))
+            }
+            return
+        }
+
+        val stem = mod.file.nameWithoutExtension
+        sourcePlugins.listFiles()?.forEach { file ->
+            if (!file.isFile) return@forEach
+            if (file.extension.equals("dll", ignoreCase = true)) return@forEach
+            if (!file.nameWithoutExtension.equals(stem, ignoreCase = true)) return@forEach
+            copyFilePreserve(file, File(destPlugins, file.name))
+        }
+    }
+
+    private fun copyMatchingConfigs(
+        packageName: String,
+        sourceModpack: String,
+        destModpack: String,
+        selectedMods: List<ModpackMod>
+    ): Int {
+        val srcConfig = getModpackConfigDir(packageName, sourceModpack)
+        val destConfig = getModpackConfigDir(packageName, destModpack)
+        if (!srcConfig.isDirectory || selectedMods.isEmpty()) return 0
+
+        val copied = linkedSetOf<String>()
+        srcConfig.walkTopDown().filter { it.isFile }.forEach { file ->
+            val rel = normalizeDllKey(file.relativeTo(srcConfig).invariantSeparatorsPath)
+            if (rel in copied) return@forEach
+            if (selectedMods.none { configMatchesMod(rel, it) }) return@forEach
+            copyFilePreserve(file, File(destConfig, rel))
+            copied += rel
+        }
+        return copied.size
+    }
+
+    private fun configMatchesMod(relativePath: String, mod: ModpackMod): Boolean {
+        val cfgPath = normalizeDllKey(relativePath).lowercase()
+        val cfgName = cfgPath.substringAfterLast('/').substringBeforeLast('.')
+        val dllStem = mod.file.nameWithoutExtension.lowercase()
+        val dllFolder = mod.relativePath.substringBeforeLast('/', "").lowercase()
+        if (dllStem.isNotEmpty()) {
+            if (cfgName == dllStem) return true
+            if (cfgName.substringAfterLast('.') == dllStem) return true
+        }
+        if (dllFolder.isNotEmpty()) {
+            if (cfgName == dllFolder) return true
+            if (cfgName.substringAfterLast('.') == dllFolder) return true
+            if (cfgPath.startsWith("$dllFolder/")) return true
+        }
+        return false
     }
 
     fun removeMod(file: File): Boolean {

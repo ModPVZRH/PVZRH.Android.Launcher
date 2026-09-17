@@ -97,6 +97,13 @@
     <string name="modpack_scan_dlls_message">在下载目录找到 %d 个 .dll 文件，要导入到此整合包吗？</string>
     <string name="modpack_scan_dlls_empty">下载目录没有 .dll 模组</string>
     <string name="modpack_scan_dlls_imported">已导入 %1$d / %2$d 个模组</string>
+    <string name="modpack_import_from_other">从其他整合包导入</string>
+    <string name="modpack_import_from_other_title">选择整合包</string>
+    <string name="modpack_import_from_other_empty">没有可导入的其他整合包</string>
+    <string name="modpack_import_from_other_no_mods">此整合包中暂无模组</string>
+    <string name="modpack_import_from_other_mods_title">%s 中的模组</string>
+    <string name="modpack_import_from_other_mods_message">将把选中的模组及其对应配置复制到当前整合包。</string>
+    <string name="modpack_import_from_other_imported">已导入 %1$d / %2$d 个模组（含 %3$d 个配置）</string>
     <string name="modpack_no_mods">此整合包中暂无模组</string>
     <string name="modpack_add_mod">添加模组</string>
     <string name="modpack_invalid_mod_file">仅可添加 .dll 后缀的模组</string>

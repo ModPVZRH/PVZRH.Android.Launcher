@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FolderOpen
@@ -109,6 +110,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import com.bepinex.android.R
 import com.bepinex.android.modpack.ModpackManager
+import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.modpack.ModpackMod
 import java.io.File
 
@@ -118,6 +120,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModpackDetailScreen(
+    packageName: String,
     modpackName: String,
     mods: List<ModpackMod>,
     configFiles: List<File>,
@@ -130,7 +133,8 @@ fun ModpackDetailScreen(
     onViewLog: () -> Unit,
     onExportModpack: () -> Unit,
     onBrowseModFiles: () -> Unit = {},
-    onImportDownloadDlls: (List<File>) -> Unit = {}
+    onImportDownloadDlls: (List<File>) -> Unit = {},
+    onImportModsFromModpack: (sourceModpack: String, relativePaths: List<String>) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
@@ -144,6 +148,10 @@ fun ModpackDetailScreen(
     var selectedDownloadPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     var scanningDownloads by remember { mutableStateOf(false) }
     var addMenuOpen by remember { mutableStateOf(false) }
+    var otherModpacks by remember { mutableStateOf<List<ModpackMeta>>(emptyList()) }
+    var importSourceName by remember { mutableStateOf<String?>(null) }
+    var importSourceMods by remember { mutableStateOf<List<ModpackMod>>(emptyList()) }
+    var selectedImportPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     val sortedMods = remember(mods, sortMode) { mods.sortedWith(sortMode.comparator) }
     val filteredMods = remember(sortedMods, searchQuery) {
         sortedMods.filter { it.matchesSearch(searchQuery) }
@@ -176,6 +184,43 @@ fun ModpackDetailScreen(
             } finally {
                 scanningDownloads = false
             }
+        }
+    }
+
+    fun openImportFromModpack() {
+        val packs = manager.listModpacks(packageName).filter { it.name != modpackName }
+        if (packs.isEmpty()) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(R.string.modpack_import_from_other_empty),
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        otherModpacks = packs
+        importSourceName = null
+        importSourceMods = emptyList()
+        selectedImportPaths = emptySet()
+    }
+
+    fun selectImportSource(sourceName: String) {
+        scanScope.launch {
+            val entries = withContext(Dispatchers.IO) {
+                manager.listModEntries(packageName, sourceName)
+                    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, ModpackMod::displayName))
+            }
+            otherModpacks = emptyList()
+            if (entries.isEmpty()) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(R.string.modpack_import_from_other_no_mods),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
+            importSourceName = sourceName
+            importSourceMods = entries
+            selectedImportPaths = entries.map { it.relativePath }.toSet()
         }
     }
 
@@ -217,7 +262,8 @@ fun ModpackDetailScreen(
                         onExpandedChange = { addMenuOpen = it },
                         scanning = scanningDownloads,
                         onManualImport = onAddMod,
-                        onAutoScan = { scanDownloads() }
+                        onAutoScan = { scanDownloads() },
+                        onImportFromModpack = { openImportFromModpack() }
                     )
                 },
                 windowInsets = WindowInsets.safeDrawing.only(
@@ -532,6 +578,43 @@ fun ModpackDetailScreen(
             },
             onSkip = {
                 downloadCandidates = emptyList()
+            }
+        )
+    }
+
+    if (otherModpacks.isNotEmpty()) {
+        ImportFromModpackPickerDialog(
+            modpacks = otherModpacks,
+            onSelect = { selectImportSource(it.name) },
+            onDismiss = { otherModpacks = emptyList() }
+        )
+    }
+
+    importSourceName?.let { sourceName ->
+        ImportModsFromModpackDialog(
+            sourceName = sourceName,
+            mods = importSourceMods,
+            selectedPaths = selectedImportPaths,
+            onToggle = { mod, checked ->
+                selectedImportPaths = if (checked) {
+                    selectedImportPaths + mod.relativePath
+                } else {
+                    selectedImportPaths - mod.relativePath
+                }
+            },
+            onImport = {
+                val selected = importSourceMods
+                    .map { it.relativePath }
+                    .filter { it in selectedImportPaths }
+                importSourceName = null
+                importSourceMods = emptyList()
+                if (selected.isNotEmpty()) {
+                    onImportModsFromModpack(sourceName, selected)
+                }
+            },
+            onSkip = {
+                importSourceName = null
+                importSourceMods = emptyList()
             }
         )
     }
@@ -1051,7 +1134,8 @@ private fun AddModActionsButton(
     onExpandedChange: (Boolean) -> Unit,
     scanning: Boolean,
     onManualImport: () -> Unit,
-    onAutoScan: () -> Unit
+    onAutoScan: () -> Unit,
+    onImportFromModpack: () -> Unit
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 45f else 0f,
@@ -1106,6 +1190,20 @@ private fun AddModActionsButton(
                     )
                 }
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.modpack_import_from_other)) },
+                onClick = {
+                    onExpandedChange(false)
+                    onImportFromModpack()
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.DriveFileMove,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            )
         }
     }
 }
@@ -1154,6 +1252,135 @@ private fun DownloadDllScanDialog(
                                     text = formatFileSize(file.length()),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onImport,
+                enabled = selectedPaths.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.modpack_scan_downloads_import))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onSkip) {
+                Text(stringResource(R.string.modpack_scan_downloads_skip))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ImportFromModpackPickerDialog(
+    modpacks: List<ModpackMeta>,
+    onSelect: (ModpackMeta) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.modpack_import_from_other_title)) },
+        text = {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(modpacks, key = { it.name }) { pack ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(pack) }
+                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = pack.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = stringResource(
+                                    R.string.modpack_mod_count_ratio,
+                                    pack.enabledModCount,
+                                    pack.modCount
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.modpack_scan_downloads_skip))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ImportModsFromModpackDialog(
+    sourceName: String,
+    mods: List<ModpackMod>,
+    selectedPaths: Set<String>,
+    onToggle: (ModpackMod, Boolean) -> Unit,
+    onImport: () -> Unit,
+    onSkip: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onSkip,
+        title = { Text(stringResource(R.string.modpack_import_from_other_mods_title, sourceName)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.modpack_import_from_other_mods_message))
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(mods, key = { it.relativePath }) { mod ->
+                        val checked = mod.relativePath in selectedPaths
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onToggle(mod, !checked) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = checked,
+                                onCheckedChange = { onToggle(mod, it) }
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = mod.displayName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = mod.relativePath,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
