@@ -32,7 +32,7 @@ android {
         minSdk = 28
         targetSdk = 35
         versionCode = ciBuildNumber
-        versionName = "1.0.0-ci.$ciBuildNumber"
+        versionName = "1.1.0-ci.$ciBuildNumber"
 
         ndk {
             abiFilters += "arm64-v8a"
