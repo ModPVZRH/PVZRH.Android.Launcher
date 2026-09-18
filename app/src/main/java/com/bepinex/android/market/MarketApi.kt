@@ -17,11 +17,14 @@ object MarketApi {
     private const val CACHE_DIR = "market"
     private const val CACHE_FILE = "mods.json"
     private const val CATEGORY_CACHE_FILE = "categories.json"
+    private const val TAG_CACHE_FILE = "tags.json"
 
     @Volatile
     private var memoryMods: List<MarketMod>? = null
     @Volatile
     private var memoryCategories: List<MarketCategory>? = null
+    @Volatile
+    private var memoryTags: List<MarketTag>? = null
 
     private val _statsRevision = MutableStateFlow(0)
     val statsRevision: StateFlow<Int> = _statsRevision.asStateFlow()
@@ -29,6 +32,32 @@ object MarketApi {
     fun cachedMods(): List<MarketMod>? = memoryMods
 
     fun cachedCategories(): List<MarketCategory>? = memoryCategories
+
+    fun cachedTags(): List<MarketTag>? = memoryTags
+
+    fun loadTags(context: Context, forceRefresh: Boolean = false): List<MarketTag> {
+        val appContext = context.applicationContext
+        if (!forceRefresh) {
+            memoryTags?.let { return it }
+            readTagCache(appContext)?.let { cached ->
+                memoryTags = cached
+                return cached
+            }
+        }
+
+        val base = apiBase(appContext)
+        val body = base?.let { requestBody("$it/public/tag") }
+        val parsed = body?.let(::parseTagPayload)
+        if (parsed != null) {
+            memoryTags = parsed
+            writeNamedCache(appContext, TAG_CACHE_FILE, body)
+            return parsed
+        }
+
+        memoryTags?.let { return it }
+        return readTagCache(appContext)?.also { memoryTags = it }
+            ?: tagsFromMods(memoryMods.orEmpty())
+    }
 
     fun loadCategories(context: Context, forceRefresh: Boolean = false): List<MarketCategory> {
         val appContext = context.applicationContext
@@ -201,7 +230,8 @@ object MarketApi {
         iconUrl = obj.stringOrEmpty("iconUrl"),
         videoUrl = obj.stringOrEmpty("videoUrl"),
         gameName = obj.stringOrEmpty("gameName"),
-        supportedVersions = obj.stringOrEmpty("supportedVersions"),
+        supportedVersions = obj.stringOrEmpty("supportedVersions")
+            .ifBlank { obj.stringOrEmpty("gameVersion") },
         isPreposition = obj.optBoolean("isPreposition", false),
         isModpack = obj.optBoolean("isModpack", false),
         frameworkName = obj.stringOrEmpty("frameworkName"),
@@ -258,6 +288,42 @@ object MarketApi {
             BepInExLog.e("Failed to parse market categories", error)
             null
         }
+    }
+
+    private fun parseTagPayload(body: String): List<MarketTag>? {
+        return try {
+            val json = JSONObject(body)
+            if (json.optInt("code", -1) != 0) {
+                BepInExLog.w("Market tag API error: ${json.optString("msg")}")
+                return null
+            }
+            val data = json.optJSONArray("data") ?: return emptyList()
+            (0 until data.length()).mapNotNull { index ->
+                val item = data.optJSONObject(index) ?: return@mapNotNull null
+                val name = item.stringOrEmpty("name")
+                if (name.isEmpty()) return@mapNotNull null
+                MarketTag(
+                    id = item.stringOrEmpty("id"),
+                    name = name,
+                    color = item.stringOrEmpty("color")
+                )
+            }
+        } catch (error: Exception) {
+            BepInExLog.e("Failed to parse market tags", error)
+            null
+        }
+    }
+
+    private fun tagsFromMods(mods: List<MarketMod>): List<MarketTag> =
+        mods.flatMap { it.tags }
+            .filter { it.name.isNotBlank() }
+            .distinctBy { it.id.ifEmpty { it.name } }
+
+    private fun readTagCache(context: Context): List<MarketTag>? {
+        val file = File(File(context.filesDir, CACHE_DIR), TAG_CACHE_FILE)
+        if (!file.isFile) return null
+        val body = runCatching { file.readText() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        return parseTagPayload(body)
     }
 
     private fun categoriesFromMods(mods: List<MarketMod>): List<MarketCategory> =

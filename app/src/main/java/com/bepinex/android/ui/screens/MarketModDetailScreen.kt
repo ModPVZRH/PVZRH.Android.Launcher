@@ -73,7 +73,8 @@ private enum class MarketDetailTab { Info, Download, Source }
 @Composable
 fun MarketModDetailScreen(
     modId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    gameVersion: String = ""
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -193,6 +194,7 @@ fun MarketModDetailScreen(
                     MarketDetailHeroCard(
                         item = item,
                         preferChinese = preferChinese,
+                        gameVersion = gameVersion,
                         primaryUrl = primaryUrl,
                         onInstall = { url -> openDownload(url) }
                     )
@@ -224,6 +226,7 @@ fun MarketModDetailScreen(
 private fun MarketDetailHeroCard(
     item: MarketMod,
     preferChinese: Boolean,
+    gameVersion: String,
     primaryUrl: String,
     onInstall: (String) -> Unit
 ) {
@@ -266,6 +269,14 @@ private fun MarketDetailHeroCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (item.supportedVersions.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        MarketCompatibleLabel(
+                            versions = item.supportedVersions,
+                            gameVersion = gameVersion,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                     if (item.categoryName.isNotBlank() || item.tags.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
                         Row(

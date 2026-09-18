@@ -769,7 +769,8 @@ fun BepInExNavHost(
                                 MarketScreen(
                                     onModClick = { modId ->
                                         navController.navigate(NavRoutes.marketModDetail(modId))
-                                    }
+                                    },
+                                    gameVersion = selectedGame?.versionName.orEmpty()
                                 )
                             }
                             3 -> {
@@ -1156,7 +1157,8 @@ fun BepInExNavHost(
                     val modId = backStackEntry.arguments?.getString("modId") ?: return@composable
                     MarketModDetailScreen(
                         modId = modId,
-                        onBack = { navController.safePopBackStack() }
+                        onBack = { navController.safePopBackStack() },
+                        gameVersion = selectedGame?.versionName.orEmpty()
                     )
                 }
 

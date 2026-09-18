@@ -8,6 +8,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,9 +38,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,13 +111,15 @@ import java.util.TimeZone
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketScreen(
-    onModClick: (String) -> Unit
+    onModClick: (String) -> Unit,
+    gameVersion: String = ""
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val preferChinese = remember { AppSettings.isChineseUi(context) }
     var mods by remember { mutableStateOf(MarketApi.cachedMods().orEmpty()) }
     var categories by remember { mutableStateOf(MarketApi.cachedCategories().orEmpty()) }
+    var tags by remember { mutableStateOf(MarketApi.cachedTags().orEmpty()) }
     var isLoading by remember { mutableStateOf(mods.isEmpty()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -123,6 +129,7 @@ fun MarketScreen(
     var sort by remember { mutableStateOf(MarketBrowseState.sort) }
     var selectedAuthor by remember { mutableStateOf(MarketBrowseState.selectedAuthor) }
     var selectedCategoryId by remember { mutableStateOf(MarketBrowseState.selectedCategoryId) }
+    var selectedTagId by remember { mutableStateOf(MarketBrowseState.selectedTagId) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val showScrollToTop by remember {
@@ -131,13 +138,14 @@ fun MarketScreen(
         }
     }
 
-    LaunchedEffect(filter, sort, searchQuery, searchExpanded, selectedAuthor, selectedCategoryId) {
+    LaunchedEffect(filter, sort, searchQuery, searchExpanded, selectedAuthor, selectedCategoryId, selectedTagId) {
         MarketBrowseState.filter = filter
         MarketBrowseState.sort = sort
         MarketBrowseState.searchQuery = searchQuery
         MarketBrowseState.searchExpanded = searchExpanded
         MarketBrowseState.selectedAuthor = selectedAuthor
         MarketBrowseState.selectedCategoryId = selectedCategoryId
+        MarketBrowseState.selectedTagId = selectedTagId
     }
 
     fun loadMods(forceRefresh: Boolean) {
@@ -151,9 +159,15 @@ fun MarketScreen(
             val result = withContext(Dispatchers.IO) {
                 val loaded = MarketApi.loadMods(context, forceRefresh = forceRefresh)
                 val loadedCategories = MarketApi.loadCategories(context, forceRefresh = forceRefresh)
-                loaded to loadedCategories
+                val loadedTags = MarketApi.loadTags(context, forceRefresh = forceRefresh)
+                Triple(loaded, loadedCategories, loadedTags)
             }
             val loadedMods = result.first
+            tags = result.third.ifEmpty {
+                loadedMods.orEmpty().flatMap { it.tags }
+                    .filter { it.name.isNotBlank() }
+                    .distinctBy { it.id.ifEmpty { it.name } }
+            }
             categories = result.second.ifEmpty {
                 loadedMods.orEmpty()
                     .mapNotNull { mod ->
@@ -190,19 +204,23 @@ fun MarketScreen(
 
     val showingAuthorDirectory = filter == MarketFilter.Author && selectedAuthor == null
     val unknownAuthor = stringResource(R.string.market_unknown_author)
-    val filteredMods = remember(mods, searchQuery, filter, sort, selectedAuthor, selectedCategoryId, preferChinese) {
+    val filteredMods = remember(
+        mods, searchQuery, filter, sort, selectedAuthor, selectedCategoryId, selectedTagId, preferChinese
+    ) {
         val query = searchQuery.trim()
         mods.asSequence()
             .filter { mod ->
                 selectedCategoryId.isNullOrBlank() || mod.categoryId == selectedCategoryId
             }
             .filter { mod ->
+                selectedTagId.isNullOrBlank() ||
+                    filter == MarketFilter.Author ||
+                    mod.tags.any { it.id == selectedTagId || it.name == selectedTagId }
+            }
+            .filter { mod ->
                 when (filter) {
                     MarketFilter.All -> true
                     MarketFilter.Featured -> mod.isFeatured
-                    MarketFilter.Mods -> !mod.isPreposition && !mod.isModpack
-                    MarketFilter.Preposition -> mod.isPreposition
-                    MarketFilter.Modpacks -> mod.isModpack
                     MarketFilter.Author ->
                         selectedAuthor == null || mod.displayAuthor.trim() == selectedAuthor
                 }
@@ -234,7 +252,8 @@ fun MarketScreen(
     val browsing = searchQuery.isBlank() &&
         filter == MarketFilter.All &&
         sort == MarketSort.Updated &&
-        selectedCategoryId == null
+        selectedCategoryId == null &&
+        selectedTagId == null
     val featuredMods = remember(filteredMods, browsing) {
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
     }
@@ -338,11 +357,19 @@ fun MarketScreen(
             if (!(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())) {
                 MarketFilterBar(
                     filter = filter,
+                    tags = tags,
+                    selectedTagId = selectedTagId,
                     onFilterChange = { next ->
                         if (next == MarketFilter.Author && filter == MarketFilter.Author) {
                             selectedAuthor = null
                         }
+                        selectedTagId = null
                         filter = next
+                    },
+                    onTagSelect = { tagId ->
+                        selectedAuthor = null
+                        filter = MarketFilter.All
+                        selectedTagId = tagId
                     }
                 )
                 if (categories.isNotEmpty() && !showingAuthorDirectory) {
@@ -430,6 +457,7 @@ fun MarketScreen(
                                             MarketHotCard(
                                                 mod = mod,
                                                 preferChinese = preferChinese,
+                                                gameVersion = gameVersion,
                                                 onClick = { onModClick(mod.id) }
                                             )
                                         }
@@ -462,6 +490,7 @@ fun MarketScreen(
                                 MarketModCard(
                                     mod = mod,
                                     preferChinese = preferChinese,
+                                    gameVersion = gameVersion,
                                     onClick = { onModClick(mod.id) },
                                     modifier = Modifier.padding(horizontal = 16.dp)
                                 )
@@ -504,14 +533,12 @@ private object MarketBrowseState {
     var searchExpanded: Boolean = false
     var selectedAuthor: String? = null
     var selectedCategoryId: String? = null
+    var selectedTagId: String? = null
 }
 
 private enum class MarketFilter(val labelRes: Int) {
     All(R.string.market_filter_all),
     Featured(R.string.market_filter_featured),
-    Mods(R.string.market_filter_mods),
-    Preposition(R.string.market_filter_preposition),
-    Modpacks(R.string.market_filter_modpacks),
     Author(R.string.market_filter_author)
 }
 
@@ -556,36 +583,97 @@ private fun rememberConsumeHorizontalParentScroll(): NestedScrollConnection {
 @Composable
 private fun MarketFilterBar(
     filter: MarketFilter,
-    onFilterChange: (MarketFilter) -> Unit
+    tags: List<MarketTag>,
+    selectedTagId: String?,
+    onFilterChange: (MarketFilter) -> Unit,
+    onTagSelect: (String?) -> Unit
 ) {
     val chipColors = FilterChipDefaults.filterChipColors(
         selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
         selectedLabelColor = MaterialTheme.colorScheme.primary
     )
+    val allSelected = filter == MarketFilter.All && selectedTagId == null
 
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
             .nestedScroll(rememberConsumeHorizontalParentScroll()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        items(MarketFilter.entries, key = { it.name }) { item ->
+        item(key = "filter-all") {
             FilterChip(
-                selected = filter == item,
-                onClick = { onFilterChange(item) },
-                label = { Text(stringResource(item.labelRes)) },
+                selected = allSelected,
+                onClick = { onFilterChange(MarketFilter.All) },
+                label = { Text(stringResource(R.string.market_filter_all)) },
                 colors = chipColors,
+                border = marketChipBorder(allSelected)
+            )
+        }
+        item(key = "filter-featured") {
+            FilterChip(
+                selected = filter == MarketFilter.Featured,
+                onClick = { onFilterChange(MarketFilter.Featured) },
+                label = { Text(stringResource(R.string.market_filter_featured)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                colors = chipColors,
+                border = marketChipBorder(filter == MarketFilter.Featured)
+            )
+        }
+        item(key = "filter-author") {
+            FilterChip(
+                selected = filter == MarketFilter.Author,
+                onClick = { onFilterChange(MarketFilter.Author) },
+                label = { Text(stringResource(R.string.market_filter_author)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                },
+                colors = chipColors,
+                border = marketChipBorder(filter == MarketFilter.Author)
+            )
+        }
+        items(tags, key = { "tag-${it.id.ifEmpty { it.name }}" }) { tag ->
+            val selected = selectedTagId != null &&
+                (tag.id == selectedTagId || tag.name == selectedTagId)
+            val tagColor = remember(tag.color) { parseMarketTagColor(tag.color) }
+            FilterChip(
+                selected = selected,
+                onClick = { onTagSelect(if (selected) null else tag.id.ifEmpty { tag.name }) },
+                label = { Text(tag.name) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = (tagColor ?: MaterialTheme.colorScheme.primary)
+                        .copy(alpha = 0.16f),
+                    selectedLabelColor = tagColor ?: MaterialTheme.colorScheme.primary
+                ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = true,
-                    selected = filter == item,
+                    selected = selected,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
-                    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    selectedBorderColor = (tagColor ?: MaterialTheme.colorScheme.primary)
+                        .copy(alpha = 0.45f)
                 )
             )
         }
     }
 }
+
+@Composable
+private fun marketChipBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder(
+    enabled = true,
+    selected = selected,
+    borderColor = MaterialTheme.colorScheme.outlineVariant,
+    selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+)
 
 @Composable
 private fun MarketCategoryBar(
@@ -722,13 +810,25 @@ private fun MarketSectionHeader(
     title: String,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier.fillMaxWidth()
-    )
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(14.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }
 
 private const val ListDescriptionMaxChars = 36
@@ -743,35 +843,57 @@ private fun ellipsizeDescription(text: String, maxChars: Int): String {
 private fun MarketHotCard(
     mod: MarketMod,
     preferChinese: Boolean,
+    gameVersion: String,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
-            .width(112.dp)
+            .width(124.dp)
             .clickable(onClick = onClick),
         shape = MarketCardShape,
         colors = marketCardColors(),
-        elevation = marketCardElevation()
+        elevation = marketCardElevation(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ModIcon(
-                url = mod.iconUrl,
-                name = mod.localizedName(preferChinese),
-                modifier = Modifier.size(64.dp)
-            )
+            Box {
+                ModIcon(
+                    url = mod.iconUrl,
+                    name = mod.localizedName(preferChinese),
+                    modifier = Modifier.size(76.dp)
+                )
+                if (mod.isFeatured) {
+                    Icon(
+                        imageVector = Icons.Filled.Whatshot,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(16.dp)
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(
                 text = mod.localizedName(preferChinese),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                minLines = 1,
-                maxLines = 1,
+                minLines = 2,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
+            if (mod.supportedVersions.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                MarketCompatibleLabel(
+                    versions = mod.supportedVersions,
+                    gameVersion = gameVersion,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
         }
     }
 }
@@ -780,6 +902,7 @@ private fun MarketHotCard(
 private fun MarketModCard(
     mod: MarketMod,
     preferChinese: Boolean,
+    gameVersion: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -789,20 +912,21 @@ private fun MarketModCard(
             .clickable(onClick = onClick),
         shape = MarketCardShape,
         colors = marketCardColors(),
-        elevation = marketCardElevation()
+        elevation = marketCardElevation(),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ModIcon(
                 url = mod.iconUrl,
                 name = mod.localizedName(preferChinese),
-                modifier = Modifier.size(52.dp)
+                modifier = Modifier.size(58.dp)
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -816,6 +940,15 @@ private fun MarketModCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    if (mod.isFeatured) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     Spacer(Modifier.width(8.dp))
                     MarketTagChip(mod)
                 }
@@ -875,17 +1008,47 @@ private fun MarketModCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (mod.supportedVersions.isNotBlank()) {
+                        Spacer(Modifier.width(12.dp))
+                        MarketCompatibleLabel(
+                            versions = mod.supportedVersions,
+                            gameVersion = gameVersion,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-internal val MarketCardShape = RoundedCornerShape(16.dp)
+@Composable
+internal fun MarketCompatibleLabel(
+    versions: String,
+    gameVersion: String,
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.labelSmall
+) {
+    if (versions.isBlank()) return
+    val compatible = gameVersion.isBlank() ||
+        com.bepinex.android.modpack.ModpackManager.isGameVersionCompatible(versions, gameVersion)
+    Text(
+        text = stringResource(R.string.market_compatible_version, versions),
+        style = style,
+        color = if (compatible) {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            MaterialTheme.colorScheme.error
+        },
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+internal val MarketCardShape = RoundedCornerShape(18.dp)
 
 @Composable
 internal fun marketCardColors() = CardDefaults.cardColors(
-    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+    containerColor = MaterialTheme.colorScheme.surface,
     contentColor = MaterialTheme.colorScheme.onSurface
 )
 
@@ -1000,9 +1163,10 @@ internal fun ModIcon(
             .asImageBitmap()
     }
     Surface(
-        modifier = modifier.clip(RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface
+        modifier = modifier.clip(RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     ) {
         Image(
             bitmap = bitmap ?: fallbackIcon,

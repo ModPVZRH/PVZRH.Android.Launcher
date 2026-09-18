@@ -507,6 +507,7 @@
     <string name="market_detail_downloads">下载</string>
     <string name="market_detail_game">游戏</string>
     <string name="market_detail_compatible">兼容</string>
+    <string name="market_compatible_version">适配 %s</string>
     <string name="market_detail_updated">更新</string>
     <string name="market_detail_description">简介</string>
     <string name="market_download">下载</string>
