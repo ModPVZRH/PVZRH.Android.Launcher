@@ -507,6 +507,7 @@
     <string name="market_detail_downloads">Downloads</string>
     <string name="market_detail_game">Game</string>
     <string name="market_detail_compatible">Compatible</string>
+    <string name="market_compatible_version">For %s</string>
     <string name="market_detail_updated">Updated</string>
     <string name="market_detail_description">Description</string>
     <string name="market_download">Download</string>
