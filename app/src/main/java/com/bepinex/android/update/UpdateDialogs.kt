@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -288,9 +289,15 @@ fun CrashDialog(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
+    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
+    val maxLogHeight = (LocalConfiguration.current.screenHeightDp * 0.42f).dp
+    val logScroll = rememberScrollState()
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxDialogHeight),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -298,8 +305,9 @@ fun CrashDialog(
         ) {
             Column(
                 modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxDialogHeight)
                     .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = stringResource(R.string.crash_title),
@@ -338,6 +346,8 @@ fun CrashDialog(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .heightIn(max = maxLogHeight)
                             .padding(bottom = 16.dp)
                     ) {
                         Text(
@@ -346,14 +356,17 @@ fun CrashDialog(
                                 fontSize = 11.sp,
                                 lineHeight = 14.sp
                             ),
-                            modifier = Modifier.padding(12.dp)
+                            modifier = Modifier
+                                .verticalScroll(logScroll)
+                                .padding(12.dp)
                         )
                     }
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.close))
