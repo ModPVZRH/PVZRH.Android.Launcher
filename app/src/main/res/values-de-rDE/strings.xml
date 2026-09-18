@@ -532,6 +532,9 @@
     <string name="market_filter_preposition">Prerequisites</string>
     <string name="market_filter_modpacks">Modpacks</string>
     <string name="market_filter_author">Authors</string>
+    <string name="market_category_all">All categories</string>
+    <string name="market_detail_category">Category</string>
+    <string name="market_detail_tags">Tags</string>
     <string name="market_search_author">Search authors</string>
     <string name="market_all_authors">All authors</string>
     <string name="market_sort">Sort</string>
