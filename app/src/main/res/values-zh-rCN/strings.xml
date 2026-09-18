@@ -276,7 +276,7 @@
     <string name="settings_clear_dotnet">清空 .NET 数据</string>
     <string name="settings_clear_dotnet_desc">删除 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
     <string name="settings_clear_libunity">清除 libunity 缓存</string>
-    <string name="settings_clear_libunity_desc">Delete cached unstripped libunity.so files. They will be restored on next launch.</string>
+    <string name="settings_clear_libunity_desc">删除缓存的未裁切 libunity.so 文件。他们会在下一次启动重新被安置。</string>
     <string name="settings_copy_resources">复制游戏资源库</string>
     <string name="settings_copy_resources_desc">将游戏的资源数据复制到本地存储以用于 interop 生成。</string>
     <string name="settings_theme">主题</string>
@@ -307,9 +307,9 @@
     <string name="onboarding_permission_title">需要文件权限</string>
     <string name="onboarding_permission_body">启动器要把模组框架解压到存储空间。请授予「所有文件访问权限」。</string>
     <string name="onboarding_permission_granted">已授予所有文件访问权限</string>
-    <string name="onboarding_applist_permission_body">The launcher also needs to read the installed app list to find Fusion.</string>
-    <string name="onboarding_applist_permission_grant">Grant app list access</string>
-    <string name="onboarding_applist_permission_granted">App list access is granted</string>
+    <string name="onboarding_applist_permission_body">启动器需要读取已安装应用列表来发现融合版是否已安装。</string>
+    <string name="onboarding_applist_permission_grant">授予应用列表权限</string>
+    <string name="onboarding_applist_permission_granted">应用列表权限已授予</string>
     <string name="onboarding_first_launch_title">第一次启动请稍等</string>
     <string name="onboarding_first_launch_body">首次启动会准备运行环境，可能下载文件。保持网络畅通，不要切走应用。</string>
     <string name="onboarding_crash_logs_title">崩溃后请分享日志</string>
@@ -339,7 +339,7 @@
     <string name="confirm_clear_dotnet_title">清空 .NET 数据？</string>
     <string name="confirm_clear_dotnet_msg">这将删除此游戏的 .NET 运行时和复制的游戏数据。下次启动将重新解压。</string>
     <string name="confirm_clear_libunity_title">清除 libunity 缓存？</string>
-    <string name="confirm_clear_libunity_msg">This will delete cached unstripped libunity.so files. They will be restored on next launch.</string>
+    <string name="confirm_clear_libunity_msg">这会将您已缓存的未裁切的 libunity.so 文件删除。他们会在下一次启动时被重新安置。</string>
     <string name="clear_libunity_done">libunity 缓存已清除</string>
     <string name="clear_libunity_none">没有可清除的 libunity 缓存</string>
     <string name="confirm_copy_resources_title">复制游戏资源？</string>
@@ -455,7 +455,7 @@
     <string name="bridge_mods_fab">打开模组菜单</string>
     <string name="bridge_mods_minimize">最小化模组菜单</string>
     <string name="settings_unstripped_libunity">使用未裁剪 libunity</string>
-    <string name="settings_unstripped_libunity_desc">Use unstripped libunity.so with full icalls.</string>
+    <string name="settings_unstripped_libunity_desc">使用未裁切的 libunity.so 已启用完整调用。</string>
     <!-- Launch -->
     <string name="launch_failed">启动失败</string>
     <string name="launch_wait_extraction">请等待 — BepInEx 正在解压中</string>
@@ -550,7 +550,7 @@
     <string name="bootstrap_status_preparing">正在准备目标包…</string>
     <string name="bootstrap_status_copy_assets">正在复制 Unity 数据…</string>
     <string name="bootstrap_status_detecting_version">正在检测 Unity 版本…</string>
-    <string name="bootstrap_status_downloading_libunity">Preparing unstripped libunity…</string>
+    <string name="bootstrap_status_downloading_libunity">正在准备未裁切的 libunity……</string>
     <string name="bootstrap_status_preparing_unity_libraries">正在准备 Unity 基础库…</string>
     <string name="bootstrap_status_extracting_runtime">正在解压运行时文件…</string>
     <string name="bootstrap_status_registering_libraries">正在注册原生库…</string>
