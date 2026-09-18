@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import com.bepinex.android.market.MarketApi
 import com.bepinex.android.market.MarketMod
+import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.components.MarkdownContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ fun MarketModDetailScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preferChinese = remember { AppSettings.isChineseUi(context) }
     var mod by remember { mutableStateOf(MarketApi.findCachedMod(modId)) }
     var isLoading by remember { mutableStateOf(mod == null) }
     var tab by remember { mutableStateOf(MarketDetailTab.Info) }
@@ -190,6 +192,7 @@ fun MarketModDetailScreen(
                 ) {
                     MarketDetailHeroCard(
                         item = item,
+                        preferChinese = preferChinese,
                         primaryUrl = primaryUrl,
                         onInstall = { url -> openDownload(url) }
                     )
@@ -220,6 +223,7 @@ fun MarketModDetailScreen(
 @Composable
 private fun MarketDetailHeroCard(
     item: MarketMod,
+    preferChinese: Boolean,
     primaryUrl: String,
     onInstall: (String) -> Unit
 ) {
@@ -233,7 +237,7 @@ private fun MarketDetailHeroCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ModIcon(
                     url = item.iconUrl,
-                    name = item.displayName,
+                    name = item.localizedName(preferChinese),
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(Modifier.width(12.dp))
@@ -243,7 +247,7 @@ private fun MarketDetailHeroCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = item.displayName,
+                            text = item.localizedName(preferChinese),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 2,
@@ -262,6 +266,26 @@ private fun MarketDetailHeroCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (item.categoryName.isNotBlank() || item.tags.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (item.categoryName.isNotBlank()) {
+                                Text(
+                                    text = item.categoryName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (item.tags.isNotEmpty()) {
+                                MarketApiTagRow(tags = item.tags)
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -396,6 +420,15 @@ private fun MarketInfoTab(item: MarketMod) {
                 stringResource(R.string.market_created),
                 relativeTimeLabel(item.createdAt.ifBlank { item.timestamp })
             )
+            if (item.categoryName.isNotBlank()) {
+                DetailRow(stringResource(R.string.market_detail_category), item.categoryName)
+            }
+            if (item.tags.isNotEmpty()) {
+                DetailRow(
+                    stringResource(R.string.market_detail_tags),
+                    item.tags.joinToString(" · ") { it.name }
+                )
+            }
             if (item.gameName.isNotBlank()) {
                 DetailRow(stringResource(R.string.market_detail_game), item.gameName)
             }

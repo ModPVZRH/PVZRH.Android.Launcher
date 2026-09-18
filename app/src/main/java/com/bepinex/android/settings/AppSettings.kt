@@ -112,6 +112,21 @@ object AppSettings {
     fun getLanguage(context: Context): Language =
         Language.fromKey(prefs(context).getString(KEY_LANGUAGE, null))
 
+    fun isChineseUi(context: Context): Boolean {
+        val selected = getLanguage(context)
+        val tag = if (selected == Language.SYSTEM) {
+            val locales = context.resources.configuration.locales
+            if (locales.isEmpty) {
+                java.util.Locale.getDefault().toLanguageTag()
+            } else {
+                locales[0].toLanguageTag()
+            }
+        } else {
+            selected.key
+        }
+        return tag.startsWith("zh", ignoreCase = true)
+    }
+
     fun setLanguage(context: Context, language: Language) {
         prefs(context).edit().putString(KEY_LANGUAGE, language.key).apply()
     }

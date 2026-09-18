@@ -1,5 +1,18 @@
 package com.bepinex.android.market
 
+data class MarketCategory(
+    val id: String,
+    val name: String,
+    val description: String = "",
+    val sortOrder: Int = 0
+)
+
+data class MarketTag(
+    val id: String,
+    val name: String,
+    val color: String = ""
+)
+
 data class MarketMod(
     val id: String,
     val modName: String,
@@ -23,10 +36,21 @@ data class MarketMod(
     val viewCount: String,
     val isFeatured: Boolean,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val categoryId: String = "",
+    val categoryName: String = "",
+    val tags: List<MarketTag> = emptyList()
 ) {
     val displayName: String
-        get() = modName.ifBlank { englishName }
+        get() = localizedName(preferChinese = true)
+
+    fun localizedName(preferChinese: Boolean): String {
+        return if (preferChinese) {
+            modName.ifBlank { englishName }
+        } else {
+            englishName.ifBlank { modName }
+        }
+    }
 
     val displayAuthor: String
         get() = authorName.ifBlank { otherAuthors }

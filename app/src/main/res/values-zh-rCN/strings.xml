@@ -532,6 +532,9 @@
     <string name="market_filter_preposition">前置</string>
     <string name="market_filter_modpacks">整合包</string>
     <string name="market_filter_author">作者</string>
+    <string name="market_category_all">全部分类</string>
+    <string name="market_detail_category">分类</string>
+    <string name="market_detail_tags">标签</string>
     <string name="market_search_author">搜索作者</string>
     <string name="market_all_authors">全部作者</string>
     <string name="market_sort">排序</string>

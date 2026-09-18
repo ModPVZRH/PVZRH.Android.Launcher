@@ -2,6 +2,10 @@ package com.bepinex.android.ui.screens
 
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -31,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Sync
@@ -48,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +64,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,7 +89,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.bepinex.android.R
 import com.bepinex.android.market.MarketApi
+import com.bepinex.android.settings.AppSettings
+import com.bepinex.android.market.MarketCategory
 import com.bepinex.android.market.MarketMod
+import com.bepinex.android.market.MarketTag
 import com.bepinex.android.ui.components.plainTextFromMarkdown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -100,7 +111,9 @@ fun MarketScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val preferChinese = remember { AppSettings.isChineseUi(context) }
     var mods by remember { mutableStateOf(MarketApi.cachedMods().orEmpty()) }
+    var categories by remember { mutableStateOf(MarketApi.cachedCategories().orEmpty()) }
     var isLoading by remember { mutableStateOf(mods.isEmpty()) }
     var isRefreshing by remember { mutableStateOf(false) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -109,14 +122,22 @@ fun MarketScreen(
     var filter by remember { mutableStateOf(MarketBrowseState.filter) }
     var sort by remember { mutableStateOf(MarketBrowseState.sort) }
     var selectedAuthor by remember { mutableStateOf(MarketBrowseState.selectedAuthor) }
+    var selectedCategoryId by remember { mutableStateOf(MarketBrowseState.selectedCategoryId) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val showScrollToTop by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 120
+        }
+    }
 
-    LaunchedEffect(filter, sort, searchQuery, searchExpanded, selectedAuthor) {
+    LaunchedEffect(filter, sort, searchQuery, searchExpanded, selectedAuthor, selectedCategoryId) {
         MarketBrowseState.filter = filter
         MarketBrowseState.sort = sort
         MarketBrowseState.searchQuery = searchQuery
         MarketBrowseState.searchExpanded = searchExpanded
         MarketBrowseState.selectedAuthor = selectedAuthor
+        MarketBrowseState.selectedCategoryId = selectedCategoryId
     }
 
     fun loadMods(forceRefresh: Boolean) {
@@ -128,9 +149,22 @@ fun MarketScreen(
             }
             loadFailed = false
             val result = withContext(Dispatchers.IO) {
-                MarketApi.loadMods(context, forceRefresh = forceRefresh)
+                val loaded = MarketApi.loadMods(context, forceRefresh = forceRefresh)
+                val loadedCategories = MarketApi.loadCategories(context, forceRefresh = forceRefresh)
+                loaded to loadedCategories
             }
-            if (result == null) {
+            val loadedMods = result.first
+            categories = result.second.ifEmpty {
+                loadedMods.orEmpty()
+                    .mapNotNull { mod ->
+                        val id = mod.categoryId.trim()
+                        val name = mod.categoryName.trim()
+                        if (id.isEmpty() || name.isEmpty()) null
+                        else MarketCategory(id = id, name = name)
+                    }
+                    .distinctBy { it.id }
+            }
+            if (loadedMods == null) {
                 if (mods.isEmpty()) loadFailed = true
                 if (forceRefresh) {
                     android.widget.Toast.makeText(
@@ -140,7 +174,7 @@ fun MarketScreen(
                     ).show()
                 }
             } else {
-                mods = result
+                mods = loadedMods
                 loadFailed = false
             }
             isLoading = false
@@ -156,9 +190,12 @@ fun MarketScreen(
 
     val showingAuthorDirectory = filter == MarketFilter.Author && selectedAuthor == null
     val unknownAuthor = stringResource(R.string.market_unknown_author)
-    val filteredMods = remember(mods, searchQuery, filter, sort, selectedAuthor) {
+    val filteredMods = remember(mods, searchQuery, filter, sort, selectedAuthor, selectedCategoryId, preferChinese) {
         val query = searchQuery.trim()
         mods.asSequence()
+            .filter { mod ->
+                selectedCategoryId.isNullOrBlank() || mod.categoryId == selectedCategoryId
+            }
             .filter { mod ->
                 when (filter) {
                     MarketFilter.All -> true
@@ -172,12 +209,13 @@ fun MarketScreen(
             }
             .filter { mod ->
                 if (showingAuthorDirectory || query.isEmpty()) true
-                else mod.displayName.contains(query, ignoreCase = true) ||
+                else mod.localizedName(preferChinese).contains(query, ignoreCase = true) ||
+                    mod.modName.contains(query, ignoreCase = true) ||
                     mod.englishName.contains(query, ignoreCase = true) ||
                     mod.displayAuthor.contains(query, ignoreCase = true) ||
                     mod.modDescription.contains(query, ignoreCase = true)
             }
-            .sortedWith(sort.comparator())
+            .sortedWith(sort.comparator(preferChinese))
             .toList()
     }
     val authorDirectory = remember(mods, searchQuery, unknownAuthor) {
@@ -193,7 +231,10 @@ fun MarketScreen(
                     .thenBy(String.CASE_INSENSITIVE_ORDER) { it.first }
             )
     }
-    val browsing = searchQuery.isBlank() && filter == MarketFilter.All && sort == MarketSort.Updated
+    val browsing = searchQuery.isBlank() &&
+        filter == MarketFilter.All &&
+        sort == MarketSort.Updated &&
+        selectedCategoryId == null
     val featuredMods = remember(filteredMods, browsing) {
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
     }
@@ -304,6 +345,13 @@ fun MarketScreen(
                         filter = next
                     }
                 )
+                if (categories.isNotEmpty() && !showingAuthorDirectory) {
+                    MarketCategoryBar(
+                        categories = categories,
+                        selectedId = selectedCategoryId,
+                        onSelect = { selectedCategoryId = it }
+                    )
+                }
             }
 
             PullToRefreshBox(
@@ -349,7 +397,9 @@ fun MarketScreen(
                     }
                 }
                 else -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -379,6 +429,7 @@ fun MarketScreen(
                                         items(featuredMods, key = { it.id }) { mod ->
                                             MarketHotCard(
                                                 mod = mod,
+                                                preferChinese = preferChinese,
                                                 onClick = { onModClick(mod.id) }
                                             )
                                         }
@@ -410,11 +461,34 @@ fun MarketScreen(
                             items(filteredMods, key = { it.id }) { mod ->
                                 MarketModCard(
                                     mod = mod,
+                                    preferChinese = preferChinese,
                                     onClick = { onModClick(mod.id) },
                                     modifier = Modifier.padding(horizontal = 16.dp)
                                 )
                             }
                         }
+                    }
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showScrollToTop,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 20.dp, bottom = 16.dp),
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut()
+                    ) {
+                        SmallFloatingActionButton(
+                            onClick = {
+                                scope.launch { listState.animateScrollToItem(0) }
+                            },
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.KeyboardArrowUp,
+                                contentDescription = stringResource(R.string.modpack_scroll_to_top)
+                            )
+                        }
+                    }
                     }
                 }
             }
@@ -429,6 +503,7 @@ private object MarketBrowseState {
     var searchQuery: String = ""
     var searchExpanded: Boolean = false
     var selectedAuthor: String? = null
+    var selectedCategoryId: String? = null
 }
 
 private enum class MarketFilter(val labelRes: Int) {
@@ -447,7 +522,7 @@ private enum class MarketSort(val labelRes: Int) {
     Views(R.string.market_sort_views),
     Name(R.string.market_sort_name);
 
-    fun comparator(): Comparator<MarketMod> = when (this) {
+    fun comparator(preferChinese: Boolean = true): Comparator<MarketMod> = when (this) {
         Updated -> compareByDescending<MarketMod> { parseMarketTime(it.timestamp) ?: 0L }
             .thenBy { it.id }
         Created -> compareByDescending<MarketMod> { parseMarketTime(it.createdAt) ?: 0L }
@@ -456,8 +531,9 @@ private enum class MarketSort(val labelRes: Int) {
             .thenBy { it.id }
         Views -> compareByDescending<MarketMod> { it.viewCount.toLongOrNull() ?: 0L }
             .thenBy { it.id }
-        Name -> compareBy<MarketMod, String>(String.CASE_INSENSITIVE_ORDER) { it.displayName }
-            .thenBy { it.id }
+        Name -> compareBy<MarketMod, String>(String.CASE_INSENSITIVE_ORDER) {
+            it.localizedName(preferChinese)
+        }.thenBy { it.id }
     }
 }
 
@@ -505,6 +581,55 @@ private fun MarketFilterBar(
                     selected = filter == item,
                     borderColor = MaterialTheme.colorScheme.outlineVariant,
                     selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarketCategoryBar(
+    categories: List<MarketCategory>,
+    selectedId: String?,
+    onSelect: (String?) -> Unit
+) {
+    val chipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f),
+        selectedLabelColor = MaterialTheme.colorScheme.secondary
+    )
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .nestedScroll(rememberConsumeHorizontalParentScroll()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 8.dp)
+    ) {
+        item(key = "cat-all") {
+            FilterChip(
+                selected = selectedId == null,
+                onClick = { onSelect(null) },
+                label = { Text(stringResource(R.string.market_category_all)) },
+                colors = chipColors,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedId == null,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
+                )
+            )
+        }
+        items(categories, key = { it.id }) { category ->
+            FilterChip(
+                selected = selectedId == category.id,
+                onClick = { onSelect(if (selectedId == category.id) null else category.id) },
+                label = { Text(category.name) },
+                colors = chipColors,
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = selectedId == category.id,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant,
+                    selectedBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
                 )
             )
         }
@@ -617,6 +742,7 @@ private fun ellipsizeDescription(text: String, maxChars: Int): String {
 @Composable
 private fun MarketHotCard(
     mod: MarketMod,
+    preferChinese: Boolean,
     onClick: () -> Unit
 ) {
     Card(
@@ -633,12 +759,12 @@ private fun MarketHotCard(
         ) {
             ModIcon(
                 url = mod.iconUrl,
-                name = mod.displayName,
+                name = mod.localizedName(preferChinese),
                 modifier = Modifier.size(64.dp)
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = mod.displayName,
+                text = mod.localizedName(preferChinese),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 minLines = 1,
@@ -653,6 +779,7 @@ private fun MarketHotCard(
 @Composable
 private fun MarketModCard(
     mod: MarketMod,
+    preferChinese: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -672,7 +799,7 @@ private fun MarketModCard(
         ) {
             ModIcon(
                 url = mod.iconUrl,
-                name = mod.displayName,
+                name = mod.localizedName(preferChinese),
                 modifier = Modifier.size(52.dp)
             )
             Spacer(Modifier.width(12.dp))
@@ -682,7 +809,7 @@ private fun MarketModCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = mod.displayName,
+                        text = mod.localizedName(preferChinese),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -693,12 +820,22 @@ private fun MarketModCard(
                     MarketTagChip(mod)
                 }
                 Text(
-                    text = mod.displayAuthor.ifBlank { stringResource(R.string.market_unknown_author) },
+                    text = buildString {
+                        append(mod.displayAuthor.ifBlank { stringResource(R.string.market_unknown_author) })
+                        if (mod.categoryName.isNotBlank()) {
+                            append(" · ")
+                            append(mod.categoryName)
+                        }
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (mod.tags.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    MarketApiTagRow(tags = mod.tags, maxCount = 3)
+                }
                 val description = ellipsizeDescription(mod.modDescription, ListDescriptionMaxChars)
                 if (description.isNotBlank()) {
                     Text(
@@ -754,6 +891,48 @@ internal fun marketCardColors() = CardDefaults.cardColors(
 
 @Composable
 internal fun marketCardElevation() = CardDefaults.cardElevation(defaultElevation = 0.dp)
+
+@Composable
+internal fun MarketApiTagRow(
+    tags: List<MarketTag>,
+    maxCount: Int = 4
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        tags.take(maxCount).forEach { tag ->
+            MarketApiTagChip(tag)
+        }
+    }
+}
+
+@Composable
+internal fun MarketApiTagChip(tag: MarketTag) {
+    val parsed = remember(tag.color) { parseMarketTagColor(tag.color) }
+    val container = parsed?.copy(alpha = 0.16f) ?: MaterialTheme.colorScheme.secondaryContainer
+    val content = parsed ?: MaterialTheme.colorScheme.onSecondaryContainer
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = container
+    ) {
+        Text(
+            text = tag.name,
+            style = MaterialTheme.typography.labelSmall,
+            color = content,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            maxLines = 1
+        )
+    }
+}
+
+private fun parseMarketTagColor(raw: String): androidx.compose.ui.graphics.Color? {
+    val value = raw.trim()
+    if (value.isEmpty()) return null
+    return runCatching {
+        androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(value))
+    }.getOrNull()
+}
 
 @Composable
 internal fun MarketTagChip(mod: MarketMod) {
