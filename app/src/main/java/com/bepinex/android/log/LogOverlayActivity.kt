@@ -111,25 +111,41 @@ private fun LogOverlayContent(logFile: File, onClose: () -> Unit) {
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxHeight(0.7f)
-                    .fillMaxWidth(0.55f)
+                    .fillMaxHeight(0.72f)
+                    .fillMaxWidth(0.58f)
                     .padding(8.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1E1E2E).copy(alpha = 0.88f)
+                    containerColor = Color(0xE6111219)
                 ),
-                elevation = CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(10.dp)
             ) {
                 Column(Modifier.fillMaxSize()) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xF2181825))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            Modifier
+                                .width(3.dp)
+                                .height(14.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFF89B4FA))
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Icon(Icons.Filled.Terminal, null, Modifier.size(16.dp),
                             tint = Color(0xFF89B4FA))
                         Spacer(Modifier.width(6.dp))
-                        Text("BepInEx Log", color = Color.White, fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(
+                            "BepInEx Log",
+                            color = Color(0xFF89B4FA),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
                         IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
                             Icon(Icons.Filled.Close, "Close", Modifier.size(16.dp),
                                 tint = Color(0xFFF38BA8))
@@ -144,12 +160,12 @@ private fun LogOverlayContent(logFile: File, onClose: () -> Unit) {
                         }
                     } else {
                         val listState = rememberLazyListState()
-                        val scope = rememberCoroutineScope()
-                        LaunchedEffect(lines.size) {
+                        LaunchedEffect(lines) {
                             if (lines.isNotEmpty()) {
-                                scope.launch { listState.animateScrollToItem(lines.size - 1) }
+                                listState.scrollToItem(lines.lastIndex)
                             }
                         }
+                        val lineColors = logLineComposeColors(lines)
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
@@ -157,16 +173,14 @@ private fun LogOverlayContent(logFile: File, onClose: () -> Unit) {
                         ) {
                             items(lines.size) { idx ->
                                 val line = lines[idx]
-                                val color = when {
-                                    line.contains("[Error") || line.contains("[Fatal") -> Color(0xFFF38BA8)
-                                    line.contains("[Warning") -> Color(0xFFFAB387)
-                                    line.contains("[Debug") -> Color(0xFF6C7086)
-                                    else -> Color(0xFFCDD6F4)
-                                }
                                 Text(
-                                    line, color = color, fontSize = 10.sp,
+                                    line,
+                                    color = lineColors[idx],
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    maxLines = 4,
+                                    overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(vertical = 1.dp)
                                 )
                             }
