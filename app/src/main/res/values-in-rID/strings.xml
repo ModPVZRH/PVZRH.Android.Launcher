@@ -2,7 +2,7 @@
 <resources>
     <!-- App -->
     <string name="app_name">Punyaku bermasalah</string>
-    <string name="app_tagline">PVZRH Launcher</string>
+    <string name="app_tagline"></string>
     <!-- Navigation -->
     <string name="nav_games">Games</string>
     <string name="nav_modpacks">Modpacks</string>
