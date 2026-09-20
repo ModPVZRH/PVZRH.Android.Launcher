@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">Punyaku bermasalah</string>
-    <string name="app_tagline">PVZRH Launcher</string>
+    <string name="app_name">Milikku mempunyai masalah</string>
+    <string name="app_tagline">Pas aku coba malah gagal katanya coba lagi</string>
     <!-- Navigation -->
     <string name="nav_games">Games</string>
     <string name="nav_modpacks">Modpacks</string>
@@ -13,7 +13,7 @@
     <string name="scan_title">PlantsVsZombiesRH</string>
     <string name="scanning">Checking PlantsVsZombiesRH…</string>
     <string name="no_games_found">PlantsVsZombiesRH Not Found</string>
-    <string name="no_games_hint">Install Plants vs. Zombies: Fusion, then tap Rescan. The package name is com.LanPiaoPiao.PlantsVsZombiesRH.</string>
+    <string name="no_games_hint">.Iya betul tapi aku tidak mengerti.</string>
     <string name="scan_again">Scan Again</string>
     <string name="rescan">Rescan</string>
     <!-- Framework Status -->
