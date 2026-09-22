@@ -141,6 +141,7 @@ fun ModpackDetailScreen(
     onRenameMod: (ModpackMod, String) -> Unit,
     onSetModCategory: (ModpackMod, String?) -> Unit,
     onToggleMod: (ModpackMod, Boolean) -> Unit,
+    onSetModsEnabled: (List<ModpackMod>, Boolean) -> Unit = { _, _ -> },
     onOpenConfig: (File) -> Unit,
     onViewLog: () -> Unit,
     onExportModpack: () -> Unit,
@@ -348,9 +349,38 @@ fun ModpackDetailScreen(
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier
                                 .weight(1f)
-                                .semantics { heading() }
+                                .semantics { heading() },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         if (mods.isNotEmpty()) {
+                            if (filteredMods.isNotEmpty()) {
+                                val allEnabled = filteredMods.all { it.enabled }
+                                TextButton(
+                                    onClick = {
+                                        if (allEnabled) {
+                                            onSetModsEnabled(filteredMods, false)
+                                        } else {
+                                            onSetModsEnabled(
+                                                filteredMods.filter { !it.enabled },
+                                                true
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.height(40.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            if (allEnabled) {
+                                                R.string.modpack_mod_deselect_all
+                                            } else {
+                                                R.string.modpack_mod_select_all
+                                            }
+                                        )
+                                    )
+                                }
+                            }
                             StatusBadge(
                                 text = stringResource(
                                     R.string.modpack_mod_count_ratio,

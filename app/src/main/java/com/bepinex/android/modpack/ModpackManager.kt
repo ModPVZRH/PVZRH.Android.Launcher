@@ -356,12 +356,36 @@ class ModpackManager {
         modpackName: String,
         relativePath: String,
         enabled: Boolean
+    ): Boolean = setDllsEnabled(packageName, modpackName, listOf(relativePath), enabled)
+
+    /** Enable or disable several mods and write modpack.json once. */
+    fun setDllsEnabled(
+        packageName: String,
+        modpackName: String,
+        relativePaths: Collection<String>,
+        enabled: Boolean
     ): Boolean {
+        if (relativePaths.isEmpty()) return false
         val current = readMeta(packageName, modpackName) ?: return false
-        writeMeta(
-            updateModInfo(current, packageName, modpackName, relativePath) { info ->
-                info.copy(enabled = enabled)
+        val mods = syncedMods(packageName, modpackName, current.mods).toMutableMap()
+        relativePaths.forEach { raw ->
+            val key = normalizeDllKey(raw)
+            if (key.isEmpty()) return@forEach
+            val fileName = key.substringAfterLast('/')
+            val updated = (lookupModInfo(mods, key, fileName) ?: StoredModInfo())
+                .copy(enabled = enabled)
+            mods.remove(fileName)
+            if (updated.isDefault(fileName)) {
+                mods.remove(key)
+            } else {
+                mods[key] = updated
             }
+        }
+        writeMeta(
+            current.copy(
+                modCount = getModCount(packageName, modpackName),
+                mods = mods
+            )
         )
         return true
     }

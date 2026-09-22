@@ -138,6 +138,8 @@
     <string name="modpack_mod_category_existing">已有分类</string>
     <string name="modpack_mod_category_clear">清除</string>
     <string name="modpack_mod_enable">加载此模组</string>
+    <string name="modpack_mod_select_all">全选</string>
+    <string name="modpack_mod_deselect_all">取消全选</string>
     <string name="modpack_mod_disabled">已关闭</string>
     <string name="modpack_mod_disabled_count">已关闭 %d 个</string>
     <string name="modpack_mod_sort">排序</string>

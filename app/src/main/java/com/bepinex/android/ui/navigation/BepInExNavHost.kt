@@ -894,6 +894,16 @@ fun BepInExNavHost(
                             mods = modpackManager.listModEntries(packageName, modpackName)
                             modpackRefreshKey++
                         },
+                        onSetModsEnabled = { targets, enabled ->
+                            modpackManager.setDllsEnabled(
+                                packageName,
+                                modpackName,
+                                targets.map { it.relativePath },
+                                enabled
+                            )
+                            mods = modpackManager.listModEntries(packageName, modpackName)
+                            modpackRefreshKey++
+                        },
                         onOpenConfig = { configFile ->
                             navController.navigate(NavRoutes.configEditor(configFile.absolutePath))
                         },
