@@ -138,6 +138,8 @@
     <string name="modpack_mod_category_existing">Existing categories</string>
     <string name="modpack_mod_category_clear">Remove</string>
     <string name="modpack_mod_enable">Load this mod</string>
+    <string name="modpack_mod_select_all">Select all</string>
+    <string name="modpack_mod_deselect_all">Deselect all</string>
     <string name="modpack_mod_disabled">Disabled</string>
     <string name="modpack_mod_disabled_count">%d disabled</string>
     <string name="modpack_mod_sort">Sort</string>
@@ -511,11 +513,12 @@
     <string name="market_detail_updated">Updated</string>
     <string name="market_detail_description">Description</string>
     <string name="market_download">Download</string>
+    <string name="market_download_with_version">Download (%1$s)</string>
     <string name="market_cloud_download">Cloud download</string>
     <string name="market_no_download">No download available</string>
     <string name="market_open_failed">Unable to open download link</string>
-    <string name="market_install">Download (%1$s)</string>
-    <string name="market_install_no_version">Download</string>
+    <string name="market_install">Install (%1$s)</string>
+    <string name="market_install_no_version">Install</string>
     <string name="market_downloads_count">%s downloads</string>
     <string name="market_tab_info">Info</string>
     <string name="market_tab_download">Downloads</string>
@@ -545,6 +548,23 @@
     <string name="market_sort_views">Most views</string>
     <string name="market_sort_name">Name</string>
     <string name="market_result_count">%d mods</string>
+    <string name="market_direct_downloading">Downloading…</string>
+    <string name="market_direct_extracting">Extracting…</string>
+    <string name="market_direct_scanning">Scanning files…</string>
+    <string name="market_direct_importing">Importing…</string>
+    <string name="market_direct_download_failed">Download failed</string>
+    <string name="market_direct_unsupported_archive">This archive format is not supported. Use a ZIP, RHP, or DLL file.</string>
+    <string name="market_direct_no_match">No matching DLL or modpack found</string>
+    <string name="market_direct_need_game">Select the game first</string>
+    <string name="market_direct_import_title">Import mod</string>
+    <string name="market_direct_import_message">Found %s. Import it into an existing modpack, or create a new modpack.</string>
+    <string name="market_direct_import_existing">Import into modpack</string>
+    <string name="market_direct_import_new">Create modpack and import</string>
+    <string name="market_direct_no_modpacks">No modpacks yet. Create one to import this mod.</string>
+    <string name="market_direct_choose_modpack">Choose a modpack</string>
+    <string name="market_direct_imported_mod">Imported %1$s into %2$s</string>
+    <string name="market_direct_imported_modpack">Imported modpack: %s</string>
+    <string name="market_direct_cancelled">Download cancelled</string>
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">Launching selected game</string>
     <string name="bootstrap_status_preparing">Preparing target package…</string>
