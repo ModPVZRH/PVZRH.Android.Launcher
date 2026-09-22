@@ -138,6 +138,8 @@
     <string name="modpack_mod_category_existing">已有分类</string>
     <string name="modpack_mod_category_clear">清除</string>
     <string name="modpack_mod_enable">加载此模组</string>
+    <string name="modpack_mod_select_all">全选</string>
+    <string name="modpack_mod_deselect_all">取消全选</string>
     <string name="modpack_mod_disabled">已关闭</string>
     <string name="modpack_mod_disabled_count">已关闭 %d 个</string>
     <string name="modpack_mod_sort">排序</string>
@@ -511,11 +513,12 @@
     <string name="market_detail_updated">更新</string>
     <string name="market_detail_description">简介</string>
     <string name="market_download">下载</string>
+    <string name="market_download_with_version">下载 (%1$s)</string>
     <string name="market_cloud_download">网盘下载</string>
     <string name="market_no_download">暂无下载地址</string>
     <string name="market_open_failed">无法打开下载链接</string>
-    <string name="market_install">下载 (%1$s)</string>
-    <string name="market_install_no_version">下载</string>
+    <string name="market_install">安装 (%1$s)</string>
+    <string name="market_install_no_version">安装</string>
     <string name="market_downloads_count">%s次下载</string>
     <string name="market_tab_info">介绍</string>
     <string name="market_tab_download">下载</string>
@@ -545,6 +548,23 @@
     <string name="market_sort_views">浏览最多</string>
     <string name="market_sort_name">名称</string>
     <string name="market_result_count">共 %d 个</string>
+    <string name="market_direct_downloading">正在下载…</string>
+    <string name="market_direct_extracting">正在解压…</string>
+    <string name="market_direct_scanning">正在扫描文件…</string>
+    <string name="market_direct_importing">正在导入…</string>
+    <string name="market_direct_download_failed">下载失败</string>
+    <string name="market_direct_unsupported_archive">不支持该压缩格式，请使用 ZIP、RHP 或 DLL。</string>
+    <string name="market_direct_no_match">未找到匹配的 DLL 或整合包</string>
+    <string name="market_direct_need_game">请先选择游戏</string>
+    <string name="market_direct_import_title">导入模组</string>
+    <string name="market_direct_import_message">已找到 %s。请选择导入到已有整合包，或新建整合包并导入。</string>
+    <string name="market_direct_import_existing">导入到整合包</string>
+    <string name="market_direct_import_new">新建整合包并导入</string>
+    <string name="market_direct_no_modpacks">还没有整合包，请新建后再导入。</string>
+    <string name="market_direct_choose_modpack">选择整合包</string>
+    <string name="market_direct_imported_mod">已将 %1$s 导入到 %2$s</string>
+    <string name="market_direct_imported_modpack">已导入整合包：%s</string>
+    <string name="market_direct_cancelled">已取消下载</string>
     <!-- Bootstrap Loading -->
     <string name="bootstrap_title">正在启动游戏</string>
     <string name="bootstrap_status_preparing">正在准备目标包…</string>
