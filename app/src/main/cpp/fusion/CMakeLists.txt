@@ -23,6 +23,7 @@ add_library(fusion SHARED
     src/exports.cpp
     src/logger.cpp
     src/hooking/allocator.cpp
+    src/hooking/return_buffer.S
     src/hooking/il2cpp.cpp
     src/hooking/safehook.cpp
     src/hooking/libunity.cpp

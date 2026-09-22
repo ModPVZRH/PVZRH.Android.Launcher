@@ -560,16 +560,17 @@ class MainActivity : ComponentActivity() {
 
         BepInExLog.i("=== Launching ${game.label} (modpack: ${modpackName ?: "vanilla"}) via BootstrapActivity ===")
 
-        try {
-            val intent = Intent(this, BootstrapActivity::class.java).apply {
-                putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, game.packageName)
-                modpackName?.let { putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, it) }
+        scope.launch {
+            try {
+                crashMonitorJob?.cancel()
+                gameProcessAlive = false
+                if (GameProcessLauncher.launch(this@MainActivity, game.packageName, modpackName)) {
+                    startCrashMonitor(game.packageName)
+                }
+            } catch (e: Exception) {
+                BepInExLog.e("Launch failed", e)
+                Toast.makeText(this@MainActivity, getString(R.string.launch_failed), Toast.LENGTH_LONG).show()
             }
-            startActivity(intent)
-            startCrashMonitor(game.packageName)
-        } catch (e: Exception) {
-            BepInExLog.e("Launch failed", e)
-            Toast.makeText(this, getString(R.string.launch_failed), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -600,6 +601,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun reportGameCrash(packageName: String) {
+        if (GameProcessLauncher.isRestarting) return
         if (!gameProcessAlive) return
         gameProcessAlive = false
         crashMonitorJob?.cancel()

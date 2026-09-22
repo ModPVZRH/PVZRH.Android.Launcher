@@ -54,6 +54,7 @@
             android:name="com.bepinex.android.BootstrapActivity"
             android:exported="false"
             android:process=":game"
+            android:taskAffinity="${applicationId}.game"
             android:launchMode="standard"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
@@ -87,6 +88,7 @@
              Instrumentation.newActivity restores the game's Activity class. -->
         <activity
             android:name="com.bepinex.android.StubActivity"
+            android:taskAffinity="${applicationId}.game"
             android:theme="@style/UnityThemeSelector"
             android:screenOrientation="landscape"
             android:process=":game"
