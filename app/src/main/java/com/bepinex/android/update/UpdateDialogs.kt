@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bepinex.android.R
 
+private const val LONG_TOKEN_BREAK = 24
+
 @Composable
 fun MarkdownText(
     rawText: String,
@@ -56,7 +59,7 @@ fun MarkdownText(
             for (match in regex.findAll(rawText)) {
                 val start = match.range.first
                 if (start > lastEnd) {
-                    append(rawText.substring(lastEnd, start))
+                    appendWrapping(rawText.substring(lastEnd, start))
                 }
                 val linkText = match.groupValues[1]
                 val url = match.groupValues[2].trim()
@@ -67,12 +70,12 @@ fun MarkdownText(
                         linkInteractionListener = { uriHandler.openUri(url) }
                     )
                 ) {
-                    append(linkText)
+                    appendWrapping(linkText)
                 }
                 lastEnd = match.range.last + 1
             }
             if (lastEnd < rawText.length) {
-                append(rawText.substring(lastEnd))
+                appendWrapping(rawText.substring(lastEnd))
             }
         }
     }
@@ -81,8 +84,70 @@ fun MarkdownText(
         text = annotated,
         style = style,
         lineHeight = lineHeight,
-        modifier = modifier
+        softWrap = true,
+        modifier = modifier.fillMaxWidth()
     )
+}
+
+private fun AnnotatedString.Builder.appendWrapping(text: String) {
+    val buffer = StringBuilder(text.length + 8)
+    var run = 0
+    for (ch in text) {
+        buffer.append(ch)
+        if (ch.isWhitespace()) {
+            run = 0
+        } else {
+            run++
+            if (run >= LONG_TOKEN_BREAK) {
+                buffer.append('\u200B')
+                run = 0
+            }
+        }
+    }
+    append(buffer.toString())
+}
+
+@Composable
+private fun ScrollableNoticeDialog(
+    onDismissRequest: () -> Unit,
+    properties: DialogProperties = DialogProperties(),
+    title: @Composable ColumnScope.() -> Unit,
+    actions: @Composable ColumnScope.() -> Unit = {},
+    body: @Composable ColumnScope.() -> Unit
+) {
+    val configuration = LocalConfiguration.current
+    val maxHeight = (configuration.screenHeightDp * 0.85f).dp
+    val maxWidth = (configuration.screenWidthDp - 48).dp
+    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        Card(
+            modifier = Modifier
+                .widthIn(max = maxWidth)
+                .fillMaxWidth()
+                .heightIn(max = maxHeight),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxHeight)
+                    .padding(horizontal = 24.dp, vertical = 20.dp)
+            ) {
+                title()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    body()
+                }
+                actions()
+            }
+        }
+    }
 }
 
 @Composable
@@ -91,89 +156,81 @@ fun AnnouncementDialog(
     message: String,
     onDismiss: () -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+    ScrollableNoticeDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.update_announcement),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
+            if (date.isNotEmpty()) {
                 Text(
-                    text = stringResource(R.string.update_announcement),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    text = date,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
-
-                if (date.isNotEmpty()) {
-                    Text(
-                        text = date,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-
-                MarkdownText(
-                    rawText = message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    lineHeight = 24.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.ok))
-                    }
+            }
+        },
+        actions = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.ok))
                 }
             }
         }
+    ) {
+        MarkdownText(
+            rawText = message,
+            style = MaterialTheme.typography.bodyLarge,
+            lineHeight = 24.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
     }
 }
 
 @Composable
 fun IncompleteTranslationDialog(onDismiss: () -> Unit) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+    ScrollableNoticeDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.lang_incomplete_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
-        ) {
-            Column(
+        },
+        actions = {
+            Box(
                 modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                contentAlignment = Alignment.CenterEnd
             ) {
-                Text(
-                    text = stringResource(R.string.lang_incomplete_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                MarkdownText(
-                    rawText = stringResource(R.string.lang_incomplete_message),
-                    style = MaterialTheme.typography.bodyLarge,
-                    lineHeight = 24.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.ok))
-                    }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.ok))
                 }
             }
         }
+    ) {
+        MarkdownText(
+            rawText = stringResource(R.string.lang_incomplete_message),
+            style = MaterialTheme.typography.bodyLarge,
+            lineHeight = 24.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun UpdateDialog(
     currentVersion: String,
@@ -182,92 +239,74 @@ fun UpdateDialog(
     onUpdate: () -> Unit,
     onSkip: () -> Unit
 ) {
-    Dialog(onDismissRequest = onSkip) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+    ScrollableNoticeDialog(
+        onDismissRequest = onSkip,
+        title = {
+            Text(
+                text = stringResource(R.string.update_available),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-        ) {
-            Column(
+            Text(
+                text = stringResource(R.string.update_version_info, currentVersion, remoteVersion),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+            )
+        },
+        actions = {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.update_available),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                Text(
-                    text = stringResource(R.string.update_version_info, currentVersion, remoteVersion),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                if (updateMessage.isNotEmpty()) {
-                    MarkdownText(
-                        rawText = updateMessage,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                TextButton(onClick = onSkip) {
+                    Text(stringResource(R.string.update_skip))
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onSkip) {
-                        Text(stringResource(R.string.update_skip))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = onUpdate) {
-                        Text(stringResource(R.string.update_now))
-                    }
+                Button(onClick = onUpdate) {
+                    Text(stringResource(R.string.update_now))
                 }
             }
+        }
+    ) {
+        if (updateMessage.isNotEmpty()) {
+            MarkdownText(
+                rawText = updateMessage,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
     }
 }
 
 @Composable
 fun BlockedDialog(message: String) {
-    Dialog(
+    ScrollableNoticeDialog(
         onDismissRequest = { },
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
-    ) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = {
+            Text(
+                text = stringResource(R.string.update_blocked_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
             )
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(R.string.update_blocked_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                if (message.isNotEmpty()) {
-                    MarkdownText(
-                        rawText = message,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.update_blocked_message),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-            }
+        }
+    ) {
+        if (message.isNotEmpty()) {
+            MarkdownText(rawText = message)
+        } else {
+            Text(
+                text = stringResource(R.string.update_blocked_message),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
