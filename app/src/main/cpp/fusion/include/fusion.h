@@ -63,11 +63,13 @@ const char *il2cpp_method_get_name(void *method);
 int il2cpp_init(char *domain_name);
 
 /* Hook management */
-void il2cpp_install_init_hook(void *hookCallback);
+bool il2cpp_install_init_hook(void *hookCallback);
 void il2cpp_destroy_init_hook();
 
 /* SafeHook / Dobby (safehook.cpp) */
 bool safehook_initialize(void *lib_handle, uintptr_t lib_base, void *(*allocator)(void *, void *, size_t));
+int safehook_install(void *target, void *replacement, void **original);
+bool safehook_remove(void *target);
 
 /* libunity hooks (libunity.cpp) */
 bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPath);

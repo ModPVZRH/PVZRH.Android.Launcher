@@ -5,13 +5,11 @@
 #include <cstdint>
 #include <cstdbool>
 #include <cstring>
-#include <mutex>
 #include <sys/mman.h>
 #include <unistd.h>
-#include "dobby.h"
+#include "fusion.h"
 
 namespace {
-std::mutex hookMutex;
 thread_local void *returnBuffer = nullptr;
 }
 
@@ -67,7 +65,6 @@ static void *create_return_buffer_bridge(void *detour, size_t pageSize)
 
 void *hook(void *target, void *detour, bool specialReturnBuffer)
 {
-    std::lock_guard<std::mutex> guard(hookMutex);
     if (!target || !detour) return nullptr;
     const long pageSize = sysconf(_SC_PAGESIZE);
     if (pageSize <= 0) return nullptr;
@@ -78,7 +75,7 @@ void *hook(void *target, void *detour, bool specialReturnBuffer)
         return nullptr;
     }
     void *original = nullptr;
-    int rc = DobbyHook(target, bridge ? bridge : detour, &original);
+    int rc = safehook_install(target, bridge ? bridge : detour, &original);
     if (rc != 0) {
         if (bridge) munmap(bridge, static_cast<size_t>(pageSize));
         __android_log_print(ANDROID_LOG_ERROR, "Fusion", "DobbyHook failed at %p: %d", target, rc);
@@ -89,8 +86,7 @@ void *hook(void *target, void *detour, bool specialReturnBuffer)
 
 bool unhook_checked(void *target)
 {
-    std::lock_guard<std::mutex> guard(hookMutex);
-    return target && DobbyDestroy(target) == 0;
+    return safehook_remove(target);
 }
 
 void unhook(void *target) { (void)unhook_checked(target); }

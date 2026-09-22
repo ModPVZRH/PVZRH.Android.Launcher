@@ -6,7 +6,6 @@
 #include <string>
 #include <cstring>
 #include <android/log.h>
-#include "dobby.h"
 
 #define TAG "FusionIL2CPP"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
@@ -112,31 +111,32 @@ int il2cpp_init(char *domain_name)
 }
 
 /* Install one-shot DobbyHook on il2cpp_init. Callback should call destroy_init_hook before chaining. */
-void il2cpp_install_init_hook(void *hookCallback)
+bool il2cpp_install_init_hook(void *hookCallback)
 {
     if (!g_p_il2cpp_init) {
         LOGE("il2cpp_init address not resolved 鈥?call il2cpp_initialize first!");
-        return;
+        return false;
     }
 
     if (!hookCallback) {
         LOGE("Hook function is null!");
-        return;
+        return false;
     }
 
     g_init_hook_fn = reinterpret_cast<il2cpp_init_t>(hookCallback);
 
-    int result = DobbyHook(
+    int result = safehook_install(
         g_p_il2cpp_init,
         hookCallback,
         reinterpret_cast<void **>(&g_orig_il2cpp_init));
 
     if (result != 0) {
         LOGE("DobbyHook failed: %d", result);
-        return;
+        return false;
     }
 
     LOGI("DobbyHook installed on il2cpp_init");
+    return true;
 }
 
 /* Destroy the one-shot hook — il2cpp_init calls go directly to original after this. */
@@ -147,7 +147,10 @@ void il2cpp_destroy_init_hook()
         return;
     }
 
-    DobbyDestroy(g_p_il2cpp_init);
+    if (!safehook_remove(g_p_il2cpp_init)) {
+        LOGE("Failed to remove il2cpp_init hook");
+        return;
+    }
     g_init_hook_fn = nullptr;
     LOGI("DobbyHook destroyed (one-shot complete)");
 }
