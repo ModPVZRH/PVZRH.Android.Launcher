@@ -2,7 +2,6 @@
 
 #include "fusion.h"
 #include "utilities/elf.h"
-#include "dobby.h"
 #include <dlfcn.h>
 #include <string>
 #include <cstring>
@@ -116,7 +115,7 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
 
     LOGI("scripting_method_invoke @ %p (base=%p, rva=0x%zx)", target, (void*)base, rva);
 
-    int ret = DobbyHook(
+    int ret = safehook_install(
         target,
         reinterpret_cast<void *>(scripting_method_invoke_hook),
         reinterpret_cast<void **>(&g_original_scripting_method_invoke));
@@ -133,7 +132,7 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
 
     LOGI("path_check @ %p (base=%p, rva=0x%zx)", path_check_target, (void*)base, path_check_rva);
 
-    int ret2 = DobbyHook(
+    int ret2 = safehook_install(
         path_check_target,
         reinterpret_cast<void *>(path_check_hook),
         reinterpret_cast<void **>(&g_original_path_check));

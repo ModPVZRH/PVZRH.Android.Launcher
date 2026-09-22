@@ -35,7 +35,7 @@ extern "C" {
 
 /* Hooking */
 bool il2cpp_initialize(const char *il2cppPath);
-void il2cpp_install_init_hook(void *hookCallback);
+bool il2cpp_install_init_hook(void *hookCallback);
 void il2cpp_destroy_init_hook();
 int il2cpp_init(char *domain_name);
 void *il2cpp_get_handle();
@@ -255,7 +255,7 @@ bool fusion_bootstrap_from_libmain(JNIEnv *env)
     void *il2cppHandle = il2cpp_get_handle();
     uintptr_t il2cppBase = il2cpp_get_library_base();
 
-    /* Use code cave allocator for Dobby trampolines — bypasses Android W^X. */
+    /* SafeHook uses the standalone Dobby build with a mandatory four-byte entry branch. */
     if (!safehook_initialize(il2cppHandle, il2cppBase, allocate_injected)) {
         LOGE("safehook_initialize failed");
         return false;
@@ -263,7 +263,10 @@ bool fusion_bootstrap_from_libmain(JNIEnv *env)
     LOGI("SafeHook initialized");
 
     /* 4. Install il2cpp_init hook (one-shot, will fire when Unity calls il2cpp_init) */
-    il2cpp_install_init_hook(reinterpret_cast<void *>(il2cpp_init_hook));
+    if (!il2cpp_install_init_hook(reinterpret_cast<void *>(il2cpp_init_hook))) {
+        LOGE("Cannot install il2cpp_init hook");
+        return false;
+    }
 
     LOGI("Fusion bootstrap complete 鈥?waiting for il2cpp_init...");
     return true;
