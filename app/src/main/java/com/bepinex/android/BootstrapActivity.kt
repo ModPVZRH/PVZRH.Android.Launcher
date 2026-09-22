@@ -54,6 +54,7 @@ class BootstrapActivity : Activity() {
         private val fusionInitialized = AtomicBoolean(false)
         /** Per-process: guard against re-installing base hooks on 2nd launch */
         private val baseHooksInstalled = AtomicBoolean(false)
+        private val bootstrapStarted = AtomicBoolean(false)
     }
 
     private var preparedConfig: FusionConfig? = null
@@ -98,6 +99,12 @@ class BootstrapActivity : Activity() {
             return
         }
 
+        // Also reject duplicate intents/activity recreation before copying assets or
+        // touching a runtime already mapped by the first bootstrap in this process.
+        if (!bootstrapStarted.compareAndSet(false, true)) {
+            failAndFinish("Game runtime already started. Launch again from the launcher.")
+            return
+        }
         BepInExLog.i("=== Bootstrap: $targetPackage ===")
         GameLogcatCapture.start(targetPackage)
 
@@ -308,6 +315,7 @@ class BootstrapActivity : Activity() {
             BepInExLog.i("Fusion config staged: ${stagedFile.absolutePath}")
         } catch (t: Throwable) {
             BepInExLog.e("Failed to initialize Fusion", t)
+            throw IllegalStateException("Failed to initialize Fusion", t)
         }
     }
 
@@ -478,6 +486,10 @@ class BootstrapActivity : Activity() {
             modpackManager.applyModpack(targetPackage, activeModpack)
         }
         com.bepinex.android.settings.AppSettings.setActiveModpack(this, targetPackage, activeModpack)
+
+        // Imported modpacks can carry a core/ directory. Keep the managed bridge
+        // paired with this APK even after restoring such a pack.
+        fileExtractor.extractBepInExIfNeeded(targetPackage)
 
         // Register game native libraries (match FusionCore: no exclusions)
         File(gameLibDir).listFiles()?.forEach { file ->

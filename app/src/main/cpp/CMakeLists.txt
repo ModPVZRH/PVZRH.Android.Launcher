@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("bepinex_android" CXX)
+project("bepinex_android" CXX ASM)
 
 # FusionCore main branch architecture:
 #   libmain.so  — registers NativeLoader load/unload, resolves fusion dynamically
@@ -10,3 +10,10 @@ project("bepinex_android" CXX)
 
 add_subdirectory(main)
 add_subdirectory(fusion)
+
+option(FUSION_BUILD_TESTS "Build the Android ARM64 return-buffer regression executable" OFF)
+if(FUSION_BUILD_TESTS)
+    add_executable(return_buffer_test tests/return_buffer_test.cpp)
+    target_compile_options(return_buffer_test PRIVATE -UNDEBUG)
+    target_link_libraries(return_buffer_test PRIVATE fusion)
+endif()

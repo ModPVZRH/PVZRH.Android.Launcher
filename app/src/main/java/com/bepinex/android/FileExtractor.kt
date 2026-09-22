@@ -4,6 +4,8 @@ import android.content.Context
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
+import java.security.MessageDigest
+import java.util.UUID
 
 /**
  * Extracts BepInEx and .NET runtime from APK assets to per-game directories.
@@ -12,26 +14,57 @@ class FileExtractor(private val context: Context) {
 
     /**
      * Extract BepInEx.Android.zip for a specific game.
-     * Skips if BepInEx.Core.dll marker already exists.
+     * Match the managed runtime to the APK's native bridge, preserving user files.
      */
     fun extractBepInExIfNeeded(packageName: String, onProgress: (String) -> Unit = {}) {
         val bepInExDir = BepInExPaths.getBepInExDir(packageName)
-        val marker = File(bepInExDir, "core/BepInEx.Core.dll")
-
-        if (marker.exists()) {
+        val core = File(bepInExDir, "core")
+        val marker = File(core, ".launcher-asset-sha256")
+        val digest = MessageDigest.getInstance("SHA-256")
+        context.assets.open("BepInEx.Android.zip").use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val assetHash = digest.digest().joinToString("") { "%02x".format(it) }
+        val required = listOf("BepInEx.Core.dll", "BepInEx.Unity.IL2CPP.dll",
+            "Il2CppInterop.Runtime.dll", "Il2CppInterop.HarmonySupport.dll")
+        if (marker.isFile && marker.readText() == assetHash &&
+            required.all { File(core, it).isFile }) {
             BepInExLog.i("BepInEx already extracted for $packageName")
             return
         }
 
-        // Incomplete extraction — delete and retry
-        if (bepInExDir.exists()) {
-            BepInExLog.i("BepInEx dir exists but incomplete — re-extracting for $packageName")
-            bepInExDir.deleteRecursively()
-        }
-
         onProgress("Extracting BepInEx for $packageName...")
-        BepInExLog.i("Extracting BepInEx.Android.zip → ${bepInExDir.absolutePath}")
-        extractZip("BepInEx.Android.zip", bepInExDir)
+        bepInExDir.mkdirs()
+        val staging = File(bepInExDir, ".framework-${UUID.randomUUID()}")
+        val backup = File(bepInExDir, ".core-backup-${UUID.randomUUID()}")
+        try {
+            extractZip("BepInEx.Android.zip", staging)
+            val newCore = File(staging, "core")
+            check(required.all { File(newCore, it).isFile }) { "Incomplete BepInEx package" }
+            File(newCore, marker.name).writeText(assetHash)
+            val hadCore = core.exists()
+            check(!hadCore || core.renameTo(backup)) { "Cannot back up BepInEx core" }
+            if (!newCore.renameTo(core)) {
+                check(!hadCore || backup.renameTo(core)) {
+                    "Core update failed; backup retained at ${backup.absolutePath}"
+                }
+                error("Cannot install BepInEx core")
+            }
+            val config = File(bepInExDir, "config/BepInEx.cfg")
+            if (!config.exists()) {
+                config.parentFile?.mkdirs()
+                File(staging, "config/BepInEx.cfg").copyTo(config)
+            }
+            File(bepInExDir, "plugins").mkdirs()
+            backup.deleteRecursively()
+        } finally {
+            staging.deleteRecursively()
+        }
         BepInExLog.i("BepInEx extracted: ${bepInExDir.absolutePath}")
     }
 

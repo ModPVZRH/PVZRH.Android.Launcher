@@ -6,12 +6,18 @@ import android.content.Intent
 import android.os.Bundle
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.settings.AppSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Transparent activity that handles desktop shortcut intents.
  * Selects the modpack, applies it, and launches the game.
  */
 class ShortcutLauncherActivity : Activity() {
+    private val launchScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     companion object {
         const val EXTRA_SHORTCUT_PACKAGE = "shortcut_package"
@@ -44,23 +50,24 @@ class ShortcutLauncherActivity : Activity() {
         val modpackManager = ModpackManager()
         val previous = AppSettings.getActiveModpack(this, packageName)
 
-        Thread {
+        launchScope.launch {
             try {
-                kotlinx.coroutines.runBlocking {
-                    modpackManager.switchRuntime(packageName, previous, modpackName)
+                GameProcessLauncher.launch(this@ShortcutLauncherActivity, packageName, modpackName) {
+                    check(modpackManager.switchRuntime(packageName, previous, modpackName)) {
+                        "Failed to switch modpack"
+                    }
+                    AppSettings.setActiveModpack(this@ShortcutLauncherActivity, packageName, modpackName)
                 }
-                AppSettings.setActiveModpack(this, packageName, modpackName)
             } catch (error: Exception) {
                 BepInExLog.e("Shortcut modpack switch failed", error)
-            }
-            runOnUiThread {
-                val launchIntent = Intent(this, BootstrapActivity::class.java).apply {
-                    putExtra(BootstrapActivity.EXTRA_TARGET_PACKAGE, packageName)
-                    putExtra(BootstrapActivity.EXTRA_ACTIVE_MODPACK, modpackName)
-                }
-                startActivity(launchIntent)
+            } finally {
                 finish()
             }
-        }.start()
+        }
+    }
+
+    override fun onDestroy() {
+        launchScope.cancel()
+        super.onDestroy()
     }
 }

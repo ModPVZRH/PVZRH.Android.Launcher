@@ -7,6 +7,8 @@
 #include <fstream>
 #include <cstring>
 #include <android/log.h>
+#include <android/dlext.h>
+#include <atomic>
 
 #define LOG_TAG "LibMain"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -16,6 +18,7 @@ using JNI_OnLoad_t = jint (*)(JavaVM *vm, void *reserved);
 using JNI_Unload_t = void (*)(JavaVM *vm, void *reserved);
 using FusionStageFromConfigPath_t = bool (*)(const char *configPath);
 using FusionBootstrapFromLibMain_t = bool (*)(JNIEnv *env);
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *);
 
 static FILE *logFile = nullptr;
 static std::string log_path;
@@ -25,6 +28,8 @@ static std::string override_il2cpp_path;
 static void *unityLibHandle = nullptr;
 static void *il2cppLibHandle = nullptr;
 static void *originalMainHandle = nullptr;
+enum class LoadState { Fresh, Loading, Loaded, Stopped };
+static std::atomic<LoadState> loadState{LoadState::Fresh};
 
 static void nlog(const char *msg) {
     __android_log_write(ANDROID_LOG_ERROR, "LibMainN", msg);
@@ -208,58 +213,46 @@ static std::string read_config_value(const std::string &path, const char *key)
     return value;
 }
 
-static void load_original_game_main(JNIEnv *env, const std::string &configPath)
+static bool load_original_game_main(JNIEnv *env, const std::string &configPath)
 {
-    if (originalMainHandle) return;
+    if (originalMainHandle) return true;
     const std::string gameLibDir = read_config_value(configPath, "gameLibraryDirectory");
-    if (gameLibDir.empty()) return;
+    if (gameLibDir.empty()) return false;
 
     const std::string sourcePath = gameLibDir + "/libmain.so";
-    const std::string copyPath = configPath + ".original_main.so";
-
-    /* Copy with renamed SONAME so Android linker creates a separate link-map entry. */
-    std::ifstream source(sourcePath, std::ios::binary);
-    std::ofstream copy(copyPath, std::ios::binary | std::ios::trunc);
-    if (!source || !copy) {
-        LOGE("load_original_main: cannot copy %s", sourcePath.c_str());
-        return;
+    // The original and replacement share a SONAME. Ask the Android linker for a
+    // distinct local mapping instead of editing arbitrary bytes in the ELF image.
+    if (sourcePath == build_sibling_library_path("libmain.so")) {
+        LOGE("Original libmain path points to the launcher itself");
+        return false;
     }
-    std::vector<char> image((std::istreambuf_iterator<char>(source)),
-                            std::istreambuf_iterator<char>());
-    const char oldSoname[] = "libmain.so";
-    const char newSoname[] = "liborig.so";
-    bool renamed = false;
-    for (size_t i = 0; i + sizeof(oldSoname) <= image.size(); ++i) {
-        if (memcmp(image.data() + i, oldSoname, sizeof(oldSoname)) == 0) {
-            memcpy(image.data() + i, newSoname, sizeof(newSoname));
-            renamed = true;
-            break;
-        }
-    }
-    if (!renamed) {
-        LOGE("load_original_main: SONAME libmain.so not found");
-        return;
-    }
-    copy.write(image.data(), static_cast<std::streamsize>(image.size()));
-    copy.close();
-
+    android_dlextinfo ext{};
+    ext.flags = ANDROID_DLEXT_FORCE_LOAD;
     dlerror();
-    void *handle = dlopen(copyPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
+    void *handle = android_dlopen_ext(sourcePath.c_str(), RTLD_NOW | RTLD_LOCAL, &ext);
     if (!handle) {
-        LOGE("original libmain load failed (%s): %s", copyPath.c_str(), dlerror());
-        return;
+        LOGE("original libmain load failed (%s): %s", sourcePath.c_str(), dlerror());
+        return false;
     }
 
+    // Keep this mapping alive even after partial JNI registration: Java may hold
+    // pointers into it. The launcher will discard this process on the next launch.
+    originalMainHandle = handle;
     auto originalOnLoad = reinterpret_cast<JNI_OnLoad_t>(dlsym(handle, "JNI_OnLoad"));
+    if (originalOnLoad == &JNI_OnLoad) {
+        LOGE("Original libmain resolved to the replacement; refusing recursive JNI initialization");
+        return false;
+    }
     if (originalOnLoad) {
         JavaVM *vm = nullptr;
-        if (env->GetJavaVM(&vm) != JNI_OK || originalOnLoad(vm, nullptr) < JNI_VERSION_1_6) {
+        if (env->GetJavaVM(&vm) != JNI_OK || originalOnLoad(vm, nullptr) < JNI_VERSION_1_6 ||
+            env->ExceptionCheck()) {
             LOGE("original libmain JNI_OnLoad failed");
-            return;
+            return false;
         }
     }
-    originalMainHandle = handle;
     LOGI("original game libmain JNI registered");
+    return true;
 }
 
 // Library load/unload helpers
@@ -363,6 +356,11 @@ JNIEXPORT jboolean JNICALL
 load(JNIEnv *env, jclass clazz, jstring path)
 {
     nlog("load() called");
+    auto expected = LoadState::Fresh;
+    if (!loadState.compare_exchange_strong(expected, LoadState::Loading)) {
+        LOGE("NativeLoader.load requires a fresh game process");
+        return JNI_FALSE;
+    }
     (void)clazz;
     (void)path;
 
@@ -403,7 +401,7 @@ load(JNIEnv *env, jclass clazz, jstring path)
 
     nlog("load: loading libil2cpp");
     if (!internal_load(env, override_il2cpp_path.c_str(), &il2cppLibHandle)) {
-        internal_unload(env, &unityLibHandle);
+        // Keep all mappings alive until process exit, including partial loads.
         nlog("load: FAILED to load libil2cpp.so");
         return JNI_FALSE;
     }
@@ -417,16 +415,19 @@ load(JNIEnv *env, jclass clazz, jstring path)
     }
 
     nlog("load: COMPLETE");
+    loadState.store(LoadState::Loaded);
     return JNI_TRUE;
 }
 
 JNIEXPORT jboolean JNICALL
 unload(JNIEnv *env, jclass activityObject)
 {
-    if (unityLibHandle) internal_unload(env, &unityLibHandle);
-    if (il2cppLibHandle) internal_unload(env, &il2cppLibHandle);
+    // CoreCLR finalizers and native detours may still call Unity/IL2CPP. Unmapping
+    // either library here creates dangling code pointers. A new launch gets a new
+    // :game process; the OS releases all mappings together at process exit.
+    loadState.store(LoadState::Stopped);
     if (logFile) { fclose(logFile); logFile = nullptr; }
-    LOGI("unload complete");
+    LOGI("NativeLoader stopped; native mappings retained until process exit");
     return JNI_TRUE;
 }
 
@@ -443,6 +444,19 @@ JNI_OnLoad(JavaVM *vm, void *reserved)
     JNIEnv *globalEnv;
     if (vm->GetEnv(reinterpret_cast<void **>(&globalEnv), JNI_VERSION_1_6) != JNI_OK) {
         nlog("GetEnv FAILED");
+        return JNI_ERR;
+    }
+
+    // Run the game's additional JNI registrations first. Its JNI_OnLoad may also
+    // register NativeLoader.load/unload; re-register our replacements below so
+    // injection is preserved and the original loader never loads a second Unity.
+    const std::string configPath = resolve_staged_config_path(globalEnv);
+    if (configPath.empty() || globalEnv->ExceptionCheck() ||
+        !load_original_game_main(globalEnv, configPath)) {
+        if (globalEnv->ExceptionCheck()) {
+            globalEnv->ExceptionDescribe();
+            globalEnv->ExceptionClear();
+        }
         return JNI_ERR;
     }
 
