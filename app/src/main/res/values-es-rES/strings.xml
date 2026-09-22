@@ -517,8 +517,8 @@
     <string name="market_cloud_download">Cloud download</string>
     <string name="market_no_download">No download available</string>
     <string name="market_open_failed">Unable to open download link</string>
-    <string name="market_install">Install (%1$s)</string>
-    <string name="market_install_no_version">Install</string>
+    <string name="market_install">Download (%1$s)</string>
+    <string name="market_install_no_version">Download</string>
     <string name="market_downloads_count">%s downloads</string>
     <string name="market_tab_info">Info</string>
     <string name="market_tab_download">Downloads</string>
