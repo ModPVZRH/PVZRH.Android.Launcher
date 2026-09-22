@@ -6,7 +6,7 @@
     <!-- Navigation -->
     <string name="nav_games">Juegos</string>
     <string name="nav_modpacks">Modos</string>
-    <string name="nav_market">Market</string>
+    <string name="nav_market"></string>
     <string name="nav_settings">Docs/Translating</string>
     <string name="nav_about">Docs/Translating</string>
     <!-- Game Detection -->
