@@ -934,9 +934,10 @@ fun CreateModpackDialog(
     targetGame: String,
     currentGameVersion: String,
     onDismiss: () -> Unit,
-    onCreate: (String, Boolean, android.graphics.Bitmap?, String) -> Unit
+    onCreate: (String, Boolean, android.graphics.Bitmap?, String) -> Unit,
+    initialName: String = ""
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialName) }
     var gameVersion by remember { mutableStateOf(currentGameVersion) }
     var createShortcut by remember { mutableStateOf(false) }
     var iconBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }

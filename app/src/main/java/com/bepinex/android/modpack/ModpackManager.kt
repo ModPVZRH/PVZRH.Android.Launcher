@@ -390,6 +390,148 @@ class ModpackManager {
         }
     }
 
+    /**
+     * Copy marketplace-scanned plugin DLLs (and sidecar files / matching configs)
+     * into [modpackName], preserving a `plugins/` relative path when present.
+     */
+    fun addScannedPlugins(
+        packageName: String,
+        modpackName: String,
+        dllFiles: List<File>,
+        scanRoot: File,
+        displayName: String? = null
+    ): Int {
+        val pluginsDir = getModpackPluginsDir(packageName, modpackName)
+        pluginsDir.mkdirs()
+        getModpackConfigDir(packageName, modpackName).mkdirs()
+        var imported = 0
+        dllFiles.distinctBy { it.absolutePath }.forEach { dll ->
+            if (copyScannedPlugin(pluginsDir, dll, scanRoot) != null) imported++
+        }
+        if (imported > 0) {
+            copyScannedConfigs(packageName, modpackName, dllFiles, scanRoot)
+            syncModpackMeta(packageName, modpackName)
+            val label = displayName?.trim().orEmpty()
+            if (label.isNotEmpty()) {
+                dllFiles.forEach { dll ->
+                    setDllDisplayName(
+                        packageName,
+                        modpackName,
+                        scannedPluginRelativePath(dll, scanRoot),
+                        label
+                    )
+                }
+            }
+            BepInExLog.i("Added $imported scanned plugin(s) -> $modpackName")
+        }
+        return imported
+    }
+
+    private fun copyScannedPlugin(
+        pluginsDir: File,
+        dllFile: File,
+        scanRoot: File
+    ): File? {
+        if (!dllFile.isFile || !isModFileName(dllFile.name)) return null
+        val relative = scannedPluginRelativePath(dllFile, scanRoot)
+        val dest = safeChild(pluginsDir, relative) ?: return null
+        return try {
+            copyFilePreserve(dllFile, dest)
+            copyScannedSidecars(dllFile, dest, pluginsDir)
+            dest
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to copy scanned plugin ${dllFile.name}", e)
+            null
+        }
+    }
+
+    private fun scannedPluginRelativePath(dllFile: File, scanRoot: File): String {
+        val rel = runCatching {
+            dllFile.canonicalFile.relativeTo(scanRoot.canonicalFile).invariantSeparatorsPath
+        }.getOrDefault(dllFile.name)
+        val segments = normalizeDllKey(rel).split('/').filter { it.isNotEmpty() }
+        val pluginsIndex = segments.indexOfFirst { it.equals("plugins", ignoreCase = true) }
+        if (pluginsIndex >= 0 && pluginsIndex < segments.lastIndex) {
+            return segments.drop(pluginsIndex + 1).joinToString("/")
+        }
+        val parent = dllFile.parentFile
+        val rootPath = runCatching { scanRoot.canonicalPath }.getOrDefault(scanRoot.absolutePath)
+        val parentPath = parent?.let { runCatching { it.canonicalPath }.getOrDefault(it.absolutePath) }
+        if (parent != null &&
+            parentPath != rootPath &&
+            parent.name.equals(dllFile.nameWithoutExtension, ignoreCase = true)
+        ) {
+            return "${parent.name}/${dllFile.name}"
+        }
+        return dllFile.name
+    }
+
+    private fun copyScannedSidecars(dllFile: File, destFile: File, pluginsDir: File) {
+        val srcDir = dllFile.parentFile ?: return
+        val destDir = destFile.parentFile ?: return
+        val nested = destDir.canonicalFile != pluginsDir.canonicalFile
+        srcDir.listFiles()?.forEach { child ->
+            if (child.canonicalFile == dllFile.canonicalFile) return@forEach
+            val out = File(destDir, child.name)
+            if (safeChild(destDir, child.name) == null) return@forEach
+            if (child.isFile) {
+                if (child.extension.equals("dll", ignoreCase = true)) return@forEach
+                copyFilePreserve(child, out)
+            } else if (child.isDirectory && nested) {
+                copyTreeSkippingDlls(child, out)
+            }
+        }
+    }
+
+    private fun copyTreeSkippingDlls(src: File, dest: File) {
+        val destRoot = dest.canonicalFile.toPath()
+        src.walkTopDown().forEach { file ->
+            val rel = file.relativeTo(src).invariantSeparatorsPath
+            val out = if (rel.isEmpty()) dest else File(dest, rel)
+            if (!out.canonicalFile.toPath().startsWith(destRoot)) return@forEach
+            if (file.isDirectory) {
+                out.mkdirs()
+            } else if (!file.extension.equals("dll", ignoreCase = true)) {
+                copyFilePreserve(file, out)
+            }
+        }
+    }
+
+    private fun copyScannedConfigs(
+        packageName: String,
+        modpackName: String,
+        dllFiles: List<File>,
+        scanRoot: File
+    ) {
+        val destConfig = getModpackConfigDir(packageName, modpackName)
+        val stems = dllFiles.map { it.nameWithoutExtension.lowercase() }.filter { it.isNotEmpty() }.toSet()
+        if (stems.isEmpty() || !scanRoot.exists()) return
+        scanRoot.walkTopDown().filter { it.isFile && it.extension.equals("cfg", ignoreCase = true) }.forEach { file ->
+            val cfgName = file.nameWithoutExtension.lowercase()
+            if (stems.none { stem -> cfgName == stem || cfgName.substringAfterLast('.') == stem }) return@forEach
+            val relative = relativeFromNamedFolder(file, scanRoot, "config") ?: file.name
+            val dest = safeChild(destConfig, relative) ?: return@forEach
+            copyFilePreserve(file, dest)
+        }
+    }
+
+    private fun relativeFromNamedFolder(file: File, scanRoot: File, folderName: String): String? {
+        val rel = runCatching {
+            file.canonicalFile.relativeTo(scanRoot.canonicalFile).invariantSeparatorsPath
+        }.getOrNull() ?: return null
+        val segments = normalizeDllKey(rel).split('/').filter { it.isNotEmpty() }
+        val index = segments.indexOfFirst { it.equals(folderName, ignoreCase = true) }
+        if (index < 0 || index >= segments.lastIndex) return null
+        return segments.drop(index + 1).joinToString("/")
+    }
+
+    private fun safeChild(root: File, relative: String): File? {
+        val normalized = normalizeDllKey(relative)
+        if (normalized.isEmpty()) return null
+        val dest = File(root, normalized).canonicalFile
+        return dest.takeIf { it.toPath().startsWith(root.canonicalFile.toPath()) }
+    }
+
     fun addModFromUri(context: Context, packageName: String, modpackName: String, uri: Uri): File? {
         // Resolve real file name from content URI (lastPathSegment is just a numeric ID)
         val fileName = resolveFileName(context, uri)
@@ -1056,6 +1198,37 @@ class ModpackManager {
         }
     }
 
+    fun peekModpackInfoFromDirectory(dir: File): PeekedModpackInfo? {
+        if (!dir.isDirectory) return null
+        return try {
+            val metadataFile = dir.walkTopDown().firstOrNull { file ->
+                file.isFile && file.name.equals("modpack.json", ignoreCase = true)
+            } ?: return null
+            parsePeekedModpackInfo(metadataFile.readText(), dir.name)
+        } catch (e: Exception) {
+            BepInExLog.w("Unable to peek modpack directory: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun importModpackFromDirectory(
+        packageName: String,
+        sourceDir: File,
+        fallbackName: String
+    ): ModpackMeta? {
+        if (!sourceDir.isDirectory) return null
+        val resolvedName = normalizeModpackName(fallbackName)
+            .ifEmpty { "imported_${System.currentTimeMillis()}" }
+        return try {
+            finishImportedModpack(packageName, sourceDir, resolvedName)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to import modpack from directory", e)
+            null
+        }
+    }
+
     fun peekModpackInfo(context: Context, uri: Uri, archiveName: String? = null): PeekedModpackInfo? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->
@@ -1319,41 +1492,7 @@ class ModpackManager {
                 zis.close()
             }
 
-            currentCoroutineContext().ensureActive()
-            modpackDir.parentFile?.mkdirs()
-            val children = stagingDir.listFiles().orEmpty()
-            val sourceDir = if (children.size == 1 && children[0].isDirectory) children[0] else stagingDir
-            val metadataFile = sourceDir.walkTopDown().firstOrNull { file ->
-                file.isFile && file.name.equals("modpack.json", ignoreCase = true)
-            } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
-            val importedJson = JSONObject(metadataFile.readText())
-            val importedMods = parseMods(importedJson)
-            val importedGameVersion = importedJson.optString(GAME_VERSION_KEY).trim()
-            val contentRoot = metadataFile.parentFile
-                ?: throw java.io.IOException("Invalid modpack metadata location")
-
-            if (modpackDir.exists()) modpackDir.deleteRecursively()
-            if (!contentRoot.renameTo(modpackDir)) {
-                contentRoot.copyRecursively(modpackDir, overwrite = true)
-            }
-            stagingDir.deleteRecursively()
-
-            getModpackPluginsDir(packageName, resolvedName).mkdirs()
-            getModpackConfigDir(packageName, resolvedName).mkdirs()
-            getModpackLogsDir(packageName, resolvedName).mkdirs()
-
-            val meta = ModpackMeta(
-                name = resolvedName,
-                packageName = packageName,
-                createdAt = importedJson.optLong("createdAt", System.currentTimeMillis()),
-                modCount = getModCount(packageName, resolvedName),
-                createShortcut = importedJson.optBoolean("createShortcut", false),
-                gameVersion = importedGameVersion,
-                mods = syncedMods(packageName, resolvedName, importedMods)
-            )
-            writeMeta(meta)
-            BepInExLog.i("Imported modpack: $resolvedName")
-            meta
+            finishImportedModpack(packageName, stagingDir, resolvedName)
         } catch (e: CancellationException) {
             stagingDir.deleteRecursively()
             throw e
@@ -1362,6 +1501,54 @@ class ModpackManager {
             BepInExLog.e("Failed to import modpack", e)
             null
         }
+    }
+
+    private suspend fun finishImportedModpack(
+        packageName: String,
+        stagingDir: File,
+        resolvedName: String
+    ): ModpackMeta {
+        currentCoroutineContext().ensureActive()
+        val modpackDir = getModpackDir(packageName, resolvedName)
+        modpackDir.parentFile?.mkdirs()
+        val children = stagingDir.listFiles().orEmpty()
+        val sourceDir = if (children.size == 1 && children[0].isDirectory) children[0] else stagingDir
+        val metadataFile = sourceDir.walkTopDown().firstOrNull { file ->
+            file.isFile && file.name.equals("modpack.json", ignoreCase = true)
+        } ?: throw java.io.IOException("Modpack archive is missing modpack.json")
+        val importedJson = JSONObject(metadataFile.readText())
+        val importedMods = parseMods(importedJson)
+        val importedGameVersion = importedJson.optString(GAME_VERSION_KEY).trim()
+        val contentRoot = metadataFile.parentFile
+            ?: throw java.io.IOException("Invalid modpack metadata location")
+
+        if (modpackDir.exists()) modpackDir.deleteRecursively()
+        if (!contentRoot.renameTo(modpackDir)) {
+            contentRoot.copyRecursively(modpackDir, overwrite = true)
+        }
+        if (stagingDir.exists() &&
+            runCatching { stagingDir.canonicalPath }.getOrNull() !=
+            runCatching { modpackDir.canonicalPath }.getOrNull()
+        ) {
+            stagingDir.deleteRecursively()
+        }
+
+        getModpackPluginsDir(packageName, resolvedName).mkdirs()
+        getModpackConfigDir(packageName, resolvedName).mkdirs()
+        getModpackLogsDir(packageName, resolvedName).mkdirs()
+
+        val meta = ModpackMeta(
+            name = resolvedName,
+            packageName = packageName,
+            createdAt = importedJson.optLong("createdAt", System.currentTimeMillis()),
+            modCount = getModCount(packageName, resolvedName),
+            createShortcut = importedJson.optBoolean("createShortcut", false),
+            gameVersion = importedGameVersion,
+            mods = syncedMods(packageName, resolvedName, importedMods)
+        )
+        writeMeta(meta)
+        BepInExLog.i("Imported modpack: $resolvedName")
+        return meta
     }
     // Metadata persistence
 

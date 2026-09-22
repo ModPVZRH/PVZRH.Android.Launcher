@@ -1158,7 +1158,10 @@ fun BepInExNavHost(
                     MarketModDetailScreen(
                         modId = modId,
                         onBack = { navController.safePopBackStack() },
-                        gameVersion = selectedGame?.versionName.orEmpty()
+                        gameVersion = selectedGame?.versionName.orEmpty(),
+                        packageName = selectedGame?.packageName.orEmpty(),
+                        gameLabel = selectedGame?.label.orEmpty(),
+                        onModpacksChanged = { modpackRefreshKey++ }
                     )
                 }
 

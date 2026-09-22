@@ -64,4 +64,7 @@ data class MarketMod(
             if (value == "1") return true
             return value.contains("bepinex", ignoreCase = true)
         }
+
+    val canInstallDirect: Boolean
+        get() = showDirectUrl && downloadDirectUrl.isNotBlank()
 }
