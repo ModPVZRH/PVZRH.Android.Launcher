@@ -40,6 +40,20 @@ object BepInExPaths {
     fun getLogcatCaptureFile(packageName: String): File =
         File(getBepInExDir(packageName), "logcat-capture.txt")
 
+    /** Older chunks and the previous run are retained so a new launch cannot erase evidence. */
+    fun getLogcatCaptureArchiveFile(packageName: String): File =
+        File(getBepInExDir(packageName), "logcat-capture.1.txt")
+
+    fun getPreviousLogcatCaptureFile(packageName: String): File =
+        File(getBepInExDir(packageName), "logcat-capture-previous.txt")
+
+    /** Full Java/Kotlin exception written synchronously by the :game process. */
+    fun getJavaCrashFile(packageName: String): File =
+        File(getBepInExDir(packageName), "java-crash.txt")
+
+    fun getPreviousJavaCrashFile(packageName: String): File =
+        File(getBepInExDir(packageName), "java-crash-previous.txt")
+
     fun getLogsDir(packageName: String): File =
         File(getBepInExDir(packageName), "logs")
 

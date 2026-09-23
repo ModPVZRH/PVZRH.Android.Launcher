@@ -1,7 +1,9 @@
 package com.bepinex.android.log
 
 import com.bepinex.android.BepInExPaths
+import java.io.File
 import java.io.FileOutputStream
+import java.util.Date
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -12,6 +14,8 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object GameLogcatCapture {
 
+    private const val MAX_CHUNK_BYTES = 4L * 1024L * 1024L
+
     private val processRef = AtomicReference<Process?>(null)
     private val threadRef = AtomicReference<Thread?>(null)
 
@@ -19,7 +23,9 @@ object GameLogcatCapture {
         stop()
         val outFile = BepInExPaths.getLogcatCaptureFile(packageName)
         outFile.parentFile?.mkdirs()
-        outFile.writeText("")
+        preservePreviousRun(outFile, BepInExPaths.getPreviousLogcatCaptureFile(packageName))
+        prepareJavaCrashCapture(packageName)
+        outFile.writeText("=== game logcat session ${Date()} pid=${android.os.Process.myPid()} ===\n")
 
         val thread = Thread({
             val proc = try {
@@ -30,27 +36,46 @@ object GameLogcatCapture {
                         "-T", "1",
                         "Unity:V",
                         "BepInEx:V",
-                        "AndroidRuntime:E",
-                        "DEBUG:I",
+                        "AndroidRuntime:V",
+                        "DEBUG:V",
+                        "libc:V",
+                        "crash_dump64:V",
+                        "tombstoned:V",
+                        "ActivityManager:I",
                         "*:S"
                     )
                 )
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                outFile.appendText("logcat start failed: ${error.stackTraceToString()}\n")
                 return@Thread
             }
             processRef.set(proc)
             try {
-                FileOutputStream(outFile, true).use { fos ->
+                var output = FileOutputStream(outFile, true)
+                try {
                     proc.inputStream.bufferedReader().forEachLine { line ->
-                        if (!isRelevant(line)) return@forEachLine
-                        fos.write((line + "\n").toByteArray(Charsets.UTF_8))
-                        fos.flush()
-                        try {
-                            fos.fd.sync()
-                        } catch (_: Exception) { }
+                        val bytes = (line + "\n").toByteArray(Charsets.UTF_8)
+                        if (outFile.length() + bytes.size > MAX_CHUNK_BYTES) {
+                            output.close()
+                            rotateChunk(packageName, outFile)
+                            output = FileOutputStream(outFile, true)
+                            output.write("=== continued game logcat ${Date()} ===\n".toByteArray())
+                        }
+                        // The tag filter already limits the stream. Keep every emitted line so
+                        // exception causes, Java frames and native backtraces remain intact.
+                        output.write(bytes)
+                        if (isRelevant(line)) {
+                            output.flush()
+                            try { output.fd.sync() } catch (_: Exception) { }
+                        }
                     }
+                } finally {
+                    output.close()
                 }
-            } catch (_: Exception) {
+                val errors = proc.errorStream.bufferedReader().use { it.readText() }
+                if (errors.isNotBlank()) outFile.appendText("\n[logcat stderr]\n$errors")
+            } catch (error: Exception) {
+                try { outFile.appendText("\nlogcat capture failed: ${error.stackTraceToString()}\n") } catch (_: Exception) { }
             } finally {
                 proc.destroy()
                 processRef.compareAndSet(proc, null)
@@ -83,5 +108,47 @@ object GameLogcatCapture {
             return true
         }
         return Regex("\\sE\\s+Unity\\b").containsMatchIn(line)
+    }
+
+    private fun rotateChunk(packageName: String, current: File) {
+        val archive = BepInExPaths.getLogcatCaptureArchiveFile(packageName)
+        archive.delete()
+        if (!current.renameTo(archive)) {
+            current.copyTo(archive, overwrite = true)
+            current.delete()
+        }
+    }
+
+    private fun preservePreviousRun(current: File, previous: File) {
+        previous.delete()
+        if (!current.isFile || current.length() == 0L) return
+        if (!current.renameTo(previous)) {
+            current.copyTo(previous, overwrite = true)
+            current.delete()
+        }
+    }
+
+    private fun prepareJavaCrashCapture(packageName: String) {
+        val crashFile = BepInExPaths.getJavaCrashFile(packageName)
+        preservePreviousRun(crashFile, BepInExPaths.getPreviousJavaCrashFile(packageName))
+        val delegate = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            try {
+                crashFile.parentFile?.mkdirs()
+                FileOutputStream(crashFile, true).use { output ->
+                    output.write(buildString {
+                        appendLine("time=${Date()}")
+                        appendLine("process=${android.os.Process.myPid()}")
+                        appendLine("thread=${thread.name} (${thread.id})")
+                        appendLine()
+                        append(error.stackTraceToString())
+                        appendLine()
+                    }.toByteArray(Charsets.UTF_8))
+                    output.flush()
+                    try { output.fd.sync() } catch (_: Exception) { }
+                }
+            } catch (_: Throwable) { }
+            delegate?.uncaughtException(thread, error)
+        }
     }
 }

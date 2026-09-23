@@ -106,6 +106,7 @@ class MainActivity : ComponentActivity() {
     // Crash detection state
     private var crashMonitorJob: Job? = null
     private var gameProcessAlive by mutableStateOf(false)
+    private var gameProcessStartedAtMillis = 0L
     private var showCrashDialog by mutableStateOf(false)
     private var crashInfo by mutableStateOf<CrashInfo?>(null)
 
@@ -564,6 +565,7 @@ class MainActivity : ComponentActivity() {
             try {
                 crashMonitorJob?.cancel()
                 gameProcessAlive = false
+                gameProcessStartedAtMillis = System.currentTimeMillis()
                 if (GameProcessLauncher.launch(this@MainActivity, game.packageName, modpackName)) {
                     startCrashMonitor(game.packageName)
                 }
@@ -640,9 +642,19 @@ class MainActivity : ComponentActivity() {
     private fun captureCrashInfo(packageName: String): CrashInfo? {
         return try {
             val bepinexLog = extractLatestErrorsFromText(readLogTail(BepInExPaths.getLogFile(packageName)))
-            val capturedLogcat = extractLatestErrorsFromText(
-                readLogTail(BepInExPaths.getLogcatCaptureFile(packageName))
-            )
+            val capturedLogcat = listOf(
+                BepInExPaths.getLogcatCaptureArchiveFile(packageName),
+                BepInExPaths.getLogcatCaptureFile(packageName)
+            ).joinToString("\n") { readLogTail(it) }
+                .let(::extractLatestErrorsFromText)
+            val javaCrash = readLogTail(BepInExPaths.getJavaCrashFile(packageName), 512 * 1024)
+                .trim()
+                .ifBlank { null }
+            val exitRecord = ProcessExitDiagnostics.read(
+                context = this,
+                sinceMillis = (gameProcessStartedAtMillis - 2_000L).coerceAtLeast(0L),
+                processName = "${this.packageName}:game"
+            ).firstOrNull { it.isAbnormal }
             val liveLogcat = dumpGameLogcat()
             val liveErrors = extractLatestErrorsFromText(liveLogcat)
             val logcatInfo = captureLogcatCrash(liveLogcat)
@@ -653,7 +665,9 @@ class MainActivity : ComponentActivity() {
                 .distinct()
                 .joinToString("\n\n")
 
-            if (bepinexLog.isNullOrBlank() && logcatText.isEmpty()) return null
+            if (bepinexLog.isNullOrBlank() && logcatText.isEmpty() &&
+                javaCrash == null && exitRecord == null
+            ) return null
 
             val log = buildString {
                 if (!bepinexLog.isNullOrBlank()) {
@@ -665,10 +679,21 @@ class MainActivity : ComponentActivity() {
                     appendLine("--- logcat ---")
                     append(logcatText)
                 }
+                if (javaCrash != null) {
+                    if (isNotEmpty()) appendLine().appendLine()
+                    appendLine("--- Java uncaught exception ---")
+                    append(javaCrash)
+                }
+                if (exitRecord != null) {
+                    if (isNotEmpty()) appendLine().appendLine()
+                    appendLine("--- Android process exit ---")
+                    append(exitRecord.format())
+                }
             }.trim()
             if (log.isEmpty()) return null
 
             val signal = logcatInfo?.signal
+                ?: exitRecord?.let { "${exitReasonLabel(it.reason)} (${it.status})" }
                 ?: if (!bepinexLog.isNullOrBlank() || capturedLogcat != null || liveErrors != null) {
                     getString(R.string.crash_bepinex)
                 } else {
@@ -683,33 +708,24 @@ class MainActivity : ComponentActivity() {
     private fun extractLatestErrorsFromText(text: String): String? {
         if (text.isBlank()) return null
         val lines = text.lines()
-        var lastErrorIdx = -1
-        for (i in lines.indices) {
-            if (isCrashLogLine(lines[i])) lastErrorIdx = i
-        }
-        if (lastErrorIdx < 0) return null
+        val markers = lines.indices.filter { isCrashLogLine(lines[it]) }.takeLast(4)
+        if (markers.isEmpty()) return null
 
-        var start = lastErrorIdx
-        while (start > 0) {
-            val previous = lines[start - 1]
-            if (isCrashLogLine(previous) || !looksLikeNewLogEntry(previous)) {
-                start--
-            } else {
-                break
-            }
+        // threadtime prefixes every stack frame with a timestamp, so entry-boundary
+        // detection truncates AndroidRuntime and debuggerd traces. Keep bounded context
+        // around several recent markers and merge overlapping windows instead.
+        val selected = BooleanArray(lines.size)
+        markers.forEach { marker ->
+            val start = (marker - 12).coerceAtLeast(0)
+            val end = (marker + 160).coerceAtMost(lines.lastIndex)
+            for (index in start..end) selected[index] = true
         }
-
-        var end = lastErrorIdx
-        while (end + 1 < lines.size) {
-            val next = lines[end + 1]
-            if (looksLikeNewLogEntry(next) && !isCrashLogLine(next)) break
-            end++
-        }
-
-        return lines.subList(start, end + 1)
-            .takeLast(80)
+        return lines.indices
+            .filter { selected[it] }
+            .map { lines[it] }
+            .takeLast(320)
             .joinToString("\n")
-            .take(8000)
+            .takeLast(32_000)
             .ifBlank { null }
     }
 
@@ -732,11 +748,6 @@ class MainActivity : ComponentActivity() {
         return Regex("\\sE\\s+Unity\\b").containsMatchIn(line)
     }
 
-    private fun looksLikeNewLogEntry(line: String): Boolean {
-        if (line.startsWith("[") && line.contains(":")) return true
-        return line.length >= 18 && line[2] == '-' && line[5] == ' '
-    }
-
     private fun readLogTail(file: File, maxBytes: Int = 256 * 1024): String {
         if (!file.isFile) return ""
         val length = file.length()
@@ -756,18 +767,23 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun dumpGameLogcat(): String {
-        val pid = findLauncherGamePid()
-        val command = if (pid != null) {
-            arrayOf("logcat", "-d", "-v", "threadtime", "--pid", pid, "-t", "200")
-        } else {
-            arrayOf("logcat", "-d", "-v", "threadtime", "-t", "200")
-        }
-        return try {
-            Runtime.getRuntime().exec(command)
-                .inputStream.bufferedReader().use { it.readText() }
-        } catch (_: Exception) {
-            ""
-        }
+        val regular = readCommand(
+            arrayOf(
+                "logcat", "-d", "-v", "threadtime", "-t", "500",
+                "Unity:V", "BepInEx:V", "AndroidRuntime:V", "DEBUG:V",
+                "libc:V", "crash_dump64:V", "tombstoned:V", "ActivityManager:I", "*:S"
+            )
+        )
+        val crash = readCommand(
+            arrayOf("logcat", "-b", "crash", "-d", "-v", "threadtime", "-t", "500")
+        )
+        return listOf(regular, crash).filter { it.isNotBlank() }.joinToString("\n")
+    }
+
+    private fun readCommand(command: Array<String>): String = try {
+        Runtime.getRuntime().exec(command).inputStream.bufferedReader().use { it.readText() }
+    } catch (_: Exception) {
+        ""
     }
 
     private fun findLauncherGamePid(): String? {
@@ -805,16 +821,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
             val crashLog = logcat.lines().filter { line ->
-                isCrashLogLine(line) ||
-                    line.contains("FATAL EXCEPTION") || line.contains("AndroidRuntime")
-                    || line.contains("backtrace")
-                    || line.contains("#00") || line.contains("#0 ") || line.contains("#1 ")
-                    || line.contains("#2 ")
-            }.takeLast(40).joinToString("\n")
+                isCrashLogLine(line)
+            }.takeLast(1).joinToString("\n").let {
+                extractLatestErrorsFromText(logcat) ?: it
+            }
             CrashInfo(signal = signal, log = crashLog)
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun exitReasonLabel(reason: Int): String = when (reason) {
+        android.app.ApplicationExitInfo.REASON_CRASH -> "Java crash"
+        android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "Native crash"
+        android.app.ApplicationExitInfo.REASON_ANR -> "ANR"
+        android.app.ApplicationExitInfo.REASON_SIGNALED -> "Signal"
+        android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "Low memory"
+        android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "Excessive resource use"
+        else -> "Abnormal exit"
     }
 
     // Settings actions
@@ -897,33 +921,41 @@ class MainActivity : ComponentActivity() {
             try {
                 val extDir = getExternalFilesDir(null) ?: filesDir
                 val launcherLog = File(extDir, "bepinex_launcher.log")
+                val gamePackages = listOfNotNull(
+                    selectedGame?.packageName,
+                    "com.LanPiaoPiao.PlantsVsZombiesRH",
+                    "com.LanPiaoPiao.PlantsVsZombiesRHMod"
+                ).distinct()
+
+                val exitInfoFile = File(extDir, "application_exit_info.txt")
+                val exitRecords = ProcessExitDiagnostics.read(this@MainActivity)
+                exitInfoFile.writeText(
+                    ProcessExitDiagnostics.format(exitRecords).ifBlank {
+                        "No process exit information available (requires Android 11 or newer)."
+                    }
+                )
 
                 // Capture launcher process logcat
                 val logcatFile = File(extDir, "logcat.txt")
-                try {
-                    val pid = android.os.Process.myPid()
-                    val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid"))
-                    val output = process.inputStream.bufferedReader().readText()
-                    process.waitFor()
-                    logcatFile.writeText(output)
-                } catch (e: Exception) {
-                    logcatFile.writeText("Failed to capture logcat: ${e.message}")
+                if (!logcatFile.isFile) {
+                    try {
+                        val pid = android.os.Process.myPid()
+                        val process = Runtime.getRuntime().exec(
+                            arrayOf("logcat", "-d", "-v", "threadtime", "--pid=$pid")
+                        )
+                        val output = process.inputStream.bufferedReader().readText()
+                        process.waitFor()
+                        logcatFile.writeText(output)
+                    } catch (e: Exception) {
+                        logcatFile.writeText("Failed to capture logcat: ${e.message}")
+                    }
                 }
 
                 // Capture game process logcat (Unity, BepInEx, crash)
                 val gameLogcatFile = File(extDir, "game_logcat.txt")
                 try {
-                    val process = Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-v", "threadtime"))
-                    val output = process.inputStream.bufferedReader().readText()
-                    process.waitFor()
-                    val filtered = output.lines().filter { line ->
-                        line.contains("Unity") || line.contains("BepInEx") ||
-                        line.contains("FATAL") || line.contains("DEBUG") ||
-                        line.contains("ActivityManager") || line.contains("CRASH") ||
-                        line.contains("libunity") || line.contains("il2cpp") ||
-                        line.contains("signal") || line.contains("backtrace")
-                    }.joinToString("\n")
-                    gameLogcatFile.writeText(filtered.ifEmpty { "No game-related logs found" })
+                    val output = dumpGameLogcat()
+                    gameLogcatFile.writeText(output.ifEmpty { "No game-related logs found" })
                 } catch (e: Exception) {
                     gameLogcatFile.writeText("Failed to capture game logcat: ${e.message}")
                 }
@@ -942,10 +974,6 @@ class MainActivity : ComponentActivity() {
                 // Capture Unity log files from game directory
                 val unityLogFile = File(extDir, "unity_logs.txt")
                 try {
-                    val gamePackages = listOf(
-                        "com.LanPiaoPiao.PlantsVsZombiesRH",
-                        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
-                    )
                     val logNames = setOf(
                         "main.log", "il2cpp.log", "LogOutput.log", "bepinexlogoutput.log",
                         "BepInExLogOutput.log", "output_log.txt", "player.log"
@@ -998,10 +1026,6 @@ class MainActivity : ComponentActivity() {
                 // Capture BepInEx plugin logs
                 val bepinexLogFile = File(extDir, "bepinex_plugin_logs.txt")
                 try {
-                    val gamePackages = listOf(
-                        "com.LanPiaoPiao.PlantsVsZombiesRH",
-                        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
-                    )
                     val sb = StringBuilder()
                     for (pkg in gamePackages) {
                         val logFile = java.io.File("/storage/emulated/0/PVZRH_Launcher/$pkg/BepInEx/LogOutput.log")
@@ -1055,6 +1079,40 @@ class MainActivity : ComponentActivity() {
                         zos.putNextEntry(java.util.zip.ZipEntry("bepinex_plugin_logs.txt"))
                         bepinexLogFile.inputStream().copyTo(zos)
                         zos.closeEntry()
+                    }
+                    val launcherLogcatArchive = File(extDir, "logcat.1.txt")
+                    if (launcherLogcatArchive.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("logcat.1.txt"))
+                        launcherLogcatArchive.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    for (name in listOf("launcher_java_crash.txt", "launcher_java_crash_previous.txt")) {
+                        val source = File(extDir, name)
+                        if (!source.isFile) continue
+                        zos.putNextEntry(java.util.zip.ZipEntry(name))
+                        source.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                    if (exitInfoFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("application_exit_info.txt"))
+                        exitInfoFile.inputStream().copyTo(zos)
+                        zos.closeEntry()
+                    }
+                    for (gamePackage in gamePackages) {
+                        val prefix = "game-sidecar/$gamePackage"
+                        val sidecars = listOf(
+                            "logcat-capture.txt" to BepInExPaths.getLogcatCaptureFile(gamePackage),
+                            "logcat-capture.1.txt" to BepInExPaths.getLogcatCaptureArchiveFile(gamePackage),
+                            "logcat-capture-previous.txt" to BepInExPaths.getPreviousLogcatCaptureFile(gamePackage),
+                            "java-crash.txt" to BepInExPaths.getJavaCrashFile(gamePackage),
+                            "java-crash-previous.txt" to BepInExPaths.getPreviousJavaCrashFile(gamePackage)
+                        )
+                        for ((name, source) in sidecars) {
+                            if (!source.isFile) continue
+                            zos.putNextEntry(java.util.zip.ZipEntry("$prefix/$name"))
+                            source.inputStream().use { it.copyTo(zos) }
+                            zos.closeEntry()
+                        }
                     }
                 }
 

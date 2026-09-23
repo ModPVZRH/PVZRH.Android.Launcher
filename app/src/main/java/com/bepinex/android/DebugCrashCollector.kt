@@ -12,7 +12,10 @@ import java.util.concurrent.TimeUnit
  * Saves the previous process crash state on the next launcher start.
  */
 object DebugCrashCollector {
-    private const val TARGET_PACKAGE = "com.LanPiaoPiao.PlantsVsZombiesRH"
+    private val TARGET_PACKAGES = listOf(
+        "com.LanPiaoPiao.PlantsVsZombiesRH",
+        "com.LanPiaoPiao.PlantsVsZombiesRHMod"
+    )
     private const val MAX_FILE_BYTES = 32L * 1024L * 1024L
 
     fun collect(context: Context) {
@@ -28,6 +31,14 @@ object DebugCrashCollector {
             writeCommand(snapshot, "package.txt", arrayOf("dumpsys", "package", context.packageName))
             writeCommand(snapshot, "meminfo.txt", arrayOf("dumpsys", "meminfo", context.packageName))
             writeCommand(snapshot, "properties.txt", arrayOf("getprop"))
+            val exitRecords = ProcessExitDiagnostics.read(context)
+            writeText(
+                snapshot,
+                "application_exit_info.txt",
+                ProcessExitDiagnostics.format(exitRecords).ifBlank {
+                    "No process exit information available (requires Android 11 or newer)."
+                }
+            )
 
             writeText(snapshot, "device.txt", buildString {
                 appendLine("package=${context.packageName}")
@@ -39,18 +50,34 @@ object DebugCrashCollector {
 
             copyIfPresent(File(context.getExternalFilesDir(null), "bepinex_launcher.log"), File(snapshot, "bepinex_launcher.log"))
             copyIfPresent(File(context.getExternalFilesDir(null), "logcat.txt"), File(snapshot, "launcher_logcat_previous.txt"))
+            copyIfPresent(File(context.getExternalFilesDir(null), "logcat.1.txt"), File(snapshot, "launcher_logcat_previous.1.txt"))
+            copyIfPresent(File(context.getExternalFilesDir(null), "launcher_java_crash.txt"), File(snapshot, "launcher_java_crash.txt"))
+            copyIfPresent(File(context.getExternalFilesDir(null), "launcher_java_crash_previous.txt"), File(snapshot, "launcher_java_crash_previous.txt"))
 
-            val gameRoot = BepInExPaths.getGameRootDir(TARGET_PACKAGE)
             val names = setOf(
                 "main.log", "il2cpp.log", "LogOutput.log", "bepinexlogoutput.log",
                 "BepInExLogOutput.log", "output_log.txt", "player.log"
             )
-            gameRoot.walkTopDown()
-                .filter { it.isFile && it.length() <= MAX_FILE_BYTES && names.contains(it.name) }
-                .forEach { source ->
-                    val relative = source.relativeTo(gameRoot).path.replace(File.separatorChar, '_')
-                    copyIfPresent(source, File(snapshot, relative))
+            TARGET_PACKAGES.forEach { packageName ->
+                val gameRoot = BepInExPaths.getGameRootDir(packageName)
+                gameRoot.walkTopDown()
+                    .filter { it.isFile && it.length() <= MAX_FILE_BYTES && names.contains(it.name) }
+                    .forEach { source ->
+                        val relative = source.relativeTo(gameRoot).path.replace(File.separatorChar, '_')
+                        copyIfPresent(source, File(snapshot, "${packageName}_$relative"))
+                    }
+
+                val sidecars = listOf(
+                    BepInExPaths.getLogcatCaptureFile(packageName),
+                    BepInExPaths.getLogcatCaptureArchiveFile(packageName),
+                    BepInExPaths.getPreviousLogcatCaptureFile(packageName),
+                    BepInExPaths.getJavaCrashFile(packageName),
+                    BepInExPaths.getPreviousJavaCrashFile(packageName)
+                )
+                sidecars.forEach { source ->
+                    copyIfPresent(source, File(snapshot, "${packageName}_${source.name}"))
                 }
+            }
 
             // Keep the directory bounded while retaining recent snapshots.
             debugRoot.listFiles { file -> file.isDirectory }
