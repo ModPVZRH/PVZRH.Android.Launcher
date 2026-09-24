@@ -1,12 +1,23 @@
 package com.bepinex.android.ui.screens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.view.MotionEvent
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -66,6 +77,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.bepinex.android.R
 import com.bepinex.android.market.MarketApi
 import com.bepinex.android.market.MarketInstaller
@@ -421,7 +433,10 @@ fun MarketModDetailScreen(
                     Spacer(Modifier.height(12.dp))
 
                     when (visibleTab) {
-                        MarketDetailTab.Info -> MarketInfoTab(item)
+                        MarketDetailTab.Info -> MarketInfoTab(
+                            item = item,
+                            onOpenVideo = { openUrl(item.videoUrl) }
+                        )
                         MarketDetailTab.Download -> MarketDownloadTab(
                             item = item,
                             primaryUrl = primaryUrl,
@@ -763,7 +778,10 @@ private fun MarketDetailTabBar(
 }
 
 @Composable
-private fun MarketInfoTab(item: MarketMod) {
+private fun MarketInfoTab(
+    item: MarketMod,
+    onOpenVideo: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MarketCardShape,
@@ -825,6 +843,17 @@ private fun MarketInfoTab(item: MarketMod) {
             }
             if (item.supportedVersions.isNotBlank()) {
                 DetailRow(stringResource(R.string.market_detail_compatible), item.supportedVersions)
+            }
+            if (item.videoUrl.isNotBlank()) {
+                OutlinedButton(
+                    onClick = onOpenVideo,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Filled.OpenInBrowser, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.market_open_video))
+                }
             }
         }
     }
@@ -901,6 +930,16 @@ private fun MarketSourceTab(
                     style = MaterialTheme.typography.bodyMedium
                 )
             } else {
+                if (isEmbeddableHttpUrl(item.videoUrl)) {
+                    MarketVideoBrowser(
+                        url = item.videoUrl,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
                 OutlinedButton(
                     onClick = { onOpenUrl(item.videoUrl) },
                     modifier = Modifier.fillMaxWidth(),
@@ -913,6 +952,100 @@ private fun MarketSourceTab(
             }
         }
     }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun MarketVideoBrowser(
+    url: String,
+    modifier: Modifier = Modifier
+) {
+    val loading = remember { mutableStateOf(true) }
+    val failed = remember { mutableStateOf(false) }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    setBackgroundColor(android.graphics.Color.BLACK)
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.mediaPlaybackRequiresUserGesture = true
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    settings.userAgentString =
+                        "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 " +
+                            "(KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+                    CookieManager.getInstance().setAcceptCookie(true)
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                    webChromeClient = WebChromeClient()
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, finishedUrl: String?) {
+                            runCatching { loading.value = false }
+                        }
+
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?
+                        ) {
+                            if (request?.isForMainFrame == true) {
+                                runCatching {
+                                    loading.value = false
+                                    failed.value = true
+                                }
+                            }
+                        }
+                    }
+                    setOnTouchListener { view, event ->
+                        when (event.actionMasked) {
+                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                                view.parent?.requestDisallowInterceptTouchEvent(true)
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                                view.parent?.requestDisallowInterceptTouchEvent(false)
+                        }
+                        false
+                    }
+                    tag = url
+                    loadUrl(url, mapOf("Referer" to "https://www.bilibili.com/"))
+                }
+            },
+            update = { webView ->
+                if (webView.tag != url) {
+                    webView.tag = url
+                    loading.value = true
+                    failed.value = false
+                    webView.loadUrl(url, mapOf("Referer" to "https://www.bilibili.com/"))
+                }
+            },
+            onRelease = { webView ->
+                runCatching {
+                    webView.stopLoading()
+                    webView.loadUrl("about:blank")
+                    webView.webChromeClient = null
+                    webView.webViewClient = WebViewClient()
+                    (webView.parent as? ViewGroup)?.removeView(webView)
+                    webView.destroy()
+                }
+            }
+        )
+        if (loading.value && !failed.value) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+private fun isEmbeddableHttpUrl(url: String): Boolean {
+    val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()?.lowercase()
+    return scheme == "http" || scheme == "https"
 }
 
 @Composable

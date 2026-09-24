@@ -120,20 +120,77 @@ class ModpackManager {
         private const val DISABLED_DLLS_KEY = "disabledDlls"
         private const val DLL_CATEGORIES_KEY = "dllCategories"
 
+        /**
+         * True when [actual] satisfies [required].
+         * Tokens are split on commas and similar separators. A token such as
+         * `3.2-3.9` (also `~` / `至`) is an inclusive numeric range.
+         * A blank requirement or a blank installed version counts as compatible.
+         */
         fun isGameVersionCompatible(required: String?, actual: String?): Boolean {
             val tokens = parseGameVersionTokens(required)
             if (tokens.isEmpty()) return true
             val current = normalizeGameVersion(actual)
             if (current.isEmpty()) return true
-            return tokens.any { token ->
-                token.equals(current, ignoreCase = true)
+            return tokens.any { token -> matchesGameVersionToken(token, current) }
+        }
+
+        private val VERSION_RANGE_PATTERN = Regex(
+            """^[vV]?(\d+\.\d+(?:\.\d+)*)\s*(?:-|~|～|—|–|－|至|到|(?i:to))\s*[vV]?(\d+\.\d+(?:\.\d+)*)$"""
+        )
+        private val LEADING_VERSION_PATTERN = Regex("""^[vV]?(\d+(?:\.\d+)*)""")
+
+        private fun matchesGameVersionToken(token: String, current: String): Boolean {
+            if (token.equals(current, ignoreCase = true)) return true
+            val range = parseVersionRange(token) ?: return false
+            val currentParts = leadingVersionParts(current) ?: return false
+            val lower = if (compareVersions(range.first, range.second) <= 0) range.first else range.second
+            val upper = if (compareVersions(range.first, range.second) >= 0) range.first else range.second
+            return compareVersions(currentParts, lower) >= 0 &&
+                compareVersions(currentParts, upper) <= 0
+        }
+
+        private fun parseVersionRange(token: String): Pair<List<Int>, List<Int>>? {
+            val match = VERSION_RANGE_PATTERN.matchEntire(token.trim()) ?: return null
+            val start = versionParts(match.groupValues[1]) ?: return null
+            val end = versionParts(match.groupValues[2]) ?: return null
+            return start to end
+        }
+
+        private fun leadingVersionParts(value: String): List<Int>? {
+            val trimmed = value.trim()
+            val match = LEADING_VERSION_PATTERN.find(trimmed) ?: return null
+            val rest = trimmed.substring(match.range.last + 1)
+            if (rest.isNotEmpty() &&
+                !rest.startsWith("-") &&
+                !rest.startsWith("+") &&
+                !rest.startsWith(" ")
+            ) {
+                return null
             }
+            return versionParts(match.groupValues[1])
+        }
+
+        private fun versionParts(value: String): List<Int>? {
+            if (value.isEmpty()) return null
+            return value.split('.').map { part -> part.toIntOrNull() ?: return null }
+        }
+
+        private fun compareVersions(left: List<Int>, right: List<Int>): Int {
+            val size = maxOf(left.size, right.size)
+            for (index in 0 until size) {
+                val difference = left.getOrElse(index) { 0 }.compareTo(right.getOrElse(index) { 0 })
+                if (difference != 0) return difference
+            }
+            return 0
         }
 
         private fun parseGameVersionTokens(value: String?): List<String> =
             value.orEmpty()
-                .split(',', ';', '/', '|', '、')
-                .map(::normalizeGameVersion)
+                .split(',', ';', '/', '|', '、', '，', '\n')
+                .map { it.trim() }
+                .map { token ->
+                    if (VERSION_RANGE_PATTERN.matches(token)) token else normalizeGameVersion(token)
+                }
                 .filter { it.isNotEmpty() }
 
         private fun normalizeGameVersion(value: String?): String =
@@ -141,6 +198,7 @@ class ModpackManager {
                 .substringBefore('(')
                 .substringBefore(' ')
                 .trim()
+
         private val EXTRA_DOWNLOAD_RELATIVE_PATHS = listOf(
             "Download",
             "Downloads",
