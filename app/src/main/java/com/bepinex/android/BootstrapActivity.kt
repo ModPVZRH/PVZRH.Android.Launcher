@@ -174,21 +174,27 @@ class BootstrapActivity : Activity() {
 
             try {
                 val t0 = System.currentTimeMillis()
-                BepInExLog.i("  [1/4] ClassLoaderHooks...")
+                BepInExLog.i("  [1/5] ClassLoaderHooks...")
                 ClassLoaderHooks.installHooks(gameContext.classLoader)
-                BepInExLog.i("  [1/4] done (${System.currentTimeMillis() - t0}ms)")
+                BepInExLog.i("  [1/5] done (${System.currentTimeMillis() - t0}ms)")
 
-                BepInExLog.i("  [2/4] PackageManagerHooks...")
+                BepInExLog.i("  [2/5] PackageManagerHooks...")
                 PackageManagerHooks.installHooks(packageManager)
-                BepInExLog.i("  [2/4] done (${System.currentTimeMillis() - t0}ms)")
+                BepInExLog.i("  [2/5] done (${System.currentTimeMillis() - t0}ms)")
 
-                BepInExLog.i("  [3/4] InstrumentationHooks...")
+                BepInExLog.i("  [3/5] InstrumentationHooks...")
                 InstrumentationHooks.install()
-                BepInExLog.i("  [3/4] done (${System.currentTimeMillis() - t0}ms)")
+                BepInExLog.i("  [3/5] done (${System.currentTimeMillis() - t0}ms)")
 
-                BepInExLog.i("  [4/4] UnityPlayerHooks...")
+                BepInExLog.i("  [4/5] UnityPlayerHooks...")
                 UnityPlayerHooks.installHooks(gameContext, applicationContext)
-                BepInExLog.i("  [4/4] done (${System.currentTimeMillis() - t0}ms)")
+                BepInExLog.i("  [4/5] done (${System.currentTimeMillis() - t0}ms)")
+
+                // Android 14 rejects Toasts attributed to the game package (this
+                // process does not own it) — redirect them to our own context.
+                BepInExLog.i("  [5/5] ToastHooks...")
+                ToastHooks.installHooks(this)
+                BepInExLog.i("  [5/5] done (${System.currentTimeMillis() - t0}ms)")
 
                 BepInExLog.i("Base hooks installed (${System.currentTimeMillis() - t0}ms total)")
             } catch (e: Exception) {
