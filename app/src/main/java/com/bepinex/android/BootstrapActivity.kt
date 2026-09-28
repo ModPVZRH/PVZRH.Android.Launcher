@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Looper
@@ -36,6 +37,9 @@ class BootstrapActivity : Activity() {
 
         private const val BACKUP_UNITY_VERSION = "2017.0.0"
         private const val GLOBAL_METADATA_FILE = "global-metadata.dat"
+        private const val SOURCE_VERSION_FILE = ".source-version"
+        private const val REMEMBERED_UNITY_VERSION_FILE = "unity-version.txt"
+        private const val METADATA_OVERRIDE_STAMP = "global-metadata.version"
 
         // Unity version pattern: X.Y.Z[abcfp]N... optionally with suffix
         private val UNITY_VERSION_PATTERN =
@@ -407,39 +411,17 @@ class BootstrapActivity : Activity() {
         val bepInExDir = BepInExPaths.getBepInExDir(targetPackage)
         val dotnetDir = BepInExPaths.getDotnetDir(filesDir, targetPackage)
 
-        // Copy Unity Data files from game APK to internal storage
+        // Copy Unity Data files from game APK to internal storage.
+        // Recopy when the installed game's versionCode or lastUpdateTime changes,
+        // so a new libil2cpp.so is not paired with the previous global-metadata.dat.
         val copiedData = BepInExPaths.getCopiedDataDir(filesDir, targetPackage)
-        val dataUnity3d = File(copiedData, "data.unity3d")
-        if (!copiedData.exists() || copiedData.list()?.isEmpty() != false || !dataUnity3d.exists()) {
-            BepInExLog.i("Copying game assets/bin/Data  -> ${copiedData.absolutePath}")
-            try {
-                copyGameDataAssets(gameContext, copiedData) { step, detail ->
-                    updateProgress(getString(R.string.bootstrap_status_copy_assets), detail, 35)
-                }
-            } catch (e: Exception) {
-                BepInExLog.e("Failed to copy Data assets (non-fatal)", e)
-            }
-        }
-
-        // Apply global-metadata.dat override if present on external storage
-        val overrideMetadata = File(dataOnSdCard, GLOBAL_METADATA_FILE)
-        if (overrideMetadata.isFile) {
-            BepInExLog.i("Applying global-metadata.dat override")
-            val targetMetadata = File(File(copiedData, "Managed/Metadata"), GLOBAL_METADATA_FILE)
-            try {
-                targetMetadata.parentFile?.mkdirs()
-                overrideMetadata.copyTo(targetMetadata, overwrite = true)
-            } catch (e: Exception) {
-                BepInExLog.e("Failed to apply global-metadata override", e)
-            }
-        }
+        val gameStamp = readInstalledGameStamp(targetPackage)
+        val copyReason = ensureGameDataCopied(gameContext, copiedData, gameStamp)
+        applyMetadataOverride(dataOnSdCard, copiedData, gameStamp, copyReason)
 
         // Detect Unity version from game data (FusionCore VersionLookup)
         updateProgress(getString(R.string.bootstrap_status_detecting_version), "", 45)
-        val unityVersion = tryLookupUnityVersion(copiedData)
-            ?: BACKUP_UNITY_VERSION.also {
-                BepInExLog.w("Failed to detect Unity version, using fallback: $BACKUP_UNITY_VERSION")
-            }
+        val unityVersion = resolveUnityVersion(appDataDir, copiedData)
         BepInExLog.i("Unity version: $unityVersion")
 
         // Prepare unstripped libunity.so only when explicitly enabled.
@@ -516,6 +498,158 @@ class BootstrapActivity : Activity() {
             unityVersion = unityVersion,
             useOriginalLibUnity = useOriginalLibUnity
         )
+    }
+
+    private enum class DataCopyReason {
+        UP_TO_DATE,
+        FIRST_COPY,
+        VERSION_CHANGED
+    }
+
+    /** versionCode + lastUpdateTime of the installed game. */
+    private fun readInstalledGameStamp(packageName: String): String {
+        return try {
+            @Suppress("DEPRECATION")
+            val info = packageManager.getPackageInfo(packageName, 0)
+            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                info.versionCode.toLong()
+            }
+            "$versionCode@${info.lastUpdateTime}"
+        } catch (e: Exception) {
+            BepInExLog.w("Failed to read installed game version: ${e.message}")
+            "unknown"
+        }
+    }
+
+    /**
+     * Returns why [copiedData] was refreshed. A missing version stamp on an
+     * existing copy counts as [DataCopyReason.VERSION_CHANGED] so upgrades of
+     * this launcher still pick up the current game files.
+     */
+    private fun ensureGameDataCopied(
+        gameContext: Context,
+        copiedData: File,
+        gameStamp: String
+    ): DataCopyReason {
+        val dataUnity3d = File(copiedData, "data.unity3d")
+        val stampFile = File(copiedData, SOURCE_VERSION_FILE)
+        val recorded = stampFile.takeIf { it.isFile }?.readText()?.trim().orEmpty()
+        val hasData = copiedData.isDirectory && dataUnity3d.isFile
+        val reason = when {
+            !hasData -> DataCopyReason.FIRST_COPY
+            recorded != gameStamp -> DataCopyReason.VERSION_CHANGED
+            else -> DataCopyReason.UP_TO_DATE
+        }
+        if (reason == DataCopyReason.UP_TO_DATE) {
+            BepInExLog.i("Game data cache matches installed version $gameStamp")
+            return reason
+        }
+
+        if (reason == DataCopyReason.VERSION_CHANGED) {
+            BepInExLog.i("Installed game changed ($recorded -> $gameStamp), refreshing copied Data")
+            updateProgress(getString(R.string.bootstrap_status_copy_assets), "Refreshing game data", 30)
+        }
+
+        if (copiedData.exists() && !copiedData.deleteRecursively()) {
+            BepInExLog.w("Failed to fully delete ${copiedData.absolutePath}; copying over remaining files")
+        }
+        copiedData.mkdirs()
+
+        BepInExLog.i("Copying game assets/bin/Data -> ${copiedData.absolutePath}")
+        try {
+            copyGameDataAssets(gameContext, copiedData) { _, detail ->
+                updateProgress(getString(R.string.bootstrap_status_copy_assets), detail, 35)
+            }
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to copy Data assets (non-fatal)", e)
+        }
+
+        if (dataUnity3d.isFile) {
+            stampFile.writeText(gameStamp)
+        } else {
+            BepInExLog.w("Game data copy finished without data.unity3d; version stamp not written")
+        }
+        return reason
+    }
+
+    /**
+     * An external global-metadata.dat is bound to the game stamp it was accepted
+     * for. After the game changes, the same file is left unused until it is replaced.
+     */
+    private fun applyMetadataOverride(
+        dataOnSdCard: File,
+        copiedData: File,
+        gameStamp: String,
+        copyReason: DataCopyReason
+    ) {
+        val overrideMetadata = File(dataOnSdCard, GLOBAL_METADATA_FILE)
+        if (!overrideMetadata.isFile) return
+
+        val stampFile = File(dataOnSdCard, METADATA_OVERRIDE_STAMP)
+        val fileStamp = "${overrideMetadata.length()}@${overrideMetadata.lastModified()}"
+        val recorded = stampFile.takeIf { it.isFile }?.readText()?.trim()
+        if (!shouldApplyMetadataOverride(recorded, copyReason, gameStamp, fileStamp)) {
+            BepInExLog.w(
+                "Skipping global-metadata.dat override; it does not match installed game $gameStamp. " +
+                    "Replace the file to apply it to this version."
+            )
+            stampFile.writeText("rejected|$gameStamp|$fileStamp")
+            return
+        }
+
+        BepInExLog.i("Applying global-metadata.dat override")
+        val targetMetadata = File(copiedData, "Managed/Metadata/$GLOBAL_METADATA_FILE")
+        try {
+            targetMetadata.parentFile?.mkdirs()
+            overrideMetadata.copyTo(targetMetadata, overwrite = true)
+            stampFile.writeText("ok|$gameStamp|$fileStamp")
+        } catch (e: Exception) {
+            BepInExLog.e("Failed to apply global-metadata override", e)
+        }
+    }
+
+    private fun shouldApplyMetadataOverride(
+        recorded: String?,
+        copyReason: DataCopyReason,
+        gameStamp: String,
+        fileStamp: String
+    ): Boolean {
+        if (recorded.isNullOrEmpty()) {
+            return copyReason != DataCopyReason.VERSION_CHANGED
+        }
+        val parts = recorded.split('|')
+        if (parts.size != 3) {
+            return copyReason != DataCopyReason.VERSION_CHANGED
+        }
+        val status = parts[0]
+        val boundGame = parts[1]
+        val boundFile = parts[2]
+        if (boundFile != fileStamp) return true
+        return status == "ok" && boundGame == gameStamp
+    }
+
+    private fun resolveUnityVersion(appDataDir: File, copiedData: File): String {
+        val detected = tryLookupUnityVersion(copiedData)
+        val remembered = File(appDataDir, REMEMBERED_UNITY_VERSION_FILE)
+        if (detected != null) {
+            try {
+                remembered.writeText(detected)
+            } catch (e: Exception) {
+                BepInExLog.w("Failed to remember Unity version: ${e.message}")
+            }
+            return detected
+        }
+        val previous = remembered.takeIf { it.isFile }?.readText()?.trim()
+            ?.takeIf { UNITY_VERSION_PATTERN.matcher(it).matches() }
+        if (previous != null) {
+            BepInExLog.w("Failed to detect Unity version, using last known: $previous")
+            return previous
+        }
+        BepInExLog.w("Failed to detect Unity version, using fallback: $BACKUP_UNITY_VERSION")
+        return BACKUP_UNITY_VERSION
     }
 
     // Unity version detection
