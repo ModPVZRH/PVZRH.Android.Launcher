@@ -186,8 +186,11 @@ fun ModpackDetailScreen(
             if (hasUncategorized) filter else ModCategoryFilter.All
         ModCategoryFilter.All -> filter
     }
-    val filteredMods = remember(sortedMods, searchQuery, activeCategoryFilter) {
-        sortedMods.filter { it.matchesSearch(searchQuery) && it.matchesCategory(activeCategoryFilter) }
+    val categoryMods = remember(sortedMods, activeCategoryFilter) {
+        sortedMods.filter { it.matchesCategory(activeCategoryFilter) }
+    }
+    val filteredMods = remember(categoryMods, searchQuery) {
+        categoryMods.filter { it.matchesSearch(searchQuery) }
     }
     val filteredConfigs = remember(configFiles, searchQuery, activeCategoryFilter) {
         if (activeCategoryFilter != ModCategoryFilter.All) {
@@ -349,15 +352,32 @@ fun ModpackDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = stringResource(R.string.installed_mods),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier
-                                .weight(1f)
-                                .semantics { heading() },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.installed_mods),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .semantics { heading() },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (mods.isNotEmpty()) {
+                                Text(
+                                    text = "${categoryMods.count { it.enabled }} / ${categoryMods.size}",
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .width(64.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                         if (mods.isNotEmpty()) {
                             if (filteredMods.isNotEmpty()) {
                                 val allEnabled = filteredMods.all { it.enabled }
@@ -386,13 +406,6 @@ fun ModpackDetailScreen(
                                     )
                                 }
                             }
-                            StatusBadge(
-                                text = stringResource(
-                                    R.string.modpack_mod_count_ratio,
-                                    mods.count { it.enabled },
-                                    mods.size
-                                )
-                            )
                             Box {
                                 IconButton(onClick = { sortMenuOpen = true }) {
                                     Icon(
@@ -1318,21 +1331,6 @@ private fun ModSearchBar(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun StatusBadge(text: String) {
-    Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
