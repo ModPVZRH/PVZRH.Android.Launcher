@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -81,6 +82,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -110,10 +112,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -710,11 +715,11 @@ fun ModpackDetailScreen(
                     selectedImportPaths - mod.relativePath
                 }
             },
-            onSelectAll = { selectAll ->
-                selectedImportPaths = if (selectAll) {
-                    importSourceMods.map { it.relativePath }.toSet()
+            onSelectVisible = { paths, select ->
+                selectedImportPaths = if (select) {
+                    selectedImportPaths + paths
                 } else {
-                    emptySet()
+                    selectedImportPaths - paths
                 }
             },
             onImport = {
@@ -1236,10 +1241,10 @@ private fun ModItemCard(
 private fun ModSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placeholder: String = stringResource(R.string.modpack_search_mods)
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
-    val placeholder = stringResource(R.string.modpack_search_mods)
     var focused by remember { mutableStateOf(false) }
 
     Surface(
@@ -1524,62 +1529,190 @@ private fun DownloadDllScanDialog(
 }
 
 @Composable
+private fun ImportChooserFrame(
+    title: String,
+    subtitle: String,
+    onDismiss: () -> Unit,
+    footer: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .fillMaxHeight(0.88f)
+                .navigationBarsPadding(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 4.dp, top = 18.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(android.R.string.cancel)
+                        )
+                    }
+                }
+                content()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                footer()
+            }
+        }
+    }
+}
+
+@Composable
 private fun ImportFromModpackPickerDialog(
     modpacks: List<ModpackMeta>,
     onSelect: (ModpackMeta) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.modpack_import_from_other_title)) },
-        text = {
-            LazyColumn(
+    var query by remember { mutableStateOf("") }
+    val visible = remember(modpacks, query) {
+        val needle = query.trim()
+        if (needle.isEmpty()) {
+            modpacks
+        } else {
+            modpacks.filter {
+                it.name.contains(needle, ignoreCase = true) ||
+                    it.gameVersion.contains(needle, ignoreCase = true)
+            }
+        }
+    }
+    ImportChooserFrame(
+        title = stringResource(R.string.modpack_import_from_other_title),
+        subtitle = if (query.isBlank()) {
+            stringResource(R.string.modpack_import_pack_count, modpacks.size)
+        } else {
+            stringResource(R.string.modpack_import_result_count, visible.size)
+        },
+        onDismiss = onDismiss,
+        footer = {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 320.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
             ) {
-                items(modpacks, key = { it.name }) { pack ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(pack) }
-                            .padding(vertical = 10.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = pack.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = stringResource(
-                                    R.string.modpack_mod_count_ratio,
-                                    pack.enabledModCount,
-                                    pack.modCount
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.modpack_scan_downloads_skip))
+                }
+            }
+        }
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            ModSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = stringResource(R.string.modpack_import_search_modpacks),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            if (visible.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.modpack_import_search_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(visible, key = { it.name }) { pack ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onSelect(pack) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = pack.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = stringResource(
+                                            R.string.modpack_mod_count_ratio,
+                                            pack.enabledModCount,
+                                            pack.modCount
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (pack.gameVersion.isNotBlank()) {
+                                        Text(
+                                            text = stringResource(
+                                                R.string.modpack_target_game,
+                                                pack.gameVersion
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.Filled.ChevronRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        Icon(
-                            imageVector = Icons.Filled.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.modpack_scan_downloads_skip))
-            }
         }
-    )
+    }
 }
 
 @Composable
@@ -1588,89 +1721,192 @@ private fun ImportModsFromModpackDialog(
     mods: List<ModpackMod>,
     selectedPaths: Set<String>,
     onToggle: (ModpackMod, Boolean) -> Unit,
-    onSelectAll: (Boolean) -> Unit,
+    onSelectVisible: (Set<String>, Boolean) -> Unit,
     onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
+    var query by remember { mutableStateOf("") }
+    val visible = remember(mods, query) { mods.filter { it.matchesSearch(query) } }
+    val visiblePaths = remember(visible) { visible.map { it.relativePath }.toSet() }
+    val visibleSelected = visible.count { it.relativePath in selectedPaths }
+    val totalSelected = mods.count { it.relativePath in selectedPaths }
     val selectAllState = when {
-        mods.isEmpty() || selectedPaths.none { path -> mods.any { it.relativePath == path } } ->
-            ToggleableState.Off
-        mods.all { it.relativePath in selectedPaths } -> ToggleableState.On
+        visible.isEmpty() || visibleSelected == 0 -> ToggleableState.Off
+        visibleSelected == visible.size -> ToggleableState.On
         else -> ToggleableState.Indeterminate
     }
-    AlertDialog(
-        onDismissRequest = onSkip,
-        title = { Text(stringResource(R.string.modpack_import_from_other_mods_title, sourceName)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.modpack_import_from_other_mods_message))
+    ImportChooserFrame(
+        title = stringResource(R.string.modpack_import_from_other_mods_title, sourceName),
+        subtitle = stringResource(R.string.modpack_import_from_other_mods_message),
+        onDismiss = onSkip,
+        footer = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.modpack_import_selected_count,
+                        totalSelected,
+                        mods.size
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier
+                        .width(64.dp)
+                        .height(36.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.modpack_scan_downloads_skip),
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+                Button(
+                    onClick = onImport,
+                    enabled = totalSelected > 0,
+                    modifier = Modifier
+                        .width(96.dp)
+                        .height(36.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.modpack_import_confirm_count, totalSelected),
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            ModSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = stringResource(R.string.modpack_import_search_mods),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TriStateCheckbox(
+                    state = selectAllState,
+                    onClick = {
+                        if (visiblePaths.isEmpty()) return@TriStateCheckbox
+                        onSelectVisible(visiblePaths, selectAllState != ToggleableState.On)
+                    },
+                    enabled = visible.isNotEmpty()
+                )
+                Text(
+                    text = stringResource(
+                        if (selectAllState == ToggleableState.On) {
+                            R.string.modpack_import_from_other_deselect_all
+                        } else {
+                            R.string.modpack_import_from_other_select_all
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.clickable(enabled = visible.isNotEmpty()) {
+                        onSelectVisible(visiblePaths, selectAllState != ToggleableState.On)
+                    }
+                )
+                Spacer(Modifier.weight(1f))
+                if (query.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.modpack_import_result_count, visible.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (visible.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.modpack_import_search_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 280.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(mods, key = { it.relativePath }) { mod ->
+                    items(visible, key = { it.relativePath }) { mod ->
                         val checked = mod.relativePath in selectedPaths
-                        Row(
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onToggle(mod, !checked) }
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onToggle(mod, !checked) },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (checked) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                            }
                         ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { onToggle(mod, it) }
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = mod.displayName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 4.dp, end = 14.dp, top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { onToggle(mod, it) }
                                 )
-                                Text(
-                                    text = mod.relativePath,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = mod.displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = mod.relativePath,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                TextButton(
-                    onClick = { onSelectAll(selectAllState != ToggleableState.On) },
-                    modifier = Modifier.align(Alignment.CenterStart)
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (selectAllState == ToggleableState.On) {
-                                R.string.modpack_import_from_other_deselect_all
-                            } else {
-                                R.string.modpack_import_from_other_select_all
-                            }
-                        )
-                    )
-                }
-                Row(modifier = Modifier.align(Alignment.CenterEnd)) {
-                    TextButton(onClick = onSkip) {
-                        Text(stringResource(R.string.modpack_scan_downloads_skip))
-                    }
-                    TextButton(
-                        onClick = onImport,
-                        enabled = selectedPaths.isNotEmpty()
-                    ) {
-                        Text(stringResource(R.string.modpack_scan_downloads_import))
-                    }
-                }
-            }
         }
-    )
+    }
 }
