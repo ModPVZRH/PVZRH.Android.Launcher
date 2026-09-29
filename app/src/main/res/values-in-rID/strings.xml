@@ -114,6 +114,13 @@
     <string name="modpack_import_from_other_mods_message">Mod yang dipilih beserta konfigurasi yang sesuai akan disalin ke dalam modpack ini.</string>
     <string name="modpack_import_from_other_select_all">Pilih semua</string>
     <string name="modpack_import_from_other_deselect_all">Hapus semua</string>
+    <string name="modpack_import_search_modpacks">Search modpacks</string>
+    <string name="modpack_import_search_mods">Search mods</string>
+    <string name="modpack_import_selected_count">Selected %1$d / %2$d</string>
+    <string name="modpack_import_search_empty">No matches</string>
+    <string name="modpack_import_result_count">%d shown</string>
+    <string name="modpack_import_confirm_count">Import (%d)</string>
+    <string name="modpack_import_pack_count">%d modpacks</string>
     <string name="modpack_import_from_other_imported">%1$d dari %2$d mod dipilih (%3$d file config)</string>
     <string name="modpack_no_mods">Tidak ada mod dalam modpack ini</string>
     <string name="modpack_add_mod">Tambah mod</string>
