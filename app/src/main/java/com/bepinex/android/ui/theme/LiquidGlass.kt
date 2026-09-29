@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.TopAppBarColors
@@ -29,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -78,9 +80,11 @@ fun LiquidGlassHost(
         return
     }
     val backdrop = rememberLayerBackdrop()
+    val contentColor = MaterialTheme.colorScheme.onBackground
     CompositionLocalProvider(
         LocalLiquidGlass provides true,
-        LocalBackdrop provides backdrop
+        LocalBackdrop provides backdrop,
+        LocalContentColor provides contentColor
     ) {
         Box(Modifier.fillMaxSize()) {
             LiquidGlassWallpaper(Modifier.layerBackdrop(backdrop).fillMaxSize())
@@ -215,10 +219,16 @@ fun glassContainerColor(solid: Color): Color =
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun glassTopBarColors(): TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-    containerColor = glassContainerColor(MaterialTheme.colorScheme.surface),
-    scrolledContainerColor = glassContainerColor(MaterialTheme.colorScheme.surface)
-)
+fun glassTopBarColors(): TopAppBarColors {
+    val scheme = MaterialTheme.colorScheme
+    return TopAppBarDefaults.topAppBarColors(
+        containerColor = glassContainerColor(scheme.surface),
+        scrolledContainerColor = glassContainerColor(scheme.surface),
+        navigationIconContentColor = scheme.onSurface,
+        titleContentColor = scheme.onSurface,
+        actionIconContentColor = scheme.onSurface
+    )
+}
 
 fun Modifier.liquidGlass(backdrop: Backdrop, shape: Shape, dark: Boolean): Modifier {
     return this
@@ -264,28 +274,32 @@ private fun LiquidGlassWallpaper(modifier: Modifier = Modifier) {
     Canvas(modifier) { drawThemedWallpaper(wallpaper) }
 }
 
+private fun Color.tintOn(base: Color, alpha: Float): Color = copy(alpha = alpha).compositeOver(base)
+
 private fun DrawScope.drawThemedWallpaper(wallpaper: GlassWallpaper) {
+    val base = wallpaper.background
+    drawRect(base)
     drawRect(
         Brush.linearGradient(
             listOf(
-                wallpaper.background,
-                wallpaper.primary.copy(alpha = 0.22f),
-                wallpaper.secondary.copy(alpha = 0.16f),
+                base,
+                wallpaper.primary.tintOn(base, 0.22f),
+                wallpaper.secondary.tintOn(base, 0.16f),
             )
         )
     )
     drawCircle(
-        color = wallpaper.primary.copy(alpha = 0.28f),
+        color = wallpaper.primary.tintOn(base, 0.28f),
         radius = size.minDimension * 0.42f,
         center = Offset(size.width * 0.12f, size.height * 0.18f)
     )
     drawCircle(
-        color = wallpaper.secondary.copy(alpha = 0.22f),
+        color = wallpaper.secondary.tintOn(base, 0.22f),
         radius = size.minDimension * 0.48f,
         center = Offset(size.width * 0.92f, size.height * 0.34f)
     )
     drawCircle(
-        color = wallpaper.tertiary.copy(alpha = 0.18f),
+        color = wallpaper.tertiary.tintOn(base, 0.18f),
         radius = size.minDimension * 0.32f,
         center = Offset(size.width * 0.5f, size.height * 0.88f)
     )

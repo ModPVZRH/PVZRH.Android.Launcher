@@ -86,6 +86,14 @@ android {
         jvmTarget = "17"
     }
 
+    lint {
+        // lifecycle-runtime-lint's NullSafeMutableLiveData detector was built when
+        // KaCallableMemberCall was an interface. Kotlin 2.2 makes it a class, so the
+        // detector crashes lintVitalAnalyzeRelease. Newer lifecycle builds that fix
+        // this require compileSdk 37 and AGP 9.
+        disable += "NullSafeMutableLiveData"
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true

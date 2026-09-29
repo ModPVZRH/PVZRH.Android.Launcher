@@ -3,8 +3,9 @@ package com.bepinex.android.ui.liquid
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -28,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -65,13 +67,10 @@ fun LiquidBottomTabs(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
-    val accentColor =
-        if (isLightTheme) Color(0xFF0088FF)
-        else Color(0xFF0091FF)
-    val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-        else Color(0xFF121212).copy(0.4f)
+    val scheme = MaterialTheme.colorScheme
+    val isLightTheme = scheme.background.luminance() > 0.5f
+    val accentColor = scheme.primary
+    val containerColor = scheme.surface.copy(alpha = 0.4f)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -183,9 +182,12 @@ fun LiquidBottomTabs(
                 .height(64f.dp)
                 .fillMaxWidth()
                 .padding(4f.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CompositionLocalProvider(LocalContentColor provides scheme.onSurface) {
+                content()
+            }
+        }
 
         CompositionLocalProvider(
             LocalLiquidBottomTabScale provides {
