@@ -41,6 +41,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
 
 data class CoachMarkStep(
     val rect: Rect?,
@@ -115,12 +117,13 @@ fun CoachMarkOverlay(
         ) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
+                color = glassContainerColor(MaterialTheme.colorScheme.surface),
                 tonalElevation = 4.dp,
                 shadowElevation = 6.dp,
                 modifier = Modifier
                     .widthIn(max = 360.dp)
                     .align(if (holeInLowerHalf) Alignment.TopCenter else Alignment.BottomCenter)
+                    .glassSurface(RoundedCornerShape(16.dp))
             ) {
                 Column(Modifier.padding(18.dp)) {
                     Text(
@@ -143,7 +146,7 @@ fun CoachMarkOverlay(
                         TextButton(onClick = onSkip) {
                             Text(stringResource(R.string.coach_skip))
                         }
-                        Button(
+                        com.bepinex.android.ui.liquid.LiquidButton(
                             onClick = {
                                 if (last) onFinished() else index = safeIndex + 1
                             }

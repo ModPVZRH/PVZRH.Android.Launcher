@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.GameDetector
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.update.MarkdownText
 import kotlinx.coroutines.launch
 
@@ -84,7 +85,7 @@ fun OnboardingHost(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = glassContainerColor(MaterialTheme.colorScheme.background)
     ) {
         Column(
             modifier = Modifier
@@ -190,7 +191,7 @@ fun OnboardingHost(
                         Text(stringResource(R.string.onboarding_back))
                     }
                 }
-                Button(
+                com.bepinex.android.ui.liquid.LiquidButton(
                     onClick = {
                         if (lastPage) onFinished() else goTo(page + 1)
                     },
@@ -316,9 +317,8 @@ private fun OnboardingGamePage(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
-                FilledTonalButton(
-                    onClick = onRescan,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                com.bepinex.android.ui.liquid.LiquidButton(
+                    onClick = onRescan
                 ) {
                     Text(stringResource(R.string.scan_again))
                 }
@@ -411,9 +411,8 @@ private fun PermissionGrantControl(
             )
         }
     } else {
-        Button(
-            onClick = onGrant,
-            shape = RoundedCornerShape(14.dp)
+        com.bepinex.android.ui.liquid.LiquidButton(
+            onClick = onGrant
         ) {
             Text(grantButtonText)
         }

@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -134,9 +138,10 @@ fun LogViewerScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.log_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -160,9 +165,7 @@ fun LogViewerScreen(
                         Icon(Icons.Filled.Settings, stringResource(R.string.viewer_settings))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -174,9 +177,9 @@ fun LogViewerScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().glassSurface(MaterialTheme.shapes.medium),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                color = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 when {
                     readResult.error != null -> {
@@ -300,18 +303,17 @@ fun LogViewerSettingsScreen(
     BackHandler { onNavigateBack() }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.log_settings)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -323,9 +325,9 @@ fun LogViewerSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().glassSurface(MaterialTheme.shapes.medium),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                color = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -341,7 +343,7 @@ fun LogViewerSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = autoScroll, onCheckedChange = onAutoScrollChange)
+                        com.bepinex.android.ui.liquid.LiquidToggle(checked = autoScroll, onCheckedChange = onAutoScrollChange)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -359,7 +361,7 @@ fun LogViewerSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = wordWrap, onCheckedChange = onWordWrapChange)
+                        com.bepinex.android.ui.liquid.LiquidToggle(checked = wordWrap, onCheckedChange = onWordWrapChange)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -377,7 +379,7 @@ fun LogViewerSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = showLineNumbers, onCheckedChange = onLineNumbersChange)
+                        com.bepinex.android.ui.liquid.LiquidToggle(checked = showLineNumbers, onCheckedChange = onLineNumbersChange)
                     }
                 }
             }

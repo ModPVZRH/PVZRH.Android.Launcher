@@ -42,7 +42,6 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,7 +56,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +73,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import com.bepinex.android.save.SaveDataManager
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -231,16 +233,17 @@ fun SaveImportScreen(packageName: String, onBack: () -> Unit) {
     BackHandler(enabled = busy) {}
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.settings_section_saves)) },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !busy) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -399,7 +402,7 @@ fun SaveImportScreen(packageName: String, onBack: () -> Unit) {
             SaveConfirmation.RESTORE_STAGED -> stringResource(R.string.save_restore_backup_confirm)
             else -> stringResource(R.string.mod_file_browser_delete_message, title)
         }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmation = null },
             title = { Text(title) },
             text = { Text(message) },
@@ -481,9 +484,9 @@ private fun GameSaveStatusCard(
     val ready = status is SaveDataManager.SaveStatus.FOUND
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(20.dp)),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant))
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -540,9 +543,9 @@ private fun SavePrerequisiteCard(
                     Toast.makeText(context, R.string.save_permission_denied, Toast.LENGTH_SHORT).show()
                 }
             }
-        },
+        }.glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.primaryContainer))
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Folder, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
@@ -567,11 +570,13 @@ private fun PrimarySaveActionCard(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(20.dp)),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+            containerColor = glassContainerColor(
+                if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+            )
         )
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -589,7 +594,7 @@ private fun PrimarySaveActionCard(
                     Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Button(onClick, Modifier.fillMaxWidth(), enabled = enabled) {
+            com.bepinex.android.ui.liquid.LiquidButton(onClick, Modifier.fillMaxWidth(), enabled = enabled) {
                 if (operating) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     Spacer(Modifier.width(8.dp))
@@ -603,8 +608,11 @@ private fun PrimarySaveActionCard(
 @Composable
 private fun ExpandableSectionHeader(title: String, expanded: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .glassSurface(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surface))
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
@@ -653,8 +661,9 @@ private fun SaveFileSummaryCard(backupContents: List<String>, restoreContents: L
     Card(
         Modifier
             .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(180)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            .animateContentSize(animationSpec = tween(180))
+            .glassSurface(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             FileSummary(stringResource(R.string.save_g2l_contents), backupContents)
@@ -690,8 +699,8 @@ private fun FileSummary(title: String, contents: List<String>) {
 @Composable
 private fun SavePathCard(packageName: String) {
     Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -719,8 +728,8 @@ private fun SavePathCard(packageName: String) {
 @Composable
 private fun ManualGuideCard(packageName: String, useSaf: Boolean, useShizuku: Boolean) {
     Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        Modifier.fillMaxWidth().glassSurface(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
@@ -764,8 +773,8 @@ private fun CommandText(text: String) {
                     clipboard.setPrimaryClip(ClipData.newPlainText("ADB command", text))
                     Toast.makeText(context, R.string.save_command_copied, Toast.LENGTH_SHORT).show()
                 }
-            },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            }.glassSurface(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = glassContainerColor(MaterialTheme.colorScheme.surface))
     ) {
         Row(
             modifier = Modifier

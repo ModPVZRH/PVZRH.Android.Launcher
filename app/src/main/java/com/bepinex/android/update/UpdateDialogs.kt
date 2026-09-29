@@ -30,9 +30,11 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.GlassDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
 
 private const val LONG_TOKEN_BREAK = 24
 
@@ -118,15 +120,16 @@ private fun ScrollableNoticeDialog(
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
     val maxWidth = (configuration.screenWidthDp - 48).dp
-    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+    GlassDialog(onDismissRequest = onDismissRequest, properties = properties) {
         Card(
             modifier = Modifier
                 .widthIn(max = maxWidth)
                 .fillMaxWidth()
-                .heightIn(max = maxHeight),
+                .heightIn(max = maxHeight)
+                .glassSurface(RoundedCornerShape(16.dp)),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = glassContainerColor(MaterialTheme.colorScheme.surface)
             )
         ) {
             Column(
@@ -332,14 +335,15 @@ fun CrashDialog(
     val maxLogHeight = (LocalConfiguration.current.screenHeightDp * 0.42f).dp
     val logScroll = rememberScrollState()
 
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = maxDialogHeight),
+                .heightIn(max = maxDialogHeight)
+                .glassSurface(RoundedCornerShape(16.dp)),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = glassContainerColor(MaterialTheme.colorScheme.surface)
             )
         ) {
             Column(

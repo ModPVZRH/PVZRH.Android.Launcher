@@ -95,7 +95,7 @@ android {
 
 dependencies {
     // Compose BOM - manages all Compose library versions
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
+    val composeBom = platform("androidx.compose:compose-bom:2025.11.00")
     implementation(composeBom)
 
     // Compose UI
@@ -121,6 +121,10 @@ dependencies {
 
     // AppCompat (DayNight theme support)
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // Liquid glass surfaces. 1.0.0 is the newest Android artifact this toolchain can compile.
+    // https://github.com/Kyant0/AndroidLiquidGlass
+    implementation("io.github.kyant0:backdrop:1.0.0")
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

@@ -55,7 +55,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -72,6 +71,10 @@ import androidx.core.graphics.drawable.toBitmap
 import com.bepinex.android.GameDetector
 import com.bepinex.android.R
 import com.bepinex.android.ui.onboarding.LocalCoachMarkTargets
+import com.bepinex.android.ui.theme.LocalLiquidGlass
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 
 /**
  * Main game selection and mod management screen.
@@ -102,7 +105,7 @@ fun GameScreen(
     isSwitchingModpack: Boolean = false
 ) {
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -125,9 +128,10 @@ fun GameScreen(
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                modifier = Modifier.glassSurface(
+                    RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
                 ),
+                colors = glassTopBarColors(),
                 actions = {
                     val coachTargets = LocalCoachMarkTargets.current
                     IconButton(onClick = onShowAnnouncement) {
@@ -269,10 +273,12 @@ fun GameScreen(
 @Composable
 private fun ScanningCard() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
         )
     ) {
         Row(
@@ -295,10 +301,12 @@ private fun ScanningCard() {
 @Composable
 private fun EmptyGamesCard(onRescan: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
         )
     ) {
         Column(
@@ -346,14 +354,17 @@ private fun GameSelectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .glassSurface(RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
+            containerColor = glassContainerColor(
+                if (isSelected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
         )
     ) {
         Row(
@@ -416,12 +427,15 @@ private fun SelectedGameCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .animateContentSize()
+            .glassSurface(RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surface)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (LocalLiquidGlass.current) 0.dp else 1.dp
+        )
     ) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -538,13 +552,12 @@ private fun SelectedGameActions(
     onLaunch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Button(
+    com.bepinex.android.ui.liquid.LiquidButton(
         onClick = onLaunch,
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
-        enabled = canLaunch,
-        shape = RoundedCornerShape(14.dp)
+        enabled = canLaunch
     ) {
         Icon(Icons.Filled.PlayArrow, contentDescription = null)
         Spacer(Modifier.width(8.dp))
@@ -566,13 +579,16 @@ private fun ManageSavesButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val capsule = RoundedCornerShape(50)
     FilledTonalButton(
         onClick = onClick,
-        modifier = modifier.height(40.dp),
-        shape = RoundedCornerShape(50),
+        modifier = modifier
+            .height(40.dp)
+            .glassSurface(capsule),
+        shape = capsule,
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.secondaryContainer),
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
     ) {
@@ -619,10 +635,11 @@ private fun StatusChip(
         failed -> stringResource(R.string.framework_setup_failed)
         else -> stringResource(R.string.framework_setting_up)
     }
+    val capsule = RoundedCornerShape(50)
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(50),
-        color = containerColor
+        modifier = modifier.glassSurface(capsule),
+        shape = capsule,
+        color = glassContainerColor(containerColor)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -648,14 +665,18 @@ private fun ModpackChip(
     activeModpackEnabledCount: Int,
     activeModpackModCount: Int
 ) {
+    val capsule = RoundedCornerShape(50)
+    val fill = if (activeModpackName != null) {
+        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = if (activeModpackName != null) {
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(capsule),
+        shape = capsule,
+        color = glassContainerColor(fill)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),

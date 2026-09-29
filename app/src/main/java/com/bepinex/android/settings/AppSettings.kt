@@ -19,6 +19,7 @@ object AppSettings {
     private const val KEY_ACTIVE_MODPACK_PREFIX = "active_modpack_"
     private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
     private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
+    private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_LAST_SEEN_ANNOUNCEMENT = "last_seen_announcement_date"
     private const val KEY_ANIMATION_DISABLED = "animation_disabled"
     private const val KEY_LANGUAGE_INCOMPLETE_SHOWN = "language_incomplete_shown"
@@ -183,6 +184,13 @@ object AppSettings {
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
+    }
+
+    fun isLiquidGlassEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LIQUID_GLASS, false)
+
+    fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LIQUID_GLASS, enabled).apply()
     }
 
     // Animation
