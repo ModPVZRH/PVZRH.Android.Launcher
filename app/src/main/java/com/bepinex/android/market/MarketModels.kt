@@ -13,6 +13,15 @@ data class MarketTag(
     val color: String = ""
 )
 
+data class MarketModVersion(
+    val id: String = "",
+    val version: String = "",
+    val description: String = "",
+    val downloadDirectUrl: String = "",
+    val downloadCloudUrl: String = "",
+    val current: Boolean = false
+)
+
 data class MarketMod(
     val id: String,
     val modName: String,
@@ -39,7 +48,8 @@ data class MarketMod(
     val updatedAt: String,
     val categoryId: String = "",
     val categoryName: String = "",
-    val tags: List<MarketTag> = emptyList()
+    val tags: List<MarketTag> = emptyList(),
+    val versions: List<MarketModVersion> = emptyList()
 ) {
     val displayName: String
         get() = localizedName(preferChinese = true)
@@ -65,6 +75,25 @@ data class MarketMod(
             return value.contains("bepinex", ignoreCase = true)
         }
 
+    /** Release marked current, otherwise the first entry in [versions]. */
+    val currentRelease: MarketModVersion?
+        get() = versions.firstOrNull { it.current } ?: versions.firstOrNull()
+
+    val installVersion: String
+        get() = currentRelease?.version?.ifBlank { null } ?: version
+
+    val installDirectUrl: String
+        get() = currentRelease?.downloadDirectUrl?.ifBlank { null } ?: downloadDirectUrl
+
+    val installCloudUrl: String
+        get() = currentRelease?.downloadCloudUrl?.ifBlank { null } ?: downloadCloudUrl
+
     val canInstallDirect: Boolean
-        get() = showDirectUrl && downloadDirectUrl.isNotBlank()
+        get() = showDirectUrl && installDirectUrl.isNotBlank()
+
+    fun isDirectInstallUrl(url: String): Boolean {
+        if (!showDirectUrl || url.isBlank()) return false
+        if (url == downloadDirectUrl || url == installDirectUrl) return true
+        return versions.any { it.downloadDirectUrl == url }
+    }
 }

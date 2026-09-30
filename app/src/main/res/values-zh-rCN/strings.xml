@@ -532,9 +532,10 @@
     <string name="market_install_no_version">安装</string>
     <string name="market_downloads_count">%s次下载</string>
     <string name="market_tab_info">介绍</string>
-    <string name="market_tab_download">下载</string>
+    <string name="market_tab_download">版本</string>
     <string name="market_tab_source">视频</string>
     <string name="market_latest_version">最新版本</string>
+    <string name="market_version_current">当前</string>
     <string name="market_mod_id">模组ID</string>
     <string name="market_created">创建</string>
     <string name="market_no_description">暂无介绍</string>

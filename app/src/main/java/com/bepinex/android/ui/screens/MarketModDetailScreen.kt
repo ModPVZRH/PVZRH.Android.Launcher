@@ -48,6 +48,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -386,17 +387,18 @@ fun MarketModDetailScreen(
                     pendingModpack != null ||
                     showCreatePack
                 val primaryUrl = if (item.canInstallDirect) {
-                    item.downloadDirectUrl
+                    item.installDirectUrl
                 } else {
-                    item.downloadCloudUrl.ifBlank { item.downloadDirectUrl }
+                    item.installCloudUrl.ifBlank { item.installDirectUrl }
                 }
                 val hasSource = item.videoUrl.isNotBlank()
-                val hasCloudAlt = item.downloadCloudUrl.isNotBlank() &&
-                    item.downloadCloudUrl != primaryUrl
-                val tabs = remember(hasSource, hasCloudAlt) {
+                val hasCloudAlt = item.installCloudUrl.isNotBlank() &&
+                    item.installCloudUrl != primaryUrl
+                val hasVersionList = item.versions.isNotEmpty()
+                val tabs = remember(hasSource, hasCloudAlt, hasVersionList) {
                     buildList {
                         add(MarketDetailTab.Info)
-                        if (hasCloudAlt) add(MarketDetailTab.Download)
+                        if (hasVersionList || hasCloudAlt) add(MarketDetailTab.Download)
                         if (hasSource) add(MarketDetailTab.Source)
                     }
                 }
@@ -417,7 +419,7 @@ fun MarketModDetailScreen(
                         primaryUrl = primaryUrl,
                         installEnabled = !installBusy,
                         onInstall = { url ->
-                            if (item.canInstallDirect && url == item.downloadDirectUrl) {
+                            if (item.isDirectInstallUrl(url)) {
                                 startDirectInstall(url)
                             } else {
                                 openDownload(url)
@@ -444,7 +446,13 @@ fun MarketModDetailScreen(
                             item = item,
                             primaryUrl = primaryUrl,
                             installEnabled = !installBusy,
-                            onCloudDownload = { openDownload(it) }
+                            onDownload = { url ->
+                                if (item.isDirectInstallUrl(url)) {
+                                    startDirectInstall(url)
+                                } else {
+                                    openDownload(url)
+                                }
+                            }
                         )
                         MarketDetailTab.Source -> MarketSourceTab(item, onOpenUrl = { openUrl(it) })
                     }
@@ -733,12 +741,12 @@ private fun MarketDetailHeroCard(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = when {
-                        canInstall && item.version.isNotBlank() ->
-                            stringResource(R.string.market_install, item.version)
+                        canInstall && item.installVersion.isNotBlank() ->
+                            stringResource(R.string.market_install, item.installVersion)
                         canInstall ->
                             stringResource(R.string.market_install_no_version)
-                        item.version.isNotBlank() ->
-                            stringResource(R.string.market_download_with_version, item.version)
+                        item.installVersion.isNotBlank() ->
+                            stringResource(R.string.market_download_with_version, item.installVersion)
                         else ->
                             stringResource(R.string.market_download)
                     }
@@ -826,7 +834,7 @@ private fun MarketInfoTab(
         ) {
             DetailRow(
                 stringResource(R.string.market_latest_version),
-                item.version.ifBlank { "—" }
+                item.installVersion.ifBlank { "—" }
             )
             DetailRow(
                 stringResource(R.string.market_detail_size),
@@ -875,11 +883,14 @@ private fun MarketDownloadTab(
     item: MarketMod,
     primaryUrl: String,
     installEnabled: Boolean = true,
-    onCloudDownload: (String) -> Unit
+    onDownload: (String) -> Unit
 ) {
-    val cloudUrl = item.downloadCloudUrl
-    val showCloud = cloudUrl.isNotBlank() && cloudUrl != primaryUrl
-    val hasAnyLink = item.downloadDirectUrl.isNotBlank() || cloudUrl.isNotBlank()
+    val releases = item.versions.sortedByDescending { it.current }
+    val cloudUrl = item.installCloudUrl
+    val showCloud = releases.isEmpty() && cloudUrl.isNotBlank() && cloudUrl != primaryUrl
+    val hasAnyLink = releases.isNotEmpty() ||
+        item.downloadDirectUrl.isNotBlank() ||
+        cloudUrl.isNotBlank()
 
     Card(
         modifier = Modifier
@@ -896,10 +907,31 @@ private fun MarketDownloadTab(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
+            } else if (releases.isNotEmpty()) {
+                releases.forEachIndexed { index, release ->
+                    if (index > 0) {
+                        Spacer(Modifier.height(14.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                        Spacer(Modifier.height(14.dp))
+                    }
+                    MarketVersionBlock(
+                        release = release,
+                        allowDirectInstall = item.showDirectUrl,
+                        installEnabled = installEnabled,
+                        onDownload = onDownload
+                    )
+                }
+                if (item.fileSize > 0L) {
+                    Spacer(Modifier.height(16.dp))
+                    DetailRow(
+                        stringResource(R.string.market_detail_size),
+                        formatFileSize(item.fileSize)
+                    )
+                }
             } else {
                 if (showCloud) {
                     OutlinedButton(
-                        onClick = { onCloudDownload(cloudUrl) },
+                        onClick = { onDownload(cloudUrl) },
                         enabled = installEnabled,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -919,6 +951,75 @@ private fun MarketDownloadTab(
                     stringResource(R.string.market_detail_size),
                     if (item.fileSize > 0L) formatFileSize(item.fileSize) else "—"
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketVersionBlock(
+    release: com.bepinex.android.market.MarketModVersion,
+    allowDirectInstall: Boolean,
+    installEnabled: Boolean,
+    onDownload: (String) -> Unit
+) {
+    val direct = release.downloadDirectUrl
+    val cloud = release.downloadCloudUrl
+    val showDirect = direct.isNotBlank()
+    val showCloud = cloud.isNotBlank() && cloud != direct
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = release.version.ifBlank { "—" },
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
+        if (release.current) {
+            Text(
+                text = stringResource(R.string.market_version_current),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+    if (release.description.isNotBlank()) {
+        Spacer(Modifier.height(4.dp))
+        MarkdownContent(markdown = release.description)
+    }
+    if (showDirect || showCloud) {
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (showDirect) {
+                Button(
+                    onClick = { onDownload(direct) },
+                    enabled = installEnabled,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (allowDirectInstall) {
+                            stringResource(R.string.market_install_no_version)
+                        } else {
+                            stringResource(R.string.market_download)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (showCloud) {
+                OutlinedButton(
+                    onClick = { onDownload(cloud) },
+                    enabled = installEnabled,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.market_cloud_download),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

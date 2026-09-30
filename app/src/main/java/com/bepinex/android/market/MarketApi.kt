@@ -247,8 +247,28 @@ object MarketApi {
         updatedAt = obj.stringOrEmpty("updatedAt"),
         categoryId = obj.stringOrEmpty("categoryId"),
         categoryName = obj.stringOrEmpty("categoryName"),
-        tags = parseTags(obj)
+        tags = parseTags(obj),
+        versions = parseVersions(obj)
     )
+
+    private fun parseVersions(obj: JSONObject): List<MarketModVersion> {
+        val array = obj.optJSONArray("versions") ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val version = item.stringOrEmpty("version")
+            val direct = item.stringOrEmpty("downloadDirectUrl")
+            val cloud = item.stringOrEmpty("downloadCloudUrl")
+            if (version.isEmpty() && direct.isEmpty() && cloud.isEmpty()) return@mapNotNull null
+            MarketModVersion(
+                id = item.stringOrEmpty("id"),
+                version = version,
+                description = item.stringOrEmpty("description"),
+                downloadDirectUrl = direct,
+                downloadCloudUrl = cloud,
+                current = item.optBoolean("current", false)
+            )
+        }
+    }
 
     private fun parseTags(obj: JSONObject): List<MarketTag> {
         val array = obj.optJSONArray("tags") ?: return emptyList()
