@@ -2,10 +2,6 @@ package com.bepinex.android.ui.screens
 
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -37,7 +33,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
@@ -58,8 +53,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -99,10 +92,15 @@ import com.bepinex.android.market.MarketCategory
 import com.bepinex.android.market.MarketMod
 import com.bepinex.android.market.MarketTag
 import com.bepinex.android.ui.components.plainTextFromMarkdown
+import com.bepinex.android.ui.theme.GlassScrollToTopButton
+import com.bepinex.android.ui.theme.LocalBackdrop
 import com.bepinex.android.ui.theme.LocalLiquidGlass
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.theme.glassTopBarColors
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -263,6 +261,12 @@ fun MarketScreen(
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
     }
     val glass = LocalLiquidGlass.current
+    val contentBackdrop = rememberLayerBackdrop()
+    val wallpaperBackdrop = LocalBackdrop.current
+    val refractBackdrop = rememberCombinedBackdrop(
+        wallpaperBackdrop ?: contentBackdrop,
+        contentBackdrop
+    )
     val showMarketBars = !(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())
     val marketBars: @Composable () -> Unit = {
         MarketFilterBar(
@@ -403,7 +407,9 @@ fun MarketScreen(
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = { loadMods(forceRefresh = true) },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (glass) Modifier.layerBackdrop(contentBackdrop) else Modifier)
             ) {
             when {
                 isLoading && mods.isEmpty() -> {
@@ -443,7 +449,6 @@ fun MarketScreen(
                     }
                 }
                 else -> {
-                    Box(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -516,40 +521,17 @@ fun MarketScreen(
                             }
                         }
                     }
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = showScrollToTop,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 20.dp, bottom = 16.dp),
-                        enter = fadeIn() + scaleIn(),
-                        exit = fadeOut() + scaleOut()
-                    ) {
-                        SmallFloatingActionButton(
-                            onClick = {
-                                scope.launch { listState.animateScrollToItem(0) }
-                            },
-                            modifier = Modifier.glassSurface(RoundedCornerShape(50)),
-                            containerColor = glassContainerColor(
-                                MaterialTheme.colorScheme.primaryContainer
-                            ),
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            elevation = FloatingActionButtonDefaults.elevation(
-                                defaultElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                                pressedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                                focusedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                                hoveredElevation = if (LocalLiquidGlass.current) 0.dp else 8.dp
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.KeyboardArrowUp,
-                                contentDescription = stringResource(R.string.modpack_scroll_to_top)
-                            )
-                        }
-                    }
-                    }
                 }
             }
             }
+            GlassScrollToTopButton(
+                visible = showScrollToTop,
+                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                backdrop = if (glass) refractBackdrop else null,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 16.dp)
+            )
             }
         }
     }

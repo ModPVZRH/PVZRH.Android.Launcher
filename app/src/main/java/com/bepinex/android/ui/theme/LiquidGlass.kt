@@ -1,7 +1,16 @@
 package com.bepinex.android.ui.theme
 
 import android.graphics.drawable.ColorDrawable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +34,7 @@ import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -37,6 +51,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.stringResource
+import com.bepinex.android.R
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalView
@@ -238,12 +254,14 @@ fun glassTopBarColors(): TopAppBarColors {
 @Composable
 fun Modifier.refractContent(
     backdrop: Backdrop,
-    shape: Shape = CircleShape
+    shape: Shape = CircleShape,
+    layerBlock: (GraphicsLayerScope.() -> Unit)? = null
 ): Modifier {
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     return this.drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
+        layerBlock = layerBlock,
         effects = {
             vibrancy()
             blur(4f.dp.toPx())
@@ -255,6 +273,60 @@ fun Modifier.refractContent(
             )
         }
     )
+}
+
+@Composable
+fun GlassScrollToTopButton(
+    visible: Boolean,
+    onClick: () -> Unit,
+    backdrop: Backdrop?,
+    modifier: Modifier = Modifier
+) {
+    if (backdrop == null) {
+        AnimatedVisibility(
+            visible = visible,
+            modifier = modifier,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut()
+        ) {
+            SmallFloatingActionButton(onClick = onClick) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.modpack_scroll_to_top)
+                )
+            }
+        }
+        return
+    }
+
+    val progress by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 180),
+        label = "scrollToTopGlass"
+    )
+    if (progress <= 0f) return
+    Box(
+        modifier
+            .size(40.dp)
+            .refractContent(
+                backdrop = backdrop,
+                shape = CircleShape,
+                layerBlock = {
+                    alpha = progress
+                    val scale = 0.82f + 0.18f * progress
+                    scaleX = scale
+                    scaleY = scale
+                }
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowUp,
+            contentDescription = stringResource(R.string.modpack_scroll_to_top),
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
 }
 
 fun Modifier.liquidGlass(backdrop: Backdrop, shape: Shape, dark: Boolean): Modifier {

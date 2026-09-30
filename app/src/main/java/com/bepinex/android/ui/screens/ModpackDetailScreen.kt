@@ -1,10 +1,6 @@
 package com.bepinex.android.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -50,7 +46,6 @@ import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Check
@@ -76,8 +71,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -126,12 +119,17 @@ import com.bepinex.android.R
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.modpack.ModpackMod
-import com.bepinex.android.ui.theme.LocalLiquidGlass
 import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.GlassScrollToTopButton
+import com.bepinex.android.ui.theme.LocalBackdrop
+import com.bepinex.android.ui.theme.LocalLiquidGlass
 import com.bepinex.android.ui.theme.GlassDialog
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.theme.glassTopBarColors
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import java.io.File
 
 /**
@@ -273,6 +271,14 @@ fun ModpackDetailScreen(
         }
     }
 
+    val contentBackdrop = rememberLayerBackdrop()
+    val wallpaperBackdrop = LocalBackdrop.current
+    val refractBackdrop = rememberCombinedBackdrop(
+        wallpaperBackdrop ?: contentBackdrop,
+        contentBackdrop
+    )
+    val liquidGlass = LocalLiquidGlass.current
+
     Scaffold(
         containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -343,7 +349,8 @@ fun ModpackDetailScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp, end = 20.dp),
+                .padding(start = 16.dp, end = 20.dp)
+                .then(if (liquidGlass) Modifier.layerBackdrop(contentBackdrop) else Modifier),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
@@ -616,36 +623,14 @@ fun ModpackDetailScreen(
                     .align(Alignment.CenterEnd)
                     .padding(top = 12.dp, bottom = 12.dp, end = 2.dp)
             )
-            androidx.compose.animation.AnimatedVisibility(
+            GlassScrollToTopButton(
                 visible = showScrollToTop,
+                onClick = { scanScope.launch { listState.animateScrollToItem(0) } },
+                backdrop = if (liquidGlass) refractBackdrop else null,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 16.dp),
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
-            ) {
-                SmallFloatingActionButton(
-                    onClick = {
-                        scanScope.launch { listState.animateScrollToItem(0) }
-                    },
-                    modifier = Modifier.glassSurface(RoundedCornerShape(50)),
-                    containerColor = glassContainerColor(
-                        MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                        pressedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                        focusedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
-                        hoveredElevation = if (LocalLiquidGlass.current) 0.dp else 8.dp
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowUp,
-                        contentDescription = stringResource(R.string.modpack_scroll_to_top)
-                    )
-                }
-            }
+                    .padding(end = 20.dp, bottom = 16.dp)
+            )
         }
         }
     }
