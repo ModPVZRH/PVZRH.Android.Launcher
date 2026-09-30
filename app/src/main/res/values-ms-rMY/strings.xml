@@ -292,6 +292,8 @@
     <string name="settings_language">Language</string>
     <string name="settings_dynamic_color">Monet Color</string>
     <string name="settings_dynamic_color_desc">Color scheme based on the system accent color (Android 12+ only).</string>
+    <string name="settings_liquid_glass">Liquid glass</string>
+    <string name="settings_liquid_glass_desc">Use a liquid glass surface across the whole launcher UI. Refraction requires Android 13 or newer.</string>
     <string name="settings_animation_disabled">Disable Animations</string>
     <string name="settings_animation_disabled_desc">Disabling animations can improve performance on some devices.</string>
     <string name="animation_restart_title">Restart Required</string>
@@ -465,6 +467,8 @@
     <string name="bridge_mods_minimize">Minimize mod menu</string>
     <string name="settings_unstripped_libunity">Use Unstripped libunity</string>
     <string name="settings_unstripped_libunity_desc">Use unstripped libunity.so with full icalls.</string>
+    <string name="settings_disable_tiered_jit">Disable tiered compilation</string>
+    <string name="settings_disable_tiered_jit_desc">Turn this on only if a large modpack aborts inside libclrjit. While it is on, loaded mods may not show their in-game content.</string>
     <!-- Launch -->
     <string name="launch_failed">Launch failed</string>
     <string name="launch_wait_extraction">Please wait — BepInEx is still extracting</string>
