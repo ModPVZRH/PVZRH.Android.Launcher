@@ -73,7 +73,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import java.io.File
 
 private fun resolveModpackFile(modpackDirectory: File, target: File): File? = runCatching {
@@ -126,6 +128,12 @@ private fun NavHostController.safePopBackStack(): Boolean {
 private data class VersionMismatchPrompt(
     val message: String,
     val onContinue: () -> Unit
+)
+
+private data class OverwritePrompt(
+    val name: String,
+    val onOverwrite: () -> Unit,
+    val onCancel: () -> Unit
 )
 
 /**
@@ -290,6 +298,21 @@ fun BepInExNavHost(
     var importModpackTrigger by remember { mutableStateOf(false) }
     var addModTrigger by remember { mutableStateOf<String?>(null) }
     var versionMismatchPrompt by remember { mutableStateOf<VersionMismatchPrompt?>(null) }
+    var overwritePrompt by remember { mutableStateOf<OverwritePrompt?>(null) }
+    suspend fun confirmOverwrite(name: String): Boolean = suspendCancellableCoroutine { continuation ->
+        overwritePrompt = OverwritePrompt(
+            name = name,
+            onOverwrite = {
+                overwritePrompt = null
+                if (continuation.isActive) continuation.resume(true)
+            },
+            onCancel = {
+                overwritePrompt = null
+                if (continuation.isActive) continuation.resume(false)
+            }
+        )
+        continuation.invokeOnCancellation { overwritePrompt = null }
+    }
 
     // Import modpack file picker — inline import to avoid navigation reset
     val importModpackLauncher = rememberLauncherForActivityResult(
@@ -315,7 +338,7 @@ fun BepInExNavHost(
                 ).show()
                 return@rememberLauncherForActivityResult
             }
-            fun runImport() {
+            fun runImport(overwrite: Boolean) {
                 if (importJob?.isActive == true) return
                 importJob = composeScope.launch(Dispatchers.IO) {
                     try {
@@ -323,7 +346,8 @@ fun BepInExNavHost(
                             game.packageName,
                             uri,
                             context,
-                            displayName
+                            displayName,
+                            overwrite
                         )
                         withContext(Dispatchers.Main) {
                             if (imported != null) {
@@ -349,6 +373,20 @@ fun BepInExNavHost(
                     }
                 }
             }
+            fun startImportAfterChecks() {
+                val destination = modpackManager.importNameFromArchive(displayName)
+                val exists = destination.isNotEmpty() &&
+                    modpackManager.modpackDirectoryExists(game.packageName, destination)
+                if (!exists) {
+                    runImport(overwrite = false)
+                    return
+                }
+                overwritePrompt = OverwritePrompt(
+                    name = destination,
+                    onOverwrite = { runImport(overwrite = true) },
+                    onCancel = {}
+                )
+            }
             composeScope.launch(Dispatchers.IO) {
                 val peeked = modpackManager.peekModpackInfo(context, uri, displayName)
                 withContext(Dispatchers.Main) {
@@ -361,10 +399,10 @@ fun BepInExNavHost(
                                 peeked.gameVersion,
                                 game.versionName
                             ),
-                            onContinue = { runImport() }
+                            onContinue = { startImportAfterChecks() }
                         )
                     } else {
-                        runImport()
+                        startImportAfterChecks()
                     }
                 }
             }
@@ -711,9 +749,24 @@ fun BepInExNavHost(
                                             var importedCount = 0
                                             try {
                                                 files.forEach { file ->
+                                                    val destination = modpackManager.importNameFromArchive(file.name)
+                                                    val exists = destination.isNotEmpty() &&
+                                                        modpackManager.modpackDirectoryExists(
+                                                            game.packageName,
+                                                            destination
+                                                        )
+                                                    val overwrite = if (exists) {
+                                                        withContext(Dispatchers.Main) {
+                                                            confirmOverwrite(destination)
+                                                        }
+                                                    } else {
+                                                        false
+                                                    }
+                                                    if (exists && !overwrite) return@forEach
                                                     val imported = modpackManager.importModpack(
                                                         game.packageName,
-                                                        file
+                                                        file,
+                                                        overwrite = overwrite
                                                     )
                                                     if (imported != null) importedCount++
                                                 }
@@ -1263,6 +1316,27 @@ fun BepInExNavHost(
                         },
                         confirmButton = {
                             TextButton(onClick = { importJob?.cancel() }) {
+                                Text(stringResource(R.string.modpack_import_cancel))
+                            }
+                        }
+                    )
+                }
+                overwritePrompt?.let { prompt ->
+                    GlassAlertDialog(
+                        onDismissRequest = {
+                            prompt.onCancel()
+                        },
+                        title = { Text(stringResource(R.string.modpack_already_exists)) },
+                        text = {
+                            Text(stringResource(R.string.modpack_overwrite_message, prompt.name))
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { prompt.onOverwrite() }) {
+                                Text(stringResource(R.string.modpack_overwrite_confirm))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { prompt.onCancel() }) {
                                 Text(stringResource(R.string.modpack_import_cancel))
                             }
                         }

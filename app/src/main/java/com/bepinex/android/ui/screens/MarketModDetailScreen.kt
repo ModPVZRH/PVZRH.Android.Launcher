@@ -125,6 +125,7 @@ fun MarketModDetailScreen(
     var pendingPlugins by remember { mutableStateOf<MarketInstaller.PreparedKind.Plugins?>(null) }
     var pendingModpack by remember { mutableStateOf<MarketInstaller.PreparedKind.Modpack?>(null) }
     var versionMismatch by remember { mutableStateOf<PeekedModpackInfo?>(null) }
+    var overwriteImport by remember { mutableStateOf<Pair<File, String>?>(null) }
     var showCreatePack by remember { mutableStateOf(false) }
     var modpacks by remember { mutableStateOf<List<ModpackMeta>>(emptyList()) }
 
@@ -160,6 +161,7 @@ fun MarketModDetailScreen(
         pendingPlugins = null
         pendingModpack = null
         versionMismatch = null
+        overwriteImport = null
         showCreatePack = false
         installProgress = null
         importing = false
@@ -203,14 +205,19 @@ fun MarketModDetailScreen(
         recordDownload()
     }
 
-    fun importPreparedModpack(scanRoot: File, fallbackName: String) {
+    fun importPreparedModpack(scanRoot: File, fallbackName: String, overwrite: Boolean) {
         if (importing || packageName.isBlank()) return
         installProgress = null
         importing = true
         installJob = scope.launch {
             try {
                 val imported = withContext(Dispatchers.IO) {
-                    modpackManager.importModpackFromDirectory(packageName, scanRoot, fallbackName)
+                    modpackManager.importModpackFromDirectory(
+                        packageName,
+                        scanRoot,
+                        fallbackName,
+                        overwrite
+                    )
                 }
                 if (imported != null) {
                     onModpacksChanged()
@@ -226,6 +233,18 @@ fun MarketModDetailScreen(
                 toast(context.getString(R.string.import_failed))
                 importing = false
             }
+        }
+    }
+
+    fun startPreparedModpackImport(scanRoot: File, fallbackName: String) {
+        val destination = modpackManager.normalizeModpackName(fallbackName)
+        if (destination.isNotEmpty() &&
+            modpackManager.modpackDirectoryExists(packageName, destination)
+        ) {
+            installProgress = null
+            overwriteImport = scanRoot to fallbackName
+        } else {
+            importPreparedModpack(scanRoot, fallbackName, overwrite = false)
         }
     }
 
@@ -301,7 +320,7 @@ fun MarketModDetailScreen(
                         } else {
                             val fallback = peeked?.name
                                 ?: item.englishName.ifBlank { item.modName }.ifBlank { "imported" }
-                            importPreparedModpack(kind.scanRoot, fallback)
+                            startPreparedModpackImport(kind.scanRoot, fallback)
                         }
                     }
                     is MarketInstaller.PreparedKind.Plugins -> {
@@ -464,7 +483,7 @@ fun MarketModDetailScreen(
     }
 
     val progress = installProgress
-    if (progress != null && pendingPlugins == null && versionMismatch == null) {
+    if (progress != null && pendingPlugins == null && versionMismatch == null && overwriteImport == null) {
         MarketDirectProgressDialog(
             progress = progress,
             fileSizeHint = mod?.fileSize ?: 0L,
@@ -506,13 +525,37 @@ fun MarketModDetailScreen(
                 TextButton(
                     onClick = {
                         versionMismatch = null
-                        importPreparedModpack(
+                        startPreparedModpackImport(
                             scanRoot,
                             peeked.name.ifBlank { mod?.englishName.orEmpty() }
                         )
                     }
                 ) {
                     Text(stringResource(R.string.modpack_game_version_mismatch_continue))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { cleanupInstall() }) {
+                    Text(stringResource(R.string.modpack_import_cancel))
+                }
+            }
+        )
+    }
+
+    overwriteImport?.let { (scanRoot, fallbackName) ->
+        val destination = modpackManager.normalizeModpackName(fallbackName)
+        GlassAlertDialog(
+            onDismissRequest = { cleanupInstall() },
+            title = { Text(stringResource(R.string.modpack_already_exists)) },
+            text = { Text(stringResource(R.string.modpack_overwrite_message, destination)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        overwriteImport = null
+                        importPreparedModpack(scanRoot, fallbackName, overwrite = true)
+                    }
+                ) {
+                    Text(stringResource(R.string.modpack_overwrite_confirm))
                 }
             },
             dismissButton = {
@@ -538,6 +581,7 @@ fun MarketModDetailScreen(
     if (showCreatePack && pendingPlugins != null) {
         val item = mod
         CreateModpackDialog(
+            packageName = packageName,
             targetGame = gameLabel.ifBlank { packageName },
             currentGameVersion = gameVersion,
             initialName = item?.let { marketMod ->

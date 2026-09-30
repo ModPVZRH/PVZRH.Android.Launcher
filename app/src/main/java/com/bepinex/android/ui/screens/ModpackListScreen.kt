@@ -347,6 +347,7 @@ fun ModpackListScreen(
     // Create dialog
     if (showFabCreateDialog) {
         CreateModpackDialog(
+            packageName = packageName,
             targetGame = targetGameLabel,
             currentGameVersion = gameVersion,
             onDismiss = { showFabCreateDialog = false },
@@ -987,16 +988,26 @@ fun CreateModpackDialog(
     currentGameVersion: String,
     onDismiss: () -> Unit,
     onCreate: (String, Boolean, android.graphics.Bitmap?, String) -> Unit,
-    initialName: String = ""
+    initialName: String = "",
+    packageName: String = ""
 ) {
     var name by remember { mutableStateOf(initialName) }
     var gameVersion by remember { mutableStateOf(currentGameVersion) }
     var createShortcut by remember { mutableStateOf(false) }
     var iconBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var duplicateName by remember { mutableStateOf(false) }
     val manager = remember { ModpackManager() }
     val trimmedName = name.trim()
     val context = LocalContext.current
+    fun submit(withShortcut: Boolean) {
+        if (trimmedName.isEmpty()) return
+        if (packageName.isNotBlank() && manager.modpackDirectoryExists(packageName, trimmedName)) {
+            duplicateName = true
+            return
+        }
+        onCreate(trimmedName, withShortcut, iconBitmap, gameVersion.trim())
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -1067,8 +1078,17 @@ fun CreateModpackDialog(
                 // Name
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        duplicateName = false
+                    },
                     label = { Text(stringResource(R.string.modpack_name_hint)) },
+                    isError = duplicateName,
+                    supportingText = if (duplicateName) {
+                        { Text(stringResource(R.string.modpack_already_exists)) }
+                    } else {
+                        null
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1085,10 +1105,15 @@ fun CreateModpackDialog(
                 ShortcutActionButton(
                     enabled = trimmedName.isNotEmpty(),
                     onClick = {
-                        if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
+                        if (trimmedName.isNotEmpty() &&
+                            packageName.isNotBlank() &&
+                            manager.modpackDirectoryExists(packageName, trimmedName)
+                        ) {
+                            duplicateName = true
+                        } else if (!ModpackShortcutHelper.hasShortcutPermission(context)) {
                             showPermissionDialog = true
                         } else {
-                            onCreate(trimmedName, true, iconBitmap, gameVersion.trim())
+                            submit(withShortcut = true)
                         }
                     }
                 )
@@ -1096,11 +1121,7 @@ fun CreateModpackDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    if (trimmedName.isNotEmpty()) {
-                        onCreate(trimmedName, createShortcut, iconBitmap, gameVersion.trim())
-                    }
-                },
+                onClick = { submit(withShortcut = createShortcut) },
                 enabled = trimmedName.isNotEmpty()
             ) {
                 Text(stringResource(R.string.ok))

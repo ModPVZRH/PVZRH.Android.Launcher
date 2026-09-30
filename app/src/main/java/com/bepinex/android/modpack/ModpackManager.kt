@@ -263,6 +263,16 @@ class ModpackManager {
             ?: emptyList()
     }
 
+    fun modpackDirectoryExists(packageName: String, name: String): Boolean {
+        val safeName = normalizeModpackName(name)
+        if (safeName.isEmpty()) return false
+        return getModpackDir(packageName, safeName).exists()
+    }
+
+    /** Folder name used when importing an archive. Matches [importModpack]. */
+    fun importNameFromArchive(archiveName: String?): String =
+        normalizeModpackName(archiveName.orEmpty().substringBeforeLast('.'))
+
     fun createModpack(
         packageName: String,
         name: String,
@@ -1220,11 +1230,15 @@ class ModpackManager {
     private fun scanCacheRank(file: File): Int =
         if (file.path.contains("${File.separator}download-scan${File.separator}")) 1 else 0
 
-    suspend fun importModpack(packageName: String, file: File): ModpackMeta? {
+    suspend fun importModpack(
+        packageName: String,
+        file: File,
+        overwrite: Boolean = false
+    ): ModpackMeta? {
         if (!file.isFile) return null
         return try {
             file.inputStream().use { input ->
-                importModpackFromStream(packageName, input, file.name)
+                importModpackFromStream(packageName, input, file.name, overwrite)
             }
         } catch (e: CancellationException) {
             throw e
@@ -1238,7 +1252,8 @@ class ModpackManager {
         packageName: String,
         uri: Uri,
         context: Context,
-        archiveName: String? = null
+        archiveName: String? = null,
+        overwrite: Boolean = false
     ): ModpackMeta? {
         val input = try {
             context.contentResolver.openInputStream(uri)
@@ -1250,7 +1265,7 @@ class ModpackManager {
         }
         return try {
             input.use { stream ->
-                importModpackFromStream(packageName, stream, archiveName)
+                importModpackFromStream(packageName, stream, archiveName, overwrite)
             }
         } catch (e: CancellationException) {
             throw e
@@ -1296,13 +1311,14 @@ class ModpackManager {
     suspend fun importModpackFromDirectory(
         packageName: String,
         sourceDir: File,
-        fallbackName: String
+        fallbackName: String,
+        overwrite: Boolean = false
     ): ModpackMeta? {
         if (!sourceDir.isDirectory) return null
         val resolvedName = normalizeModpackName(fallbackName)
             .ifEmpty { "imported_${System.currentTimeMillis()}" }
         return try {
-            finishImportedModpack(packageName, sourceDir, resolvedName)
+            finishImportedModpack(packageName, sourceDir, resolvedName, overwrite)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1518,7 +1534,8 @@ class ModpackManager {
     private suspend fun importModpackFromStream(
         packageName: String,
         input: InputStream,
-        archiveName: String?
+        archiveName: String?,
+        overwrite: Boolean
     ): ModpackMeta? {
         if (!isModpackFileName(archiveName)) {
             BepInExLog.w("Rejected modpack import with unsupported extension: $archiveName")
@@ -1574,7 +1591,9 @@ class ModpackManager {
                 zis.close()
             }
 
-            finishImportedModpack(packageName, stagingDir, resolvedName)
+            val imported = finishImportedModpack(packageName, stagingDir, resolvedName, overwrite)
+            if (imported == null) stagingDir.deleteRecursively()
+            imported
         } catch (e: CancellationException) {
             stagingDir.deleteRecursively()
             throw e
@@ -1588,10 +1607,15 @@ class ModpackManager {
     private suspend fun finishImportedModpack(
         packageName: String,
         stagingDir: File,
-        resolvedName: String
-    ): ModpackMeta {
+        resolvedName: String,
+        overwrite: Boolean
+    ): ModpackMeta? {
         currentCoroutineContext().ensureActive()
         val modpackDir = getModpackDir(packageName, resolvedName)
+        if (modpackDir.exists() && !overwrite) {
+            BepInExLog.w("Refusing to overwrite existing modpack: $resolvedName")
+            return null
+        }
         modpackDir.parentFile?.mkdirs()
         val children = stagingDir.listFiles().orEmpty()
         val sourceDir = if (children.size == 1 && children[0].isDirectory) children[0] else stagingDir

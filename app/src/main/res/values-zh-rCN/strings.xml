@@ -48,6 +48,9 @@
     <string name="modpack_delete">删除整合包</string>
     <string name="modpack_rename">重命名</string>
     <string name="modpack_rename_failed">名称无效或已存在</string>
+    <string name="modpack_already_exists">整合包已存在</string>
+    <string name="modpack_overwrite_message">整合包“%1$s”已存在，是否覆盖？</string>
+    <string name="modpack_overwrite_confirm">覆盖</string>
     <string name="modpack_edit">编辑整合包</string>
     <string name="modpack_icon">图标</string>
     <string name="modpack_icon_hint">点击选择图片</string>
