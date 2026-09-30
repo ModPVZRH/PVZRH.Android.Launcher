@@ -795,6 +795,9 @@ fun BepInExNavHost(
                                 var useUnstrippedLibUnity by remember {
                                     mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
                                 }
+                                var disableTieredCompilation by remember {
+                                    mutableStateOf(AppSettings.isTieredCompilationDisabled(settingsContext))
+                                }
                                 var dynamicColor by remember {
                                     mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
                                 }
@@ -810,6 +813,7 @@ fun BepInExNavHost(
                                     floatingLogInGame = floatingLogInGame,
                                     floatingModMenu = floatingModMenu,
                                     useUnstrippedLibUnity = useUnstrippedLibUnity,
+                                    disableTieredCompilation = disableTieredCompilation,
                                     onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                                     onThemeChanged = onThemeChanged,
                                     onLanguageChanged = onLanguageChanged,
@@ -834,6 +838,10 @@ fun BepInExNavHost(
                                     onUseUnstrippedLibUnityChanged = { enabled ->
                                         AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)
                                         useUnstrippedLibUnity = enabled
+                                    },
+                                    onDisableTieredCompilationChanged = { disabled ->
+                                        AppSettings.setTieredCompilationDisabled(settingsContext, disabled)
+                                        disableTieredCompilation = disabled
                                     },
                                     onClearBepInEx = { onClearBepInEx(packageName) },
                                     onClearDotnet = { onClearDotnet(packageName) },

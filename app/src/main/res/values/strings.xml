@@ -490,6 +490,8 @@
     <string name="bridge_mods_minimize">Minimize mod menu</string>
     <string name="settings_unstripped_libunity">Use Unstripped libunity</string>
     <string name="settings_unstripped_libunity_desc">Use unstripped libunity.so with full icalls.</string>
+    <string name="settings_disable_tiered_jit">Disable tiered compilation</string>
+    <string name="settings_disable_tiered_jit_desc">Turn this on only if a large modpack aborts inside libclrjit. While it is on, loaded mods may not show their in-game content.</string>
 
     <!-- Launch -->
     <string name="launch_failed">Launch failed</string>

@@ -96,6 +96,7 @@ static bool parse_fusion_config(const char *text, FusionConfig *out)
         else if (key == "unityDataDirectory") out->unityDataDir = value;
         else if (key == "unityVersion") out->unityVersion = value;
         else if (key == "useOriginalLibUnity") out->useOriginalLibUnity = (value == "true");
+        else if (key == "disableTieredCompilation") out->disableTieredCompilation = (value == "true");
     }
 
     return !out->appLibraryDir.empty();
@@ -114,6 +115,7 @@ static bool stage_fusion_config(const FusionConfig &config)
     LOGI("  unityDataDir: %s", config.unityDataDir.c_str());
     LOGI("  unityVersion: %s", config.unityVersion.c_str());
     LOGI("  useOrigUnity: %s", config.useOriginalLibUnity ? "true" : "false");
+    LOGI("  noTieredJit:  %s", config.disableTieredCompilation ? "true" : "false");
 
     /* Set library paths */
     std::string unityPath;

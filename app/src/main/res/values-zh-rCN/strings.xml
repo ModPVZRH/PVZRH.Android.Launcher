@@ -467,6 +467,8 @@
     <string name="bridge_mods_minimize">最小化模组菜单</string>
     <string name="settings_unstripped_libunity">使用未裁剪 libunity</string>
     <string name="settings_unstripped_libunity_desc">使用未裁切的 libunity.so 已启用完整调用。</string>
+    <string name="settings_disable_tiered_jit">关闭分层编译</string>
+    <string name="settings_disable_tiered_jit_desc">仅在大整合包于 libclrjit 内崩溃时打开。打开后，已加载的模组可能不会在游戏里显示内容。</string>
     <!-- Launch -->
     <string name="launch_failed">启动失败</string>
     <string name="launch_wait_extraction">请等待 — BepInEx 正在解压中</string>

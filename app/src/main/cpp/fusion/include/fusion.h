@@ -18,6 +18,7 @@ struct FusionConfig {
     std::string unityDataDir;
     std::string unityVersion;
     bool useOriginalLibUnity = false;
+    bool disableTieredCompilation = false;
 };
 
 extern FusionConfig g_config;

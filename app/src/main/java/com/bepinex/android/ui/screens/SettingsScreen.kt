@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Animation
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -90,6 +91,7 @@ fun SettingsScreen(
     floatingLogInGame: Boolean,
     floatingModMenu: Boolean,
     useUnstrippedLibUnity: Boolean,
+    disableTieredCompilation: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
@@ -99,6 +101,7 @@ fun SettingsScreen(
     onFloatingLogInGameChanged: (Boolean) -> Unit,
     onFloatingModMenuChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
+    onDisableTieredCompilationChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onClearLibUnity: () -> Unit,
@@ -268,6 +271,20 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { onUseUnstrippedLibUnityChanged(!useUnstrippedLibUnity) }
+                )
+            }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_disable_tiered_jit),
+                    summary = stringResource(R.string.settings_disable_tiered_jit_desc),
+                    icon = { Icon(Icons.Outlined.Memory, contentDescription = null) },
+                    trailing = {
+                        com.bepinex.android.ui.liquid.LiquidToggle(
+                            checked = disableTieredCompilation,
+                            onCheckedChange = { checked -> onDisableTieredCompilationChanged(checked) }
+                        )
+                    },
+                    onClick = { onDisableTieredCompilationChanged(!disableTieredCompilation) }
                 )
             }
 
