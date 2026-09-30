@@ -48,6 +48,9 @@
     <string name="modpack_delete">تعديل</string>
     <string name="modpack_rename">تعديل</string>
     <string name="modpack_rename_failed">تعديل</string>
+    <string name="modpack_already_exists">Modpack already exists</string>
+    <string name="modpack_overwrite_message">“%1$s” already exists. Overwrite it?</string>
+    <string name="modpack_overwrite_confirm">Overwrite</string>
     <string name="modpack_edit">تعديل</string>
     <string name="modpack_icon">تعديل</string>
     <string name="modpack_icon_hint">تعديل</string>
@@ -532,9 +535,10 @@
     <string name="market_install_no_version">Install</string>
     <string name="market_downloads_count">%s downloads</string>
     <string name="market_tab_info">Info</string>
-    <string name="market_tab_download">Downloads</string>
+    <string name="market_tab_download">Versions</string>
     <string name="market_tab_source">Video</string>
     <string name="market_latest_version">Latest version</string>
+    <string name="market_version_current">Current</string>
     <string name="market_mod_id">Mod ID</string>
     <string name="market_created">Created</string>
     <string name="market_no_description">No description</string>
