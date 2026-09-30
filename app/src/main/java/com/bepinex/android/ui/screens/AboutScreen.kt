@@ -27,8 +27,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.GlassDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,18 +43,17 @@ fun AboutScreen(
     var showSponsorDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.nav_about)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -85,9 +87,10 @@ fun AboutScreen(
             Spacer(Modifier.height(12.dp))
 
             Card(
+                modifier = Modifier.glassSurface(RoundedCornerShape(12.dp)),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    containerColor = glassContainerColor(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
                 )
             ) {
                 Text(
@@ -101,9 +104,10 @@ fun AboutScreen(
             Spacer(Modifier.height(16.dp))
 
             Card(
+                modifier = Modifier.glassSurface(RoundedCornerShape(12.dp)),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                    containerColor = glassContainerColor(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
                 )
             ) {
                 Row(
@@ -196,12 +200,13 @@ private fun AboutActionButton(title: String, subtitle: String, onClick: () -> Un
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
             .clickable(onClick = onClick)
+            .glassSurface(RoundedCornerShape(12.dp))
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(
@@ -224,11 +229,12 @@ private fun AboutActionButton(title: String, subtitle: String, onClick: () -> Un
 private fun SponsorDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
 
-    Dialog(onDismissRequest = onDismiss) {
+    GlassDialog(onDismissRequest = onDismiss) {
         Card(
+            modifier = Modifier.glassSurface(RoundedCornerShape(16.dp)),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = glassContainerColor(MaterialTheme.colorScheme.surface)
             )
         ) {
             Column(
@@ -298,7 +304,7 @@ private fun CreditProjectCard(name: String, desc: String, url: String, context: 
     Card(
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -306,6 +312,7 @@ private fun CreditProjectCard(name: String, desc: String, url: String, context: 
             .clickable {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
+            .glassSurface(RoundedCornerShape(10.dp))
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
             Text(

@@ -24,6 +24,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import java.io.File
 
 private val EDITABLE_TEXT_EXTENSIONS = setOf(
@@ -105,9 +109,10 @@ fun ModFileBrowserScreen(
     BackHandler { navigateUp() }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = {
                     Column {
                         Text(
@@ -134,7 +139,8 @@ fun ModFileBrowserScreen(
                             contentDescription = stringResource(R.string.mod_file_browser_title)
                         )
                     }
-                }
+                },
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -168,14 +174,17 @@ fun ModFileBrowserScreen(
                             .fillMaxWidth()
                             .semantics {
                                 contentDescription = accessibilityDescription
-                            },
+                            }
+                            .glassSurface(RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isProtected) {
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            }
+                            containerColor = glassContainerColor(
+                                if (isProtected) {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
                         ),
                         enabled = clickEnabled,
                         onClick = {
@@ -246,7 +255,7 @@ fun ModFileBrowserScreen(
     filePendingDeletion?.let { file ->
         val stillAllowed = isInsideRoot(file, browserRootDirectory) &&
             file.isFile && !isProtectedModpackFile(file, browserRootDirectory)
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {
                 filePendingDeletion = null
                 deleteFailed = false

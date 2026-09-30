@@ -19,6 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,18 +29,17 @@ fun CreditsScreen(onNavigateBack: () -> Unit) {
     val context = LocalContext.current
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.about_credits)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -142,7 +144,7 @@ private fun CreditProjectCard(name: String, desc: String, url: String, context: 
     Card(
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -150,6 +152,7 @@ private fun CreditProjectCard(name: String, desc: String, url: String, context: 
             .clickable {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
             }
+            .glassSurface(RoundedCornerShape(10.dp))
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
             Text(

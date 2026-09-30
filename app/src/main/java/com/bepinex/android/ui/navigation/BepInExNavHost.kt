@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -53,6 +55,12 @@ import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.screens.TextViewerScreen
+import com.bepinex.android.ui.liquid.LiquidBottomTab
+import com.bepinex.android.ui.liquid.LiquidBottomTabs
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.LocalBackdrop
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.onboarding.CoachMarkOverlay
 import com.bepinex.android.ui.onboarding.CoachMarkStep
 import com.bepinex.android.ui.onboarding.CoachMarkTargets
@@ -138,6 +146,7 @@ fun BepInExNavHost(
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     dynamicColor: Boolean,
+    liquidGlass: Boolean,
     animationDisabled: Boolean,
     // Callbacks
     onSelectGame: (GameDetector.DetectedGame) -> Unit,
@@ -146,6 +155,7 @@ fun BepInExNavHost(
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
+    onLiquidGlassChanged: (Boolean) -> Unit,
     onAnimationDisabledChanged: (Boolean) -> Unit,
     onClearBepInEx: (String) -> Unit,
     onClearDotnet: (String) -> Unit,
@@ -510,7 +520,7 @@ fun BepInExNavHost(
     CompositionLocalProvider(LocalCoachMarkTargets provides coachTargets) {
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { _ ->
         val navContent: @Composable () -> Unit = {
@@ -785,6 +795,9 @@ fun BepInExNavHost(
                                 var useUnstrippedLibUnity by remember {
                                     mutableStateOf(AppSettings.isUseUnstrippedLibUnity(settingsContext))
                                 }
+                                var disableTieredCompilation by remember {
+                                    mutableStateOf(AppSettings.isTieredCompilationDisabled(settingsContext))
+                                }
                                 var dynamicColor by remember {
                                     mutableStateOf(AppSettings.isDynamicColorEnabled(settingsContext))
                                 }
@@ -795,10 +808,12 @@ fun BepInExNavHost(
                                     themeMode = themeMode,
                                     language = language,
                                     dynamicColor = dynamicColor,
+                                    liquidGlass = liquidGlass,
                                     animationDisabled = animationDisabledSetting,
                                     floatingLogInGame = floatingLogInGame,
                                     floatingModMenu = floatingModMenu,
                                     useUnstrippedLibUnity = useUnstrippedLibUnity,
+                                    disableTieredCompilation = disableTieredCompilation,
                                     onNavigateToAbout = { navController.navigate(NavRoutes.ABOUT) },
                                     onThemeChanged = onThemeChanged,
                                     onLanguageChanged = onLanguageChanged,
@@ -807,6 +822,7 @@ fun BepInExNavHost(
                                         dynamicColor = enabled
                                         onDynamicColorChanged(enabled)
                                     },
+                                    onLiquidGlassChanged = onLiquidGlassChanged,
                                     onAnimationDisabledChanged = { disabled ->
                                         AppSettings.setAnimationDisabled(settingsContext, disabled)
                                         animationDisabledSetting = disabled
@@ -822,6 +838,10 @@ fun BepInExNavHost(
                                     onUseUnstrippedLibUnityChanged = { enabled ->
                                         AppSettings.setUseUnstrippedLibUnity(settingsContext, enabled)
                                         useUnstrippedLibUnity = enabled
+                                    },
+                                    onDisableTieredCompilationChanged = { disabled ->
+                                        AppSettings.setTieredCompilationDisabled(settingsContext, disabled)
+                                        disableTieredCompilation = disabled
                                     },
                                     onClearBepInEx = { onClearBepInEx(packageName) },
                                     onClearDotnet = { onClearDotnet(packageName) },
@@ -1198,7 +1218,7 @@ fun BepInExNavHost(
                 }
             }
                 exportProgress?.let { progress ->
-                    AlertDialog(
+                    GlassAlertDialog(
                         onDismissRequest = {},
                         title = { Text(stringResource(R.string.modpack_export)) },
                         text = {
@@ -1232,7 +1252,7 @@ fun BepInExNavHost(
                     )
                 }
                 if (importJob?.isActive == true) {
-                    AlertDialog(
+                    GlassAlertDialog(
                         onDismissRequest = {},
                         title = { Text(stringResource(R.string.modpack_import)) },
                         text = {
@@ -1249,7 +1269,7 @@ fun BepInExNavHost(
                     )
                 }
                 versionMismatchPrompt?.let { prompt ->
-                    AlertDialog(
+                    GlassAlertDialog(
                         onDismissRequest = { versionMismatchPrompt = null },
                         title = { Text(stringResource(R.string.modpack_game_version_mismatch_title)) },
                         text = { Text(prompt.message) },
@@ -1275,7 +1295,10 @@ fun BepInExNavHost(
         if (isTablet && showBottomBar) {
             Row(modifier = Modifier.fillMaxSize()) {
                 NavigationRail(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier.glassSurface(
+                        RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
+                    ),
+                    containerColor = glassContainerColor(MaterialTheme.colorScheme.surface),
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     NavigationRailItem(
@@ -1315,7 +1338,53 @@ fun BepInExNavHost(
         }
 
     }
-    if (!isTablet) {
+    fun openMainPage(index: Int) {
+        if ((index == 1 || index == 3) && selectedGame == null) return
+        if (pagerState.currentPage == index) return
+        composeScope.launch {
+            if (animationDisabled) pagerState.scrollToPage(index) else pagerState.animateScrollToPage(index)
+        }
+    }
+    val glassBackdrop = LocalBackdrop.current
+    if (!isTablet && glassBackdrop != null) {
+        LiquidBottomTabs(
+            selectedTabIndex = { pagerState.currentPage },
+            onTabSelected = ::openMainPage,
+            backdrop = glassBackdrop,
+            tabsCount = 4,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .onSizeChanged { bottomBarHeightPx = it.height }
+                .offset {
+                    IntOffset(
+                        x = 0,
+                        y = ((1f - bottomBarFraction) * bottomBarHeightPx).roundToInt()
+                    )
+                }
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            LiquidBottomTab(onClick = { openMainPage(0) }) {
+                Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games))
+                Text(stringResource(R.string.nav_games), style = MaterialTheme.typography.labelSmall)
+            }
+            LiquidBottomTab(
+                onClick = { openMainPage(1) },
+                modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
+            ) {
+                Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks))
+                Text(stringResource(R.string.nav_modpacks), style = MaterialTheme.typography.labelSmall)
+            }
+            LiquidBottomTab(onClick = { openMainPage(2) }) {
+                Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market))
+                Text(stringResource(R.string.nav_market), style = MaterialTheme.typography.labelSmall)
+            }
+            LiquidBottomTab(onClick = { openMainPage(3) }) {
+                Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings))
+                Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    } else if (!isTablet) {
         NavigationBar(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -1325,8 +1394,9 @@ fun BepInExNavHost(
                         x = 0,
                         y = ((1f - bottomBarFraction) * bottomBarHeightPx).roundToInt()
                     )
-                },
-            containerColor = MaterialTheme.colorScheme.surface,
+                }
+                .glassSurface(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surface),
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             NavigationBarItem(

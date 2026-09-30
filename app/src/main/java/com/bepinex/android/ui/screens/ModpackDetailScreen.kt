@@ -60,7 +60,6 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -77,6 +76,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -84,7 +84,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -117,7 +116,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -128,6 +126,12 @@ import com.bepinex.android.R
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.modpack.ModpackMod
+import com.bepinex.android.ui.theme.LocalLiquidGlass
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.GlassDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import java.io.File
 
 /**
@@ -270,7 +274,7 @@ fun ModpackDetailScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -314,9 +318,10 @@ fun ModpackDetailScreen(
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                modifier = Modifier.glassSurface(
+                    RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
+                ),
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -460,10 +465,12 @@ fun ModpackDetailScreen(
             if (mods.isEmpty()) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glassSurface(RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
                         )
                     ) {
                         Column(
@@ -485,7 +492,7 @@ fun ModpackDetailScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = onAddMod) {
+                            com.bepinex.android.ui.liquid.LiquidButton(onClick = onAddMod) {
                                 Icon(
                                     imageVector = Icons.Filled.Add,
                                     contentDescription = null
@@ -499,10 +506,12 @@ fun ModpackDetailScreen(
             } else if (filteredMods.isEmpty() && filteredConfigs.isEmpty()) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glassSurface(RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
                         )
                     ) {
                         Text(
@@ -547,10 +556,12 @@ fun ModpackDetailScreen(
                     contentType = { "config" }
                 ) { cfg ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glassSurface(RoundedCornerShape(16.dp)),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
                         ),
                         onClick = { onOpenConfig(cfg) }
                     ) {
@@ -617,8 +628,17 @@ fun ModpackDetailScreen(
                     onClick = {
                         scanScope.launch { listState.animateScrollToItem(0) }
                     },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    modifier = Modifier.glassSurface(RoundedCornerShape(50)),
+                    containerColor = glassContainerColor(
+                        MaterialTheme.colorScheme.primaryContainer
+                    ),
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(
+                        defaultElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                        pressedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                        focusedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                        hoveredElevation = if (LocalLiquidGlass.current) 0.dp else 8.dp
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Filled.KeyboardArrowUp,
@@ -631,7 +651,7 @@ fun ModpackDetailScreen(
     }
 
     modPendingDelete?.let { mod ->
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { modPendingDelete = null },
             title = { Text(stringResource(R.string.mod_file_browser_delete_title)) },
             text = {
@@ -957,7 +977,7 @@ private fun RenameDllDialog(
     var name by remember(mod.relativePath) { mutableStateOf(mod.displayName) }
     val trimmed = name.trim()
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.modpack_mod_rename)) },
         text = {
@@ -1015,7 +1035,7 @@ private fun SetModCategoryDialog(
         existingCategories.filter { it != mod.category }
     }
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.modpack_mod_category_set)) },
         text = {
@@ -1131,10 +1151,12 @@ private fun ModItemCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
         )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -1192,7 +1214,7 @@ private fun ModItemCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Switch(
+                com.bepinex.android.ui.liquid.LiquidToggle(
                     checked = mod.enabled,
                     onCheckedChange = onToggle,
                     modifier = Modifier.semantics {
@@ -1260,10 +1282,13 @@ private fun ModSearchBar(
     val keyboardController = LocalSoftwareKeyboardController.current
     var focused by remember { mutableStateOf(false) }
 
+    val searchShape = RoundedCornerShape(24.dp)
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .glassSurface(searchShape),
+        shape = searchShape,
+        color = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(
             width = 1.dp,
             color = if (focused) {
@@ -1337,10 +1362,12 @@ private fun ModSearchBar(
 @Composable
 private fun BrowseModFilesCard(onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.primaryContainer)
         ),
         onClick = onClick
     ) {
@@ -1467,7 +1494,7 @@ private fun DownloadDllScanDialog(
     onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onSkip,
         title = { Text(stringResource(R.string.modpack_scan_dlls_title)) },
         text = {
@@ -1534,7 +1561,7 @@ private fun ImportChooserFrame(
     footer: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Dialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
@@ -1543,9 +1570,10 @@ private fun ImportChooserFrame(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .fillMaxHeight(0.88f)
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .glassSurface(RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = glassContainerColor(MaterialTheme.colorScheme.surface),
             tonalElevation = 3.dp
         ) {
             Column {
@@ -1776,14 +1804,12 @@ private fun ImportModsFromModpackDialog(
                     )
                 }
                 Spacer(Modifier.width(4.dp))
-                Button(
+                com.bepinex.android.ui.liquid.LiquidButton(
                     onClick = onImport,
                     enabled = totalSelected > 0,
                     modifier = Modifier
                         .width(96.dp)
-                        .height(36.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                        .height(36.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.modpack_import_confirm_count, totalSelected),

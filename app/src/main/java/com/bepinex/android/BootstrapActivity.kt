@@ -145,8 +145,10 @@ class BootstrapActivity : Activity() {
 
         // 3. Prepare Fusion state (paths, extract zips, copy data, detect version)
         val useUnstripped = AppSettings.isUseUnstrippedLibUnity(this)
+        val disableTieredCompilation = AppSettings.isTieredCompilationDisabled(this)
         BepInExLog.i("Use unstripped libunity: $useUnstripped")
-        preparedConfig = prepareFusionState(targetPackage, gameContext, useUnstripped)
+        BepInExLog.i("Disable tiered compilation: $disableTieredCompilation")
+        preparedConfig = prepareFusionState(targetPackage, gameContext, useUnstripped, disableTieredCompilation)
 
         // 4. Register game native libraries (match FusionCore: no exclusions)
         updateProgress(getString(R.string.bootstrap_status_registering_libraries), "", 60)
@@ -368,7 +370,8 @@ class BootstrapActivity : Activity() {
     private fun prepareFusionState(
         targetPackage: String,
         gameContext: Context,
-        useUnstripped: Boolean = false
+        useUnstripped: Boolean = false,
+        disableTieredCompilation: Boolean = false
     ): FusionConfig {
         var gameLibDir = gameContext.applicationInfo.nativeLibraryDir
         if (gameLibDir.isNullOrEmpty()) {
@@ -496,7 +499,8 @@ class BootstrapActivity : Activity() {
             dotnetDirectory = dotnetDir.absolutePath,
             unityDataDirectory = copiedData.absolutePath,
             unityVersion = unityVersion,
-            useOriginalLibUnity = useOriginalLibUnity
+            useOriginalLibUnity = useOriginalLibUnity,
+            disableTieredCompilation = disableTieredCompilation
         )
     }
 

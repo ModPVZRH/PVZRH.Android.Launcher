@@ -18,7 +18,9 @@ object AppSettings {
     private const val KEY_FLOATING_MOD_MENU = "floating_mod_menu"
     private const val KEY_ACTIVE_MODPACK_PREFIX = "active_modpack_"
     private const val KEY_USE_UNSTRIPPED_LIBUNITY = "use_unstripped_libunity"
+    private const val KEY_DISABLE_TIERED_COMPILATION = "disable_tiered_compilation"
     private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
+    private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_LAST_SEEN_ANNOUNCEMENT = "last_seen_announcement_date"
     private const val KEY_ANIMATION_DISABLED = "animation_disabled"
     private const val KEY_LANGUAGE_INCOMPLETE_SHOWN = "language_incomplete_shown"
@@ -176,6 +178,14 @@ object AppSettings {
         prefs(context).edit().putBoolean(KEY_USE_UNSTRIPPED_LIBUNITY, enabled).apply()
     }
 
+    /** When true, CoreCLR is started with DOTNET_TieredCompilation=0. Default off. */
+    fun isTieredCompilationDisabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_DISABLE_TIERED_COMPILATION, false)
+
+    fun setTieredCompilationDisabled(context: Context, disabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_DISABLE_TIERED_COMPILATION, disabled).apply()
+    }
+
     // Dynamic Color (Material You / Monet)
 
     fun isDynamicColorEnabled(context: Context): Boolean =
@@ -183,6 +193,13 @@ object AppSettings {
 
     fun setDynamicColorEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
+    }
+
+    fun isLiquidGlassEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LIQUID_GLASS, false)
+
+    fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LIQUID_GLASS, enabled).apply()
     }
 
     // Animation

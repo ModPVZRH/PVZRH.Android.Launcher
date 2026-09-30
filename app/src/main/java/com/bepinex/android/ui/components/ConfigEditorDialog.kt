@@ -2,6 +2,7 @@ package com.bepinex.android.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import java.io.File
 
 /**
@@ -55,8 +60,10 @@ fun ConfigEditorDialog(
     }
 
     Scaffold(
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = {
                     Column {
                         Text(
@@ -100,9 +107,7 @@ fun ConfigEditorDialog(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -157,7 +162,7 @@ fun ConfigEditorDialog(
     }
 
     if (showDiscardDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDiscardDialog = false },
             title = { Text(stringResource(R.string.config_editor_discard_title)) },
             text = { Text(stringResource(R.string.config_editor_discard_msg)) },

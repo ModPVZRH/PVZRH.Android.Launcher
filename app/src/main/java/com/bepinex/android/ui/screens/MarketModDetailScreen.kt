@@ -44,7 +44,6 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,7 +59,6 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +86,10 @@ import com.bepinex.android.modpack.PeekedModpackInfo
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import com.bepinex.android.ui.components.MarkdownContent
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -323,7 +325,7 @@ fun MarketModDetailScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -339,9 +341,10 @@ fun MarketModDetailScreen(
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                modifier = Modifier.glassSurface(
+                    RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
+                ),
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -460,7 +463,7 @@ fun MarketModDetailScreen(
             onCancel = { cancelInstall() }
         )
     } else if (importing) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.modpack_import)) },
             text = {
@@ -479,7 +482,7 @@ fun MarketModDetailScreen(
 
     versionMismatch?.let { peeked ->
         val scanRoot = pendingModpack?.scanRoot ?: return@let
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { cleanupInstall() },
             title = { Text(stringResource(R.string.modpack_game_version_mismatch_title)) },
             text = {
@@ -612,7 +615,9 @@ private fun MarketDetailHeroCard(
     onInstall: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -714,11 +719,10 @@ private fun MarketDetailHeroCard(
 
             Spacer(Modifier.height(14.dp))
 
-            Button(
+            com.bepinex.android.ui.liquid.LiquidButton(
                 onClick = { if (primaryUrl.isNotBlank()) onInstall(primaryUrl) },
                 enabled = primaryUrl.isNotBlank() && installEnabled,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 val canInstall = item.canInstallDirect
                 Icon(
@@ -751,10 +755,13 @@ private fun MarketDetailTabBar(
     onSelect: (MarketDetailTab) -> Unit
 ) {
     val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
+    val tabShape = RoundedCornerShape(12.dp)
     TabRow(
         selectedTabIndex = selectedIndex,
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier
+            .clip(tabShape)
+            .glassSurface(tabShape),
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant),
         contentColor = MaterialTheme.colorScheme.primary
     ) {
         tabs.forEach { item ->
@@ -783,7 +790,9 @@ private fun MarketInfoTab(
     onOpenVideo: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -804,7 +813,9 @@ private fun MarketInfoTab(
     Spacer(Modifier.height(12.dp))
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -871,7 +882,9 @@ private fun MarketDownloadTab(
     val hasAnyLink = item.downloadDirectUrl.isNotBlank() || cloudUrl.isNotBlank()
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -917,7 +930,9 @@ private fun MarketSourceTab(
     onOpenUrl: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -1090,7 +1105,7 @@ private fun MarketDirectProgressDialog(
             MarketInstaller.Progress.Phase.Scanning -> R.string.market_direct_scanning
         }
     )
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = {},
         title = { Text(stringResource(R.string.market_download)) },
         text = {
@@ -1133,7 +1148,7 @@ private fun MarketDirectImportDialog(
     onDismiss: () -> Unit
 ) {
     val foundLabel = dllNames.joinToString()
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.market_direct_import_title)) },
         text = {

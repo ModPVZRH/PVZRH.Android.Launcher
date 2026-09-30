@@ -24,7 +24,10 @@ data class FusionConfig(
     val unityVersion: String,
 
     /** If true, use the game's original libunity.so instead of downloading a patched one */
-    val useOriginalLibUnity: Boolean = false
+    val useOriginalLibUnity: Boolean = false,
+
+    /** If true, start CoreCLR with DOTNET_TieredCompilation=0. */
+    val disableTieredCompilation: Boolean = false
 ) {
     /**
      * Serialize to the config file format expected by native fusion.cpp parser.
@@ -40,5 +43,6 @@ data class FusionConfig(
         appendLine("unityDataDirectory=${unityDataDirectory}")
         appendLine("unityVersion=${unityVersion}")
         appendLine("useOriginalLibUnity=${useOriginalLibUnity}")
+        appendLine("disableTieredCompilation=${disableTieredCompilation}")
     }
 }

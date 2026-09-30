@@ -39,6 +39,7 @@ import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.navigation.BepInExNavHost
 import com.bepinex.android.ui.onboarding.OnboardingHost
 import com.bepinex.android.ui.theme.BepInExTheme
+import com.bepinex.android.ui.theme.LiquidGlassHost
 import com.bepinex.android.update.UpdateChecker
 import com.bepinex.android.update.AnnouncementDialog
 import com.bepinex.android.update.IncompleteTranslationDialog
@@ -91,6 +92,7 @@ class MainActivity : ComponentActivity() {
     private var themeMode by mutableStateOf(AppSettings.ThemeMode.SYSTEM)
     private var language by mutableStateOf(AppSettings.Language.SYSTEM)
     private var dynamicColor by mutableStateOf(false)
+    private var liquidGlass by mutableStateOf(false)
     private var animationDisabled by mutableStateOf(false)
 
     // Update check state
@@ -171,6 +173,7 @@ class MainActivity : ComponentActivity() {
         themeMode = AppSettings.getThemeMode(this)
         language = AppSettings.getLanguage(this)
         dynamicColor = AppSettings.isDynamicColorEnabled(this)
+        liquidGlass = AppSettings.isLiquidGlassEnabled(this)
         animationDisabled = AppSettings.isAnimationDisabled(this)
 
         showOnboarding = !AppSettings.isOnboardingCompleted(this)
@@ -1182,6 +1185,7 @@ class MainActivity : ComponentActivity() {
     private fun setupContent() {
         setContent {
             BepInExTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
+                LiquidGlassHost(enabled = liquidGlass) {
                 if (showOnboarding) {
                     OnboardingHost(
                         detectedGames = detectedGames,
@@ -1209,6 +1213,7 @@ class MainActivity : ComponentActivity() {
                     themeMode = themeMode,
                     language = language,
                     dynamicColor = dynamicColor,
+                    liquidGlass = liquidGlass,
                     animationDisabled = animationDisabled,
                     onSelectGame = { selectGame(it) },
                     onRescan = {
@@ -1220,6 +1225,10 @@ class MainActivity : ComponentActivity() {
                     onLanguageChanged = { onLanguageChanged(it) },
                     onDynamicColorChanged = { enabled ->
                         dynamicColor = enabled
+                    },
+                    onLiquidGlassChanged = { enabled ->
+                        liquidGlass = enabled
+                        AppSettings.setLiquidGlassEnabled(this@MainActivity, enabled)
                     },
                     onAnimationDisabledChanged = { disabled ->
                         animationDisabled = disabled
@@ -1309,6 +1318,7 @@ class MainActivity : ComponentActivity() {
                             onIncompleteDialogDismissed()
                         }
                     )
+                }
                 }
             }
         }

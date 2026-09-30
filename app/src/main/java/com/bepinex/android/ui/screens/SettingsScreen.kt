@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -31,13 +32,14 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Animation
+import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Widgets
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -47,7 +49,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,10 +57,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import com.bepinex.android.settings.AppSettings
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.LiquidGlassBarShape
+import com.bepinex.android.ui.theme.LiquidGlassPanelShape
+import com.bepinex.android.ui.theme.LocalLiquidGlass
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -77,18 +86,22 @@ fun SettingsScreen(
     themeMode: AppSettings.ThemeMode,
     language: AppSettings.Language,
     dynamicColor: Boolean,
+    liquidGlass: Boolean,
     animationDisabled: Boolean,
     floatingLogInGame: Boolean,
     floatingModMenu: Boolean,
     useUnstrippedLibUnity: Boolean,
+    disableTieredCompilation: Boolean,
     onNavigateToAbout: () -> Unit,
     onThemeChanged: (AppSettings.ThemeMode) -> Unit,
     onLanguageChanged: (AppSettings.Language) -> Unit,
     onDynamicColorChanged: (Boolean) -> Unit,
+    onLiquidGlassChanged: (Boolean) -> Unit,
     onAnimationDisabledChanged: (Boolean) -> Unit,
     onFloatingLogInGameChanged: (Boolean) -> Unit,
     onFloatingModMenuChanged: (Boolean) -> Unit,
     onUseUnstrippedLibUnityChanged: (Boolean) -> Unit,
+    onDisableTieredCompilationChanged: (Boolean) -> Unit,
     onClearBepInEx: () -> Unit,
     onClearDotnet: () -> Unit,
     onClearLibUnity: () -> Unit,
@@ -120,23 +133,33 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(LiquidGlassBarShape),
                 title = { Text(stringResource(R.string.settings_title)) },
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .then(
+                    if (LocalLiquidGlass.current) {
+                        Modifier
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .glassSurface(LiquidGlassPanelShape)
+                    } else {
+                        Modifier
+                    }
+                ),
             contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
         ) {
             item { SettingsSectionHeader(stringResource(R.string.settings_section_appearance)) }
@@ -163,7 +186,7 @@ fun SettingsScreen(
                         summary = stringResource(R.string.settings_dynamic_color_desc),
                         icon = { Icon(Icons.Outlined.ColorLens, contentDescription = null) },
                         trailing = {
-                            Switch(
+                            com.bepinex.android.ui.liquid.LiquidToggle(
                                 checked = dynamicColor,
                                 onCheckedChange = { checked -> onDynamicColorChanged(checked) }
                             )
@@ -174,11 +197,25 @@ fun SettingsScreen(
             }
             item {
                 SettingListItem(
+                    title = stringResource(R.string.settings_liquid_glass),
+                    summary = stringResource(R.string.settings_liquid_glass_desc),
+                    icon = { Icon(Icons.Outlined.BlurOn, contentDescription = null) },
+                    trailing = {
+                        com.bepinex.android.ui.liquid.LiquidToggle(
+                            checked = liquidGlass,
+                            onCheckedChange = onLiquidGlassChanged
+                        )
+                    },
+                    onClick = { onLiquidGlassChanged(!liquidGlass) }
+                )
+            }
+            item {
+                SettingListItem(
                     title = stringResource(R.string.settings_animation_disabled),
                     summary = stringResource(R.string.settings_animation_disabled_desc),
                     icon = { Icon(Icons.Outlined.Animation, contentDescription = null) },
                     trailing = {
-                        Switch(
+                        com.bepinex.android.ui.liquid.LiquidToggle(
                             checked = animationDisabled,
                             onCheckedChange = { checked ->
                                 pendingAnimationValue = checked
@@ -200,7 +237,7 @@ fun SettingsScreen(
                     summary = stringResource(R.string.settings_floating_log_desc),
                     icon = { Icon(Icons.Outlined.Terminal, contentDescription = null) },
                     trailing = {
-                        Switch(
+                        com.bepinex.android.ui.liquid.LiquidToggle(
                             checked = floatingLogInGame,
                             onCheckedChange = { checked -> onFloatingLogInGameChanged(checked) }
                         )
@@ -214,7 +251,7 @@ fun SettingsScreen(
                     summary = stringResource(R.string.settings_floating_mod_menu_desc),
                     icon = { Icon(Icons.Outlined.Widgets, contentDescription = null) },
                     trailing = {
-                        Switch(
+                        com.bepinex.android.ui.liquid.LiquidToggle(
                             checked = floatingModMenu,
                             onCheckedChange = { checked -> onFloatingModMenuChanged(checked) }
                         )
@@ -228,12 +265,26 @@ fun SettingsScreen(
                     summary = stringResource(R.string.settings_unstripped_libunity_desc),
                     icon = { Icon(Icons.Outlined.Code, contentDescription = null) },
                     trailing = {
-                        Switch(
+                        com.bepinex.android.ui.liquid.LiquidToggle(
                             checked = useUnstrippedLibUnity,
                             onCheckedChange = { checked -> onUseUnstrippedLibUnityChanged(checked) }
                         )
                     },
                     onClick = { onUseUnstrippedLibUnityChanged(!useUnstrippedLibUnity) }
+                )
+            }
+            item {
+                SettingListItem(
+                    title = stringResource(R.string.settings_disable_tiered_jit),
+                    summary = stringResource(R.string.settings_disable_tiered_jit_desc),
+                    icon = { Icon(Icons.Outlined.Memory, contentDescription = null) },
+                    trailing = {
+                        com.bepinex.android.ui.liquid.LiquidToggle(
+                            checked = disableTieredCompilation,
+                            onCheckedChange = { checked -> onDisableTieredCompilationChanged(checked) }
+                        )
+                    },
+                    onClick = { onDisableTieredCompilationChanged(!disableTieredCompilation) }
                 )
             }
 
@@ -345,7 +396,7 @@ fun SettingsScreen(
     }
 
     if (showAnimationRestartDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showAnimationRestartDialog = false },
             title = { Text(stringResource(R.string.animation_restart_title)) },
             text = { Text(stringResource(R.string.animation_restart_message)) },
@@ -371,7 +422,7 @@ fun SettingsScreen(
 
     maintenanceAction?.let { action ->
         val dialog = maintenanceDialog(action)
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { maintenanceAction = null },
             title = { Text(stringResource(dialog.title)) },
             text = { Text(stringResource(dialog.message)) },
@@ -469,6 +520,11 @@ private fun SettingListItem(
         leadingContent = icon,
 
         trailingContent = trailing,
+        colors = if (LocalLiquidGlass.current) {
+            ListItemDefaults.colors(containerColor = Color.Transparent)
+        } else {
+            ListItemDefaults.colors()
+        },
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     )
 }
@@ -496,7 +552,7 @@ private fun <T> SelectionDialog(
     onDismiss: () -> Unit,
     onSelected: (T) -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {

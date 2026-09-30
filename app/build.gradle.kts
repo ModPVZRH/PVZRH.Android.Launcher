@@ -86,6 +86,14 @@ android {
         jvmTarget = "17"
     }
 
+    lint {
+        // lifecycle-runtime-lint's NullSafeMutableLiveData detector was built when
+        // KaCallableMemberCall was an interface. Kotlin 2.2 makes it a class, so the
+        // detector crashes lintVitalAnalyzeRelease. Newer lifecycle builds that fix
+        // this require compileSdk 37 and AGP 9.
+        disable += "NullSafeMutableLiveData"
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true
@@ -95,7 +103,7 @@ android {
 
 dependencies {
     // Compose BOM - manages all Compose library versions
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
+    val composeBom = platform("androidx.compose:compose-bom:2025.11.00")
     implementation(composeBom)
 
     // Compose UI
@@ -121,6 +129,10 @@ dependencies {
 
     // AppCompat (DayNight theme support)
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // Liquid glass surfaces. 1.0.0 is the newest Android artifact this toolchain can compile.
+    // https://github.com/Kyant0/AndroidLiquidGlass
+    implementation("io.github.kyant0:backdrop:1.0.0")
 
     // Kotlin Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

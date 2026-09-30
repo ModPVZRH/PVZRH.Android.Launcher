@@ -58,12 +58,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +78,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -98,6 +99,10 @@ import com.bepinex.android.market.MarketCategory
 import com.bepinex.android.market.MarketMod
 import com.bepinex.android.market.MarketTag
 import com.bepinex.android.ui.components.plainTextFromMarkdown
+import com.bepinex.android.ui.theme.LocalLiquidGlass
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -257,11 +262,46 @@ fun MarketScreen(
     val featuredMods = remember(filteredMods, browsing) {
         if (browsing) filteredMods.filter { it.isFeatured } else emptyList()
     }
+    val glass = LocalLiquidGlass.current
+    val showMarketBars = !(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())
+    val marketBars: @Composable () -> Unit = {
+        MarketFilterBar(
+            filter = filter,
+            tags = tags,
+            selectedTagId = selectedTagId,
+            onFilterChange = { next ->
+                if (next == MarketFilter.Author && filter == MarketFilter.Author) {
+                    selectedAuthor = null
+                }
+                selectedTagId = null
+                filter = next
+            },
+            onTagSelect = { tagId ->
+                selectedAuthor = null
+                filter = MarketFilter.All
+                selectedTagId = tagId
+            }
+        )
+        if (categories.isNotEmpty() && !showingAuthorDirectory) {
+            MarketCategoryBar(
+                categories = categories,
+                selectedId = selectedCategoryId,
+                onSelect = { selectedCategoryId = it }
+            )
+        }
+    }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
+            Column(
+                modifier = if (glass) {
+                    Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp))
+                } else {
+                    Modifier
+                }
+            ) {
             TopAppBar(
                 title = {
                     Text(
@@ -316,24 +356,15 @@ fun MarketScreen(
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
             AnimatedVisibility(visible = searchExpanded) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     placeholder = {
                         Text(
                             stringResource(
@@ -346,41 +377,29 @@ fun MarketScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = glassContainerColor(
+                            MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        focusedContainerColor = glassContainerColor(
+                            MaterialTheme.colorScheme.surfaceVariant
+                        ),
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                         focusedBorderColor = MaterialTheme.colorScheme.primary
                     )
                 )
             }
-
-            if (!(isLoading && mods.isEmpty()) && !(loadFailed && mods.isEmpty())) {
-                MarketFilterBar(
-                    filter = filter,
-                    tags = tags,
-                    selectedTagId = selectedTagId,
-                    onFilterChange = { next ->
-                        if (next == MarketFilter.Author && filter == MarketFilter.Author) {
-                            selectedAuthor = null
-                        }
-                        selectedTagId = null
-                        filter = next
-                    },
-                    onTagSelect = { tagId ->
-                        selectedAuthor = null
-                        filter = MarketFilter.All
-                        selectedTagId = tagId
-                    }
-                )
-                if (categories.isNotEmpty() && !showingAuthorDirectory) {
-                    MarketCategoryBar(
-                        categories = categories,
-                        selectedId = selectedCategoryId,
-                        onSelect = { selectedCategoryId = it }
-                    )
-                }
+            if (showMarketBars) {
+                marketBars()
             }
-
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Box(Modifier.fillMaxSize()) {
             PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = { loadMods(forceRefresh = true) },
@@ -509,8 +528,17 @@ fun MarketScreen(
                             onClick = {
                                 scope.launch { listState.animateScrollToItem(0) }
                             },
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.glassSurface(RoundedCornerShape(50)),
+                            containerColor = glassContainerColor(
+                                MaterialTheme.colorScheme.primaryContainer
+                            ),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            elevation = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                                pressedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                                focusedElevation = if (LocalLiquidGlass.current) 0.dp else 6.dp,
+                                hoveredElevation = if (LocalLiquidGlass.current) 0.dp else 8.dp
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.KeyboardArrowUp,
@@ -520,6 +548,7 @@ fun MarketScreen(
                     }
                     }
                 }
+            }
             }
             }
         }
@@ -588,7 +617,7 @@ private fun MarketFilterBar(
     onFilterChange: (MarketFilter) -> Unit,
     onTagSelect: (String?) -> Unit
 ) {
-    val chipColors = FilterChipDefaults.filterChipColors(
+    val chipColors = marketGlassChipColors(
         selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
         selectedLabelColor = MaterialTheme.colorScheme.primary
     )
@@ -650,7 +679,7 @@ private fun MarketFilterBar(
                 selected = selected,
                 onClick = { onTagSelect(if (selected) null else tag.id.ifEmpty { tag.name }) },
                 label = { Text(tag.name) },
-                colors = FilterChipDefaults.filterChipColors(
+                colors = marketGlassChipColors(
                     selectedContainerColor = (tagColor ?: MaterialTheme.colorScheme.primary)
                         .copy(alpha = 0.16f),
                     selectedLabelColor = tagColor ?: MaterialTheme.colorScheme.primary
@@ -668,6 +697,25 @@ private fun MarketFilterBar(
 }
 
 @Composable
+private fun marketGlassChipColors(
+    selectedContainerColor: Color,
+    selectedLabelColor: Color
+) = if (LocalLiquidGlass.current) {
+    FilterChipDefaults.filterChipColors(
+        containerColor = Color.Transparent,
+        labelColor = MaterialTheme.colorScheme.onSurface,
+        iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        selectedContainerColor = selectedContainerColor,
+        selectedLabelColor = selectedLabelColor
+    )
+} else {
+    FilterChipDefaults.filterChipColors(
+        selectedContainerColor = selectedContainerColor,
+        selectedLabelColor = selectedLabelColor
+    )
+}
+
+@Composable
 private fun marketChipBorder(selected: Boolean) = FilterChipDefaults.filterChipBorder(
     enabled = true,
     selected = selected,
@@ -681,7 +729,7 @@ private fun MarketCategoryBar(
     selectedId: String?,
     onSelect: (String?) -> Unit
 ) {
-    val chipColors = FilterChipDefaults.filterChipColors(
+    val chipColors = marketGlassChipColors(
         selectedContainerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f),
         selectedLabelColor = MaterialTheme.colorScheme.secondary
     )
@@ -734,7 +782,8 @@ private fun MarketAuthorRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation()
@@ -849,7 +898,8 @@ private fun MarketHotCard(
     Card(
         modifier = Modifier
             .width(124.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation(),
@@ -909,7 +959,8 @@ private fun MarketModCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .glassSurface(MarketCardShape),
         shape = MarketCardShape,
         colors = marketCardColors(),
         elevation = marketCardElevation(),
@@ -1048,7 +1099,7 @@ internal val MarketCardShape = RoundedCornerShape(18.dp)
 
 @Composable
 internal fun marketCardColors() = CardDefaults.cardColors(
-    containerColor = MaterialTheme.colorScheme.surface,
+    containerColor = glassContainerColor(MaterialTheme.colorScheme.surface),
     contentColor = MaterialTheme.colorScheme.onSurface
 )
 
@@ -1120,9 +1171,11 @@ internal fun MarketTagChip(mod: MarketMod) {
             scheme.outlineVariant
         )
     }
+    val capsule = RoundedCornerShape(50)
     Surface(
-        shape = RoundedCornerShape(50),
-        color = container,
+        modifier = Modifier.glassSurface(capsule),
+        shape = capsule,
+        color = glassContainerColor(container),
         border = BorderStroke(1.dp, border)
     ) {
         Text(

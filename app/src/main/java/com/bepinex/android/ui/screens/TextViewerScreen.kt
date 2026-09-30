@@ -2,6 +2,7 @@ package com.bepinex.android.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Save
@@ -17,6 +18,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import com.bepinex.android.ui.components.CodeEditor
 import com.bepinex.android.ui.components.SyntaxLanguage
 import com.bepinex.android.ui.components.syntaxLanguageFor
@@ -64,9 +69,10 @@ fun TextViewerScreen(
     BackHandler(enabled = !showDiscardDialog, onBack = ::requestDismiss)
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = {
                     Column {
                         Text(
@@ -123,9 +129,7 @@ fun TextViewerScreen(
                         Icon(Icons.Filled.Settings, stringResource(R.string.viewer_settings))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -164,7 +168,7 @@ fun TextViewerScreen(
     }
 
     if (showDiscardDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDiscardDialog = false },
             title = { Text(stringResource(R.string.config_editor_discard_title)) },
             text = { Text(stringResource(R.string.config_editor_discard_msg)) },
@@ -199,18 +203,17 @@ fun ViewerSettingsScreen(
     val previewValue = remember { TextFieldValue(ViewerPreviewSource) }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         topBar = {
             TopAppBar(
+                modifier = Modifier.glassSurface(RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)),
                 title = { Text(stringResource(R.string.viewer_settings)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = glassTopBarColors()
             )
         }
     ) { padding ->
@@ -222,9 +225,9 @@ fun ViewerSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().glassSurface(MaterialTheme.shapes.medium),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                color = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -240,7 +243,7 @@ fun ViewerSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = wordWrap, onCheckedChange = onWordWrapChange)
+                        com.bepinex.android.ui.liquid.LiquidToggle(checked = wordWrap, onCheckedChange = onWordWrapChange)
                     }
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -258,7 +261,7 @@ fun ViewerSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = showLineNumbers, onCheckedChange = onLineNumbersChange)
+                        com.bepinex.android.ui.liquid.LiquidToggle(checked = showLineNumbers, onCheckedChange = onLineNumbersChange)
                     }
                 }
             }

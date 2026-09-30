@@ -40,6 +40,10 @@ import kotlinx.coroutines.withContext
 import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.shortcut.ModpackShortcutHelper
+import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.glassContainerColor
+import com.bepinex.android.ui.theme.glassSurface
+import com.bepinex.android.ui.theme.glassTopBarColors
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,7 +131,7 @@ fun ModpackListScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -149,9 +153,10 @@ fun ModpackListScreen(
                 windowInsets = WindowInsets.safeDrawing.only(
                     WindowInsetsSides.Horizontal + WindowInsetsSides.Top
                 ),
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                modifier = Modifier.glassSurface(
+                    RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
+                ),
+                colors = glassTopBarColors()
             )
         },
         floatingActionButton = {
@@ -260,7 +265,7 @@ fun ModpackListScreen(
 
     // Delete dialog
     showDeleteDialog?.let { name ->
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text(stringResource(R.string.modpack_confirm_delete_title)) },
             text = { Text(stringResource(R.string.modpack_confirm_delete_msg, name)) },
@@ -342,15 +347,19 @@ private fun VanillaCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         onClick = onSelect,
         colors = CardDefaults.cardColors(
-            containerColor = if (isActive) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
+            containerColor = glassContainerColor(
+                if (isActive) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
         )
     ) {
         Row(
@@ -425,15 +434,19 @@ private fun ModpackCard(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         onClick = onOpen,
         colors = CardDefaults.cardColors(
-            containerColor = if (isActive) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
+            containerColor = glassContainerColor(
+                if (isActive) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
         )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -608,7 +621,7 @@ private fun EditModpackDialog(
         }
     }
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.modpack_edit)) },
         text = {
@@ -723,7 +736,7 @@ private fun EditModpackDialog(
     )
 
     if (showPermissionDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text(stringResource(R.string.shortcut_permission_title)) },
             text = { Text(stringResource(R.string.shortcut_permission_guide)) },
@@ -821,10 +834,12 @@ private fun ModpackActionsFab(
 @Composable
 private fun EmptyModpacksCard() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassSurface(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant)
         )
     ) {
         Column(
@@ -864,7 +879,7 @@ private fun DownloadModpackScanDialog(
     onImport: () -> Unit,
     onSkip: () -> Unit
 ) {
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onSkip,
         title = { Text(stringResource(R.string.modpack_scan_downloads_title)) },
         text = {
@@ -956,7 +971,7 @@ fun CreateModpackDialog(
         }
     }
 
-    AlertDialog(
+    GlassAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.modpack_create)) },
         text = {
@@ -1062,7 +1077,7 @@ fun CreateModpackDialog(
     )
 
     if (showPermissionDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text(stringResource(R.string.shortcut_permission_title)) },
             text = { Text(stringResource(R.string.shortcut_permission_guide)) },
