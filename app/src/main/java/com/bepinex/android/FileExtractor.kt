@@ -69,6 +69,77 @@ class FileExtractor(private val context: Context) {
     }
 
     /**
+     * Copies dependency files from a modpack `core/` into the active BepInEx core.
+     * Files shipped by this APK, including BepInEx itself, are left unchanged.
+     * Extras from the previously applied modpack are removed.
+     */
+    fun mergeModpackCoreExtras(packageName: String, modpackCoreDir: File?) {
+        val runtimeCore = File(BepInExPaths.getBepInExDir(packageName), "core")
+        if (!runtimeCore.isDirectory) return
+
+        val launcherFiles = launcherCoreRelativePaths()
+        val protected = launcherFiles + CORE_ASSET_MARKER
+        val extras = linkedMapOf<String, File>()
+        if (modpackCoreDir != null && modpackCoreDir.isDirectory) {
+            val root = modpackCoreDir.canonicalFile
+            modpackCoreDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                val relative = coreRelativePath(file.canonicalFile.relativeTo(root).path)
+                if (relative.isEmpty() || relative in protected) return@forEach
+                extras[relative] = file
+            }
+        }
+
+        val runtimeRoot = runtimeCore.canonicalFile
+        runtimeCore.walkBottomUp().filter { it.isFile }.forEach { file ->
+            val relative = coreRelativePath(file.relativeTo(runtimeCore).path)
+            if (relative in protected || relative in extras) return@forEach
+            if (file.delete()) {
+                BepInExLog.i("Removed stale core extra: $relative")
+            }
+        }
+        runtimeCore.walkBottomUp()
+            .filter { it.isDirectory && it.canonicalFile != runtimeRoot && it.list().isNullOrEmpty() }
+            .forEach { it.delete() }
+
+        var applied = 0
+        extras.forEach { (relative, source) ->
+            val dest = File(runtimeCore, relative)
+            dest.parentFile?.mkdirs()
+            if (!dest.canonicalFile.toPath().startsWith(runtimeRoot.toPath())) {
+                BepInExLog.w("Skipped core extra outside core: $relative")
+                return@forEach
+            }
+            source.copyTo(dest, overwrite = true)
+            applied++
+            BepInExLog.i("Applied modpack core extra: $relative")
+        }
+        if (applied > 0) {
+            BepInExLog.i("Applied $applied modpack core extra(s)")
+        }
+    }
+
+    private fun launcherCoreRelativePaths(): Set<String> {
+        val paths = mutableSetOf<String>()
+        context.assets.open("BepInEx.Android.zip").use { input ->
+            ZipInputStream(input).use { zip ->
+                var entry = zip.nextEntry
+                while (entry != null) {
+                    val name = coreRelativePath(entry.name)
+                    if (!entry.isDirectory && name.startsWith("core/")) {
+                        val relative = name.removePrefix("core/")
+                        if (relative.isNotEmpty()) paths += relative
+                    }
+                    entry = zip.nextEntry
+                }
+            }
+        }
+        return paths
+    }
+
+    private fun coreRelativePath(path: String): String =
+        path.replace('\\', '/').trim('/').trim()
+
+    /**
      * Extract dotnet.zip for a specific game.
      * Skips if System.Private.CoreLib.dll marker already exists.
      */
@@ -119,6 +190,7 @@ class FileExtractor(private val context: Context) {
 
     companion object {
         const val ASSET_LAUNCHER_UI = "PVZRH.LauncherUi.dll"
+        private const val CORE_ASSET_MARKER = ".launcher-asset-sha256"
 
         fun stagedLauncherUiPlugin(packageName: String): File =
             File(BepInExPaths.getGameRootDir(packageName), "launcher/$ASSET_LAUNCHER_UI")

@@ -1004,7 +1004,7 @@ class ModpackManager {
     private fun copyModpackRootContents(source: File, bepInExDir: File) {
         if (!source.isDirectory) return
 
-        val runtimeOwned = setOf("modpack.json", "plugins", "config", "logs")
+        val runtimeOwned = setOf("modpack.json", "plugins", "config", "logs", "core")
         source.listFiles()
             ?.filter { it.name !in runtimeOwned }
             ?.forEach { child ->

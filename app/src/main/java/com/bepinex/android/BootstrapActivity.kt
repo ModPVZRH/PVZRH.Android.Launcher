@@ -478,9 +478,15 @@ class BootstrapActivity : Activity() {
         }
         com.bepinex.android.settings.AppSettings.setActiveModpack(this, targetPackage, activeModpack)
 
-        // Imported modpacks can carry a core/ directory. Keep the managed bridge
-        // paired with this APK even after restoring such a pack.
+        // Keep this APK's BepInEx assemblies, then add only the modpack's extra
+        // core files (for example Newtonsoft.Json.dll).
         fileExtractor.extractBepInExIfNeeded(targetPackage)
+        val modpackCore = if (activeModpack.isNullOrEmpty()) {
+            null
+        } else {
+            File(BepInExPaths.getModpackDir(targetPackage, activeModpack), "core")
+        }
+        fileExtractor.mergeModpackCoreExtras(targetPackage, modpackCore)
 
         // Register game native libraries (match FusionCore: no exclusions)
         File(gameLibDir).listFiles()?.forEach { file ->
