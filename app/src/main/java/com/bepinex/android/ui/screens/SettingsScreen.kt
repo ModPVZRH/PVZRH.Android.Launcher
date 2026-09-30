@@ -195,19 +195,21 @@ fun SettingsScreen(
                     )
                 }
             }
-            item {
-                SettingListItem(
-                    title = stringResource(R.string.settings_liquid_glass),
-                    summary = stringResource(R.string.settings_liquid_glass_desc),
-                    icon = { Icon(Icons.Outlined.BlurOn, contentDescription = null) },
-                    trailing = {
-                        com.bepinex.android.ui.liquid.LiquidToggle(
-                            checked = liquidGlass,
-                            onCheckedChange = onLiquidGlassChanged
-                        )
-                    },
-                    onClick = { onLiquidGlassChanged(!liquidGlass) }
-                )
+            if (AppSettings.supportsLiquidGlass()) {
+                item {
+                    SettingListItem(
+                        title = stringResource(R.string.settings_liquid_glass),
+                        summary = stringResource(R.string.settings_liquid_glass_desc),
+                        icon = { Icon(Icons.Outlined.BlurOn, contentDescription = null) },
+                        trailing = {
+                            com.bepinex.android.ui.liquid.LiquidToggle(
+                                checked = liquidGlass,
+                                onCheckedChange = onLiquidGlassChanged
+                            )
+                        },
+                        onClick = { onLiquidGlassChanged(!liquidGlass) }
+                    )
+                }
             }
             item {
                 SettingListItem(

@@ -2,6 +2,7 @@ package com.bepinex.android.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 
 /**
@@ -195,8 +196,12 @@ object AppSettings {
         prefs(context).edit().putBoolean(KEY_USE_DYNAMIC_COLOR, enabled).apply()
     }
 
+    /** Lens refraction needs Android 13. Below that the effect is not shown. */
+    fun supportsLiquidGlass(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+
     fun isLiquidGlassEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_LIQUID_GLASS, false)
+        supportsLiquidGlass() && prefs(context).getBoolean(KEY_LIQUID_GLASS, false)
 
     fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_LIQUID_GLASS, enabled).apply()
