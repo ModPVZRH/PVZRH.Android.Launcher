@@ -114,6 +114,13 @@
     <string name="modpack_import_from_other_mods_message">Selected mods and their matching configs will be copied into this modpack.</string>
     <string name="modpack_import_from_other_select_all">Select all</string>
     <string name="modpack_import_from_other_deselect_all">Deselect all</string>
+    <string name="modpack_import_search_modpacks">Search modpacks</string>
+    <string name="modpack_import_search_mods">Search mods</string>
+    <string name="modpack_import_selected_count">Selected %1$d / %2$d</string>
+    <string name="modpack_import_search_empty">No matches</string>
+    <string name="modpack_import_result_count">%d shown</string>
+    <string name="modpack_import_confirm_count">Import (%d)</string>
+    <string name="modpack_import_pack_count">%d modpacks</string>
     <string name="modpack_import_from_other_imported">Imported %1$d of %2$d mod(s) (%3$d config file(s))</string>
     <string name="modpack_no_mods">No mods in this modpack</string>
     <string name="modpack_add_mod">Add Mod</string>
@@ -522,7 +529,7 @@
     <string name="market_downloads_count">%s downloads</string>
     <string name="market_tab_info">Info</string>
     <string name="market_tab_download">Downloads</string>
-    <string name="market_tab_source">Source</string>
+    <string name="market_tab_source">Video</string>
     <string name="market_latest_version">Latest version</string>
     <string name="market_mod_id">Mod ID</string>
     <string name="market_created">Created</string>
