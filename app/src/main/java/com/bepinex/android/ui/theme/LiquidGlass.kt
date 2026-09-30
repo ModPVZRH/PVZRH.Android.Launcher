@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -227,6 +228,32 @@ fun glassTopBarColors(): TopAppBarColors {
         navigationIconContentColor = scheme.onSurface,
         titleContentColor = scheme.onSurface,
         actionIconContentColor = scheme.onSurface
+    )
+}
+
+/**
+ * Glass that samples [backdrop] at this component's position, so a control
+ * drawn above other UI refracts that UI instead of only the wallpaper.
+ */
+@Composable
+fun Modifier.refractContent(
+    backdrop: Backdrop,
+    shape: Shape = CircleShape
+): Modifier {
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    return this.drawBackdrop(
+        backdrop = backdrop,
+        shape = { shape },
+        effects = {
+            vibrancy()
+            blur(4f.dp.toPx())
+            lens(14f.dp.toPx(), 28f.dp.toPx(), chromaticAberration = true)
+        },
+        onDrawSurface = {
+            drawRect(
+                if (dark) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.18f)
+            )
+        }
     )
 }
 

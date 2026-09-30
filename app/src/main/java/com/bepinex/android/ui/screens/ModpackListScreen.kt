@@ -41,9 +41,15 @@ import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.shortcut.ModpackShortcutHelper
 import com.bepinex.android.ui.theme.GlassAlertDialog
+import com.bepinex.android.ui.theme.LocalBackdrop
+import com.bepinex.android.ui.theme.LocalLiquidGlass
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.theme.glassTopBarColors
+import com.bepinex.android.ui.theme.refractContent
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,6 +136,14 @@ fun ModpackListScreen(
         actionsExpanded = false
     }
 
+    val contentBackdrop = rememberLayerBackdrop()
+    val wallpaperBackdrop = LocalBackdrop.current
+    val refractBackdrop = rememberCombinedBackdrop(
+        wallpaperBackdrop ?: contentBackdrop,
+        contentBackdrop
+    )
+    val liquidGlass = LocalLiquidGlass.current
+
     Scaffold(
         containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -175,6 +189,7 @@ fun ModpackListScreen(
                     collapseActions()
                     scanDownloads()
                 },
+                backdrop = if (liquidGlass) refractBackdrop else null,
                 modifier = Modifier.onGloballyPositioned { coords ->
                     coachTargets?.updateActionsFab(coords)
                 }
@@ -185,6 +200,9 @@ fun ModpackListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .then(
+                    if (liquidGlass) Modifier.layerBackdrop(contentBackdrop) else Modifier
+                )
         ) {
             if (isSwitching) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -764,26 +782,45 @@ private fun ModpackActionsFab(
     onCreate: () -> Unit,
     onImport: () -> Unit,
     onAutoImport: () -> Unit,
+    backdrop: com.kyant.backdrop.Backdrop? = null,
     modifier: Modifier = Modifier
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 45f else 0f,
         label = "modpackFabRotation"
     )
+    val description = stringResource(
+        if (expanded) R.string.modpack_actions_close else R.string.modpack_actions
+    )
 
     Box(modifier = modifier) {
-        FloatingActionButton(
-            onClick = { onExpandedChange(!expanded) },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = stringResource(
-                    if (expanded) R.string.modpack_actions_close else R.string.modpack_actions
-                ),
-                modifier = Modifier.rotate(rotation)
-            )
+        if (backdrop != null) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .refractContent(backdrop, CircleShape)
+                    .clickable(onClick = { onExpandedChange(!expanded) }),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = description,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.rotate(rotation)
+                )
+            }
+        } else {
+            FloatingActionButton(
+                onClick = { onExpandedChange(!expanded) },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = description,
+                    modifier = Modifier.rotate(rotation)
+                )
+            }
         }
         DropdownMenu(
             expanded = expanded,
