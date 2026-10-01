@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.bepinex.android.R
 import com.bepinex.android.ui.theme.GlassAlertDialog
@@ -225,24 +227,54 @@ fun ModFileBrowserScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            when {
-                                entry.isDirectory -> Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                canEdit -> Icon(Icons.Filled.EditNote, stringResource(R.string.mod_file_browser_edit_file), tint = MaterialTheme.colorScheme.primary)
-                                isProtected -> Icon(Icons.Filled.Lock, stringResource(R.string.mod_file_browser_protected), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (entry.isFile && !isProtected && isInsideRoot(entry, browserRootDirectory)) {
-                                IconButton(
-                                    onClick = {
-                                        deleteFailed = false
-                                        filePendingDeletion = entry
-                                    },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Filled.DeleteOutline,
-                                        stringResource(R.string.mod_file_browser_delete_file),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
+                            val canDelete = entry.isFile && !isProtected &&
+                                isInsideRoot(entry, browserRootDirectory)
+                            CompositionLocalProvider(
+                                LocalMinimumInteractiveComponentSize provides Dp.Unspecified
+                            ) {
+                                if (canEdit) {
+                                    Box(
+                                        modifier = Modifier.size(28.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.EditNote,
+                                            contentDescription = stringResource(R.string.mod_file_browser_edit_file),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                if (entry.isDirectory || canDelete || isProtected) {
+                                    Box(
+                                        modifier = Modifier.size(40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        when {
+                                            entry.isDirectory -> Icon(
+                                                Icons.Filled.ChevronRight,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            canDelete -> IconButton(
+                                                onClick = {
+                                                    deleteFailed = false
+                                                    filePendingDeletion = entry
+                                                },
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Filled.DeleteOutline,
+                                                    stringResource(R.string.mod_file_browser_delete_file),
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                            isProtected -> Icon(
+                                                Icons.Filled.Lock,
+                                                contentDescription = stringResource(R.string.mod_file_browser_protected),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
