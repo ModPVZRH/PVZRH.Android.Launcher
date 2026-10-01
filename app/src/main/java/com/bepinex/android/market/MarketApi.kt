@@ -18,6 +18,7 @@ object MarketApi {
     private const val CACHE_FILE = "mods.json"
     private const val CATEGORY_CACHE_FILE = "categories.json"
     private const val TAG_CACHE_FILE = "tags.json"
+    private const val CACHE_MAX_AGE_MS = 30L * 60L * 1000L
 
     @Volatile
     private var memoryMods: List<MarketMod>? = null
@@ -25,6 +26,12 @@ object MarketApi {
     private var memoryCategories: List<MarketCategory>? = null
     @Volatile
     private var memoryTags: List<MarketTag>? = null
+    @Volatile
+    private var modsCachedAt = 0L
+    @Volatile
+    private var categoriesCachedAt = 0L
+    @Volatile
+    private var tagsCachedAt = 0L
 
     private val _statsRevision = MutableStateFlow(0)
     val statsRevision: StateFlow<Int> = _statsRevision.asStateFlow()
@@ -37,11 +44,17 @@ object MarketApi {
 
     fun loadTags(context: Context, forceRefresh: Boolean = false): List<MarketTag> {
         val appContext = context.applicationContext
-        if (!forceRefresh) {
+        if (!forceRefresh && isCacheFresh(tagsCachedAt)) {
             memoryTags?.let { return it }
-            readTagCache(appContext)?.let { cached ->
-                memoryTags = cached
-                return cached
+        }
+        if (!forceRefresh) {
+            val file = namedCacheFile(appContext, TAG_CACHE_FILE)
+            if (isCacheFresh(file.lastModified())) {
+                readTagCache(appContext)?.let { cached ->
+                    memoryTags = cached
+                    tagsCachedAt = file.lastModified()
+                    return cached
+                }
             }
         }
 
@@ -50,6 +63,7 @@ object MarketApi {
         val parsed = body?.let(::parseTagPayload)
         if (parsed != null) {
             memoryTags = parsed
+            tagsCachedAt = System.currentTimeMillis()
             writeNamedCache(appContext, TAG_CACHE_FILE, body)
             return parsed
         }
@@ -61,11 +75,17 @@ object MarketApi {
 
     fun loadCategories(context: Context, forceRefresh: Boolean = false): List<MarketCategory> {
         val appContext = context.applicationContext
-        if (!forceRefresh) {
+        if (!forceRefresh && isCacheFresh(categoriesCachedAt)) {
             memoryCategories?.let { return it }
-            readCategoryCache(appContext)?.let { cached ->
-                memoryCategories = cached
-                return cached
+        }
+        if (!forceRefresh) {
+            val file = namedCacheFile(appContext, CATEGORY_CACHE_FILE)
+            if (isCacheFresh(file.lastModified())) {
+                readCategoryCache(appContext)?.let { cached ->
+                    memoryCategories = cached
+                    categoriesCachedAt = file.lastModified()
+                    return cached
+                }
             }
         }
 
@@ -74,6 +94,7 @@ object MarketApi {
         val parsed = body?.let(::parseCategoryPayload)
         if (parsed != null) {
             memoryCategories = parsed
+            categoriesCachedAt = System.currentTimeMillis()
             writeNamedCache(appContext, CATEGORY_CACHE_FILE, body)
             return parsed
         }
@@ -88,11 +109,17 @@ object MarketApi {
 
     fun loadMods(context: Context, forceRefresh: Boolean = false): List<MarketMod>? {
         val appContext = context.applicationContext
-        if (!forceRefresh) {
+        if (!forceRefresh && isCacheFresh(modsCachedAt)) {
             memoryMods?.let { return it }
-            readCache(appContext)?.let { cached ->
-                memoryMods = cached
-                return cached
+        }
+        if (!forceRefresh) {
+            val file = cacheFile(appContext)
+            if (isCacheFresh(file.lastModified())) {
+                readCache(appContext)?.let { cached ->
+                    memoryMods = cached
+                    modsCachedAt = file.lastModified()
+                    return cached
+                }
             }
         }
 
@@ -102,6 +129,7 @@ object MarketApi {
             val parsed = parseModPayload(body)?.filter { it.isBepInExFramework }
             if (parsed != null) {
                 memoryMods = parsed
+                modsCachedAt = System.currentTimeMillis()
                 writeNamedCache(appContext, CACHE_FILE, body)
                 return parsed
             }
@@ -112,7 +140,7 @@ object MarketApi {
     }
 
     fun loadModDetail(context: Context, modId: String, forceRefresh: Boolean = false): MarketMod? {
-        if (!forceRefresh) {
+        if (!forceRefresh && isCacheFresh(modsCachedAt)) {
             findCachedMod(modId)?.let { return it }
         }
 
@@ -362,9 +390,15 @@ object MarketApi {
         return parseCategoryPayload(body)
     }
 
+    private fun isCacheFresh(savedAt: Long): Boolean =
+        savedAt > 0L && System.currentTimeMillis() - savedAt < CACHE_MAX_AGE_MS
+
+    private fun namedCacheFile(context: Context, fileName: String): File =
+        File(File(context.filesDir, CACHE_DIR), fileName)
+
     private fun writeNamedCache(context: Context, fileName: String, body: String) {
         runCatching {
-            val file = File(File(context.filesDir, CACHE_DIR), fileName)
+            val file = namedCacheFile(context, fileName)
             file.parentFile?.mkdirs()
             file.writeText(body)
         }.onFailure { error ->
