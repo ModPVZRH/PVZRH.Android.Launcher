@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +59,8 @@ import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.screens.TextViewerScreen
 import com.bepinex.android.ui.liquid.LiquidBottomTab
 import com.bepinex.android.ui.liquid.LiquidBottomTabs
+import com.bepinex.android.ui.liquid.LiquidSideTab
+import com.bepinex.android.ui.liquid.LiquidSideTabs
 import com.bepinex.android.ui.theme.GlassAlertDialog
 import com.bepinex.android.ui.theme.LocalBackdrop
 import com.bepinex.android.ui.theme.glassContainerColor
@@ -557,6 +561,14 @@ fun BepInExNavHost(
 
     CompositionLocalProvider(LocalCoachMarkTargets provides coachTargets) {
     Box(modifier = Modifier.fillMaxSize()) {
+    fun openMainPage(index: Int) {
+        if ((index == 1 || index == 3) && selectedGame == null) return
+        if (pagerState.currentPage == index) return
+        composeScope.launch {
+            if (animationDisabled) pagerState.scrollToPage(index) else pagerState.animateScrollToPage(index)
+        }
+    }
+    val glassBackdrop = LocalBackdrop.current
     Scaffold(
         containerColor = glassContainerColor(MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
@@ -596,13 +608,11 @@ fun BepInExNavHost(
                 ) + fadeOut(animationSpec = tween(200))
             }
         ) {
-                // Main pager — Games, Modpacks, Market, Settings
-                composable(route = NavRoutes.MAIN) {
-                    androidx.compose.foundation.pager.HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 2
-                    ) { page ->
+                // Main pager — Games, Modpacks, Market, Settings.
+                // Landscape uses the side rail, so pages move vertically and
+                // the pager does not steal the lists' own vertical scroll.
+                @Composable
+                fun MainPage(page: Int) {
                         when (page) {
                             0 -> GameScreen(
                                 detectedGames = detectedGames,
@@ -906,6 +916,21 @@ fun BepInExNavHost(
                                 )
                             }
                         }
+                    }
+                composable(route = NavRoutes.MAIN) {
+                    if (isTablet) {
+                        androidx.compose.foundation.pager.VerticalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            beyondViewportPageCount = 2,
+                            userScrollEnabled = false
+                        ) { page -> MainPage(page) }
+                    } else {
+                        androidx.compose.foundation.pager.HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            beyondViewportPageCount = 2
+                        ) { page -> MainPage(page) }
                     }
                 }
 
@@ -1368,7 +1393,40 @@ fun BepInExNavHost(
 
         if (isTablet && showBottomBar) {
             Row(modifier = Modifier.fillMaxSize()) {
-                NavigationRail(
+                if (glassBackdrop != null) {
+                    LiquidSideTabs(
+                        selectedTabIndex = { pagerState.currentPage },
+                        onTabSelected = ::openMainPage,
+                        backdrop = glassBackdrop,
+                        tabsCount = 4,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(88.dp)
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(start = 8.dp, top = 12.dp, bottom = 12.dp)
+                    ) {
+                        LiquidSideTab(onClick = { openMainPage(0) }) {
+                            Icon(Icons.Filled.SportsEsports, stringResource(R.string.nav_games))
+                            Text(stringResource(R.string.nav_games), style = MaterialTheme.typography.labelSmall)
+                        }
+                        LiquidSideTab(
+                            onClick = { openMainPage(1) },
+                            modifier = Modifier.onGloballyPositioned { coachTargets.updateModpacks(it) }
+                        ) {
+                            Icon(Icons.Filled.FolderZip, stringResource(R.string.nav_modpacks))
+                            Text(stringResource(R.string.nav_modpacks), style = MaterialTheme.typography.labelSmall)
+                        }
+                        LiquidSideTab(onClick = { openMainPage(2) }) {
+                            Icon(Icons.Filled.Storefront, stringResource(R.string.nav_market))
+                            Text(stringResource(R.string.nav_market), style = MaterialTheme.typography.labelSmall)
+                        }
+                        LiquidSideTab(onClick = { openMainPage(3) }) {
+                            Icon(Icons.Filled.Settings, stringResource(R.string.nav_settings))
+                            Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                } else NavigationRail(
                     modifier = Modifier.glassSurface(
                         RoundedCornerShape(topEnd = 24.dp, bottomEnd = 24.dp)
                     ),
@@ -1412,14 +1470,6 @@ fun BepInExNavHost(
         }
 
     }
-    fun openMainPage(index: Int) {
-        if ((index == 1 || index == 3) && selectedGame == null) return
-        if (pagerState.currentPage == index) return
-        composeScope.launch {
-            if (animationDisabled) pagerState.scrollToPage(index) else pagerState.animateScrollToPage(index)
-        }
-    }
-    val glassBackdrop = LocalBackdrop.current
     if (!isTablet && glassBackdrop != null) {
         LiquidBottomTabs(
             selectedTabIndex = { pagerState.currentPage },
