@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bepinex.android.R
+import com.bepinex.android.ui.components.MarkdownContent
 import com.bepinex.android.ui.theme.GlassDialog
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
@@ -190,10 +191,8 @@ fun AnnouncementDialog(
             }
         }
     ) {
-        MarkdownText(
-            rawText = message,
-            style = MaterialTheme.typography.bodyLarge,
-            lineHeight = 24.sp,
+        MarkdownContent(
+            markdown = message,
             modifier = Modifier.padding(bottom = 8.dp)
         )
     }
@@ -278,8 +277,8 @@ fun UpdateDialog(
         }
     ) {
         if (updateMessage.isNotEmpty()) {
-            MarkdownText(
-                rawText = updateMessage,
+            MarkdownContent(
+                markdown = updateMessage,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
@@ -303,7 +302,7 @@ fun BlockedDialog(message: String) {
         }
     ) {
         if (message.isNotEmpty()) {
-            MarkdownText(rawText = message)
+            MarkdownContent(markdown = message)
         } else {
             Text(
                 text = stringResource(R.string.update_blocked_message),

@@ -84,6 +84,7 @@ private sealed class MdInline {
     data class Mark(val children: List<MdInline>) : MdInline()
     data class Code(val text: String) : MdInline()
     data class Link(val children: List<MdInline>, val url: String) : MdInline()
+    data class Image(val alt: String, val url: String) : MdInline()
 }
 
 private data class MdPalette(
@@ -143,17 +144,12 @@ fun plainTextFromMarkdown(markdown: String): String {
 private fun RenderBlock(
     block: MdBlock,
     palette: MdPalette,
+    compact: Boolean = false,
     onLink: (String) -> Unit
 ) {
     when (block) {
         is MdBlock.Paragraph -> {
-            val style = MaterialTheme.typography.bodyMedium
-            Text(
-                text = inlineString(block.inlines, palette, onLink),
-                style = style,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
+            MarkdownParagraph(block.inlines, palette, onLink, compact)
         }
         is MdBlock.Heading -> {
             val style = when (block.level) {
@@ -190,7 +186,9 @@ private fun RenderBlock(
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    block.children.forEach { RenderBlock(it, palette, onLink) }
+                    block.children.forEach { child ->
+                        RenderBlock(child, palette, compact = true, onLink = onLink)
+                    }
                 }
             }
         }
@@ -213,7 +211,9 @@ private fun RenderBlock(
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            item.children.forEach { RenderBlock(it, palette, onLink) }
+                            item.children.forEach { child ->
+                                RenderBlock(child, palette, compact = true, onLink = onLink)
+                            }
                         }
                     }
                 }
@@ -226,6 +226,47 @@ private fun RenderBlock(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+@Composable
+private fun MarkdownParagraph(
+    inlines: List<MdInline>,
+    palette: MdPalette,
+    onLink: (String) -> Unit,
+    compact: Boolean
+) {
+    val padding = if (compact) 1.dp else 4.dp
+    if (inlines.none { it is MdInline.Image }) {
+        Text(
+            text = inlineString(inlines, palette, onLink),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(vertical = padding)
+        )
+        return
+    }
+    Column(modifier = Modifier.padding(vertical = padding)) {
+        val textRun = mutableListOf<MdInline>()
+        @Composable
+        fun flushText() {
+            if (textRun.isEmpty()) return
+            Text(
+                text = inlineString(textRun.toList(), palette, onLink),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            textRun.clear()
+        }
+        inlines.forEach { inline ->
+            if (inline is MdInline.Image) {
+                flushText()
+                RemoteMarkdownImage(inline.url, inline.alt)
+            } else {
+                textRun += inline
+            }
+        }
+        flushText()
     }
 }
 
@@ -377,6 +418,13 @@ private fun RemoteMarkdownImage(url: String, alt: String) {
                 .clip(RoundedCornerShape(12.dp)),
             contentScale = ContentScale.FillWidth
         )
+    } else if (alt.isNotBlank()) {
+        Text(
+            text = alt,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
     }
 }
 
@@ -410,6 +458,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
             is MdInline.Code -> withStyle(
                 SpanStyle(fontFamily = FontFamily.Monospace, background = palette.codeBg)
             ) { append(inline.text) }
+            is MdInline.Image -> {}
             is MdInline.Link -> withLink(
                 LinkAnnotation.Url(
                     url = inline.url,
@@ -469,7 +518,8 @@ private fun parseLines(
             }
             HeadingPattern.matches(trimmed) -> {
                 val match = HeadingPattern.matchEntire(trimmed)!!
-                blocks += MdBlock.Heading(match.groupValues[1].length, parseInlines(match.groupValues[2].trim()))
+                val heading = match.groupValues[2].trim().trimEnd('#', ' ', '\t')
+                blocks += MdBlock.Heading(match.groupValues[1].length, parseInlines(heading))
                 i++
             }
             trimmed.startsWith(">") -> {
@@ -519,7 +569,7 @@ private fun parseLines(
                 blocks += if (image != null) {
                     MdBlock.Image(image.groupValues[1], image.groupValues[2].trim())
                 } else {
-                    MdBlock.Paragraph(parseInlines(text.replace('\n', ' ')))
+                    MdBlock.Paragraph(parseInlines(text))
                 }
             }
         }
@@ -581,7 +631,7 @@ private fun parseInlines(source: String): List<MdInline> {
     var i = 0
     fun flush() {
         if (buf.isNotEmpty()) {
-            out += MdInline.Text(buf.toString())
+            out += MdInline.Text(decodeEntities(buf.toString()))
             buf.clear()
         }
     }
@@ -625,8 +675,17 @@ private fun parseInlines(source: String): List<MdInline> {
             val parsed = takeLink(source, i, image = true)
             if (parsed != null) {
                 flush()
-                out += MdInline.Text(parsed.first)
+                out += MdInline.Image(decodeEntities(parsed.first), parsed.third)
                 i = parsed.second
+                continue
+            }
+        }
+        if (source.startsWith("https://", i) || source.startsWith("http://", i)) {
+            val url = takeAutolink(source, i)
+            if (url != null) {
+                flush()
+                out += MdInline.Link(listOf(MdInline.Text(url)), url)
+                i += url.length
                 continue
             }
         }
@@ -698,14 +757,52 @@ private fun takeLink(source: String, start: Int, image: Boolean): Triple<String,
     val urlEnd = source.indexOf(')', close + 2)
     if (urlEnd < 0) return null
     val label = source.substring(open, close)
-    val url = source.substring(close + 2, urlEnd).trim()
+    val url = cleanLinkUrl(source.substring(close + 2, urlEnd))
     return Triple(label, urlEnd + 1, url)
+}
+
+private fun cleanLinkUrl(raw: String): String {
+    var url = raw.trim()
+    if (url.startsWith("<") && url.contains(">")) {
+        url = url.substringAfter("<").substringBefore(">")
+    }
+    val titleStart = url.indexOf(" \"")
+    if (titleStart >= 0) url = url.substring(0, titleStart)
+    val titleStart2 = url.indexOf(" '")
+    if (titleStart2 >= 0) url = url.substring(0, titleStart2)
+    return url.trim()
+}
+
+private fun takeAutolink(source: String, start: Int): String? {
+    var end = start
+    while (end < source.length && !source[end].isWhitespace() && source[end] != '<' && source[end] != '>') {
+        end++
+    }
+    while (end > start && source[end - 1] in ".,;:!?，。、）)]}>\"'") end--
+    if (end <= start) return null
+    return source.substring(start, end)
+}
+
+private fun decodeEntities(text: String): String {
+    if ('&' !in text) return text
+    return text
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ")
 }
 
 private fun takeHtml(source: String, start: Int): Pair<List<MdInline>, Int>? {
     val rest = source.substring(start)
     Regex("(?is)^<br\\s*/?>").find(rest)?.let {
         return listOf(MdInline.Text("\n")) to start + it.value.length
+    }
+    Regex("^<(https?://[^\\s>]+)>").find(rest)?.let {
+        val url = it.groupValues[1]
+        return listOf(MdInline.Link(listOf(MdInline.Text(url)), url)) to start + it.value.length
     }
     val pair = Regex("(?is)^<(mark|code|strong|b|em|i|del|s)>(.*?)</\\1>").find(rest) ?: return null
     val tag = pair.groupValues[1].lowercase()
@@ -790,6 +887,19 @@ private fun keywordsFor(language: String): Set<String> {
     }
 }
 
+private fun sampleSize(width: Int, height: Int, maxEdge: Int): Int {
+    if (width <= 0 || height <= 0) return 1
+    var sample = 1
+    var edgeW = width
+    var edgeH = height
+    while (edgeW / 2 >= maxEdge || edgeH / 2 >= maxEdge) {
+        edgeW /= 2
+        edgeH /= 2
+        sample *= 2
+    }
+    return sample
+}
+
 private fun loadRemoteBitmap(url: String): ImageBitmap? {
     var conn: HttpURLConnection? = null
     return try {
@@ -800,7 +910,13 @@ private fun loadRemoteBitmap(url: String): ImageBitmap? {
             setRequestProperty("User-Agent", "PVZRH-Launcher/1.0")
         }
         if (conn.responseCode !in 200..299) return null
-        conn.inputStream.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        val bytes = conn.inputStream.use { it.readBytes() }
+        if (bytes.size > 8 * 1024 * 1024) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        val sample = sampleSize(bounds.outWidth, bounds.outHeight, 1280)
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)?.asImageBitmap()
     } catch (_: Exception) {
         null
     } finally {
