@@ -280,14 +280,14 @@ object AppSettings {
     }
 
     fun isLogWordWrapEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_LOG_WORD_WRAP, false)
+        prefs(context).getBoolean(KEY_LOG_WORD_WRAP, true)
 
     fun setLogWordWrapEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_LOG_WORD_WRAP, enabled).apply()
     }
 
     fun isLogLineNumbersEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_LOG_LINE_NUMBERS, false)
+        prefs(context).getBoolean(KEY_LOG_LINE_NUMBERS, true)
 
     fun setLogLineNumbersEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_LOG_LINE_NUMBERS, enabled).apply()

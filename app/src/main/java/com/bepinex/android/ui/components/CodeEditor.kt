@@ -24,10 +24,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -119,7 +121,7 @@ private val EditorTextStyle = TextStyle(
  * Code editor with line numbers, JSON/Lua highlighting, and wrap/no-wrap layout.
  */
 @Composable
-internal fun CodeEditor(
+fun CodeEditor(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     extension: String,
@@ -128,7 +130,8 @@ internal fun CodeEditor(
     modifier: Modifier = Modifier,
     readOnly: Boolean = false,
     showStatusBar: Boolean = true,
-    placeholder: String = ""
+    placeholder: String = "",
+    followEnd: Boolean = false
 ) {
     val palette = rememberCodeEditorPalette()
     val language = remember(extension) { syntaxLanguageFor(extension) }
@@ -142,6 +145,16 @@ internal fun CodeEditor(
     val verticalScroll = rememberScrollState()
     val horizontalScroll = rememberScrollState()
     var textLayout by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    LaunchedEffect(value.text, followEnd) {
+        if (!followEnd) return@LaunchedEffect
+        val maxBefore = verticalScroll.maxValue
+        val shouldFollow = maxBefore == 0 ||
+            verticalScroll.value >= maxBefore - 48
+        if (!shouldFollow) return@LaunchedEffect
+        withFrameNanos { }
+        verticalScroll.scrollTo(verticalScroll.maxValue)
+    }
 
     val sourceLineCount = remember(value.text) { 1 + value.text.count { it == '\n' } }
     val currentLine = remember(value.text, value.selection.start) {
@@ -270,6 +283,7 @@ internal fun CodeEditor(
                         color = when (language) {
                             SyntaxLanguage.JSON -> palette.highlight.property
                             SyntaxLanguage.LUA -> palette.highlight.keyword
+                            SyntaxLanguage.LOG -> palette.highlight.function
                             SyntaxLanguage.PLAIN_TEXT -> palette.lineNumber
                         }
                     )

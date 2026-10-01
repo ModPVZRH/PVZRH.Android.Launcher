@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,11 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.bepinex.android.R
+import com.bepinex.android.ui.components.CodeEditor
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.theme.glassTopBarColors
@@ -77,7 +76,6 @@ fun LogViewerScreen(
     val context = LocalContext.current
     val refreshScope = rememberCoroutineScope()
     val verticalScrollState = rememberScrollState()
-    val horizontalScrollState = rememberScrollState()
     var readResult by remember(logFilePath) {
         mutableStateOf(LogReadResult(content = "", exists = false))
     }
@@ -203,85 +201,18 @@ fun LogViewerScreen(
                         }
                     }
                     else -> {
-                        SelectionContainer {
-                            val logLines = remember(readResult.content) { readResult.content.split("\n") }
-                            var logVisualLineCount by remember { mutableIntStateOf(logLines.size) }
-                            val logLineNumberWidth = remember(logVisualLineCount) { "${logVisualLineCount}".length * 8 + 4 }
-
-                            if (wordWrap) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(verticalScrollState)
-                                ) {
-                                    if (showLineNumbers) {
-                                        Column(
-                                            modifier = Modifier
-                                                .width(logLineNumberWidth.dp)
-                                                .padding(top = 12.dp, bottom = 12.dp)
-                                        ) {
-                                            for (i in 1..logVisualLineCount) {
-                                                Text(
-                                                    text = "$i",
-                                                    fontSize = 11.sp,
-                                                    lineHeight = 16.sp,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = MaterialTheme.colorScheme.outline,
-                                                    modifier = Modifier.padding(end = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = readResult.content,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .padding(start = 0.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
-                                        fontSize = 11.sp,
-                                        lineHeight = 16.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        onTextLayout = { logVisualLineCount = it.lineCount }
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .horizontalScroll(horizontalScrollState)
-                                        .verticalScroll(verticalScrollState)
-                                ) {
-                                    if (showLineNumbers) {
-                                        Column(
-                                            modifier = Modifier
-                                                .width(logLineNumberWidth.dp)
-                                                .padding(top = 12.dp, bottom = 12.dp)
-                                        ) {
-                                            for (i in 1..logVisualLineCount) {
-                                                Text(
-                                                    text = "$i",
-                                                    fontSize = 11.sp,
-                                                    lineHeight = 16.sp,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = MaterialTheme.colorScheme.outline,
-                                                    modifier = Modifier.padding(end = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = readResult.content,
-                                        modifier = Modifier
-                                            .padding(start = 0.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
-                                        fontSize = 11.sp,
-                                        lineHeight = 16.sp,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        onTextLayout = { logVisualLineCount = it.lineCount }
-                                    )
-                                }
-                            }
-                        }
+                        val logText = remember(readResult.content) { TextFieldValue(readResult.content) }
+                        CodeEditor(
+                            value = logText,
+                            onValueChange = {},
+                            extension = "log",
+                            wordWrap = wordWrap,
+                            showLineNumbers = showLineNumbers,
+                            modifier = Modifier.fillMaxSize(),
+                            readOnly = true,
+                            showStatusBar = false,
+                            followEnd = autoScroll
+                        )
                     }
                 }
             }

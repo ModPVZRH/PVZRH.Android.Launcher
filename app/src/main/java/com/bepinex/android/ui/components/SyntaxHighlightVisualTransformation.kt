@@ -12,6 +12,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 internal enum class SyntaxLanguage {
     JSON,
     LUA,
+    LOG,
     PLAIN_TEXT
 }
 
@@ -31,12 +32,14 @@ internal data class SyntaxHighlightColors(
 internal fun syntaxLanguageFor(extension: String): SyntaxLanguage = when (extension.lowercase()) {
     "json", "json5", "jsonc" -> SyntaxLanguage.JSON
     "lua" -> SyntaxLanguage.LUA
+    "log" -> SyntaxLanguage.LOG
     else -> SyntaxLanguage.PLAIN_TEXT
 }
 
 internal fun syntaxLanguageLabel(language: SyntaxLanguage, extension: String): String = when (language) {
     SyntaxLanguage.JSON -> "JSON"
     SyntaxLanguage.LUA -> "Lua"
+    SyntaxLanguage.LOG -> "Log"
     SyntaxLanguage.PLAIN_TEXT -> extension.uppercase().ifEmpty { "TEXT" }
 }
 
@@ -86,7 +89,8 @@ internal class SyntaxHighlightVisualTransformation(
             cachedOutput = null
             return TransformedText(text, OffsetMapping.Identity)
         }
-        if (text.text.length > MAX_HIGHLIGHT_CHARS) {
+        val highlightLimit = if (language == SyntaxLanguage.LOG) MAX_LOG_HIGHLIGHT_CHARS else MAX_HIGHLIGHT_CHARS
+        if (text.text.length > highlightLimit) {
             return TransformedText(text, OffsetMapping.Identity)
         }
         cachedOutput?.let { cached ->
@@ -99,12 +103,30 @@ internal class SyntaxHighlightVisualTransformation(
             when (language) {
                 SyntaxLanguage.JSON -> highlightJson(text.text)
                 SyntaxLanguage.LUA -> highlightLua(text.text)
+                SyntaxLanguage.LOG -> highlightLog(text.text)
                 SyntaxLanguage.PLAIN_TEXT -> Unit
             }
         }.toAnnotatedString()
         cachedInput = text.text
         cachedOutput = highlighted
         return TransformedText(highlighted, OffsetMapping.Identity)
+    }
+
+    private fun AnnotatedString.Builder.highlightLog(source: String) {
+        for (match in LOG_LEVEL.findAll(source)) {
+            val color = when (match.groupValues[1].lowercase()) {
+                "fatal", "error" -> Color(0xFFF14C4C)
+                "warning", "warn" -> colors.function
+                "info", "message", "msg" -> colors.property
+                "debug" -> colors.comment
+                else -> colors.punctuation
+            }
+            addStyle(
+                SpanStyle(color = color, fontWeight = FontWeight.Medium),
+                match.range.first,
+                match.range.last + 1
+            )
+        }
     }
 
     private fun AnnotatedString.Builder.highlightJson(source: String) {
@@ -288,6 +310,11 @@ internal class SyntaxHighlightVisualTransformation(
 
     private companion object {
         const val MAX_HIGHLIGHT_CHARS = 120_000
+        const val MAX_LOG_HIGHLIGHT_CHARS = 1_000_000
+        private val LOG_LEVEL = Regex(
+            "\\[(Fatal|Error|Warning|Warn|Message|Msg|Info|Debug)\\b[^\\]]*\\]",
+            RegexOption.IGNORE_CASE
+        )
         const val JSON_PUNCTUATION = "{}[]:,"
         const val LUA_PUNCTUATION = "{}[]().,;:+-*/%#^<>~="
 
