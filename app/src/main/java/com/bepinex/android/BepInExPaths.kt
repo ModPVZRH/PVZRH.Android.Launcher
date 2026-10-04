@@ -93,7 +93,12 @@ object BepInExPaths {
     fun isBepInExExtracted(packageName: String): Boolean =
         File(getCoreDir(packageName), "BepInEx.Core.dll").exists()
 
-    /** Check if dotnet runtime has been extracted for a game */
+    /**
+     * Check if the managed .NET runtime has been extracted for a game.
+     * Native CoreCLR (`libcoreclr.so` and siblings) ships in jniLibs and is
+     * loaded next to libmain.so, so it is not part of this directory.
+     */
     fun isDotnetExtracted(filesDir: File, packageName: String): Boolean =
-        File(getDotnetDir(filesDir, packageName), "System.Private.CoreLib.dll").exists()
+        File(getDotnetDir(filesDir, packageName), ".launcher-dotnet-ready").isFile &&
+            File(getDotnetDir(filesDir, packageName), "System.Private.CoreLib.dll").isFile
 }

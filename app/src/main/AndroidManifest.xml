@@ -29,8 +29,10 @@
     <uses-feature android:glEsVersion="0x00030000" />
     <uses-feature android:name="android.hardware.vulkan.version" android:required="false" />
 
-    <!-- Android 11+: discover launchable apps for Unity IL2CPP detection -->
+    <!-- Android 11+: the two supported games, plus launchable apps for detection -->
     <queries>
+        <package android:name="com.LanPiaoPiao.PlantsVsZombiesRH" />
+        <package android:name="com.LanPiaoPiao.PlantsVsZombiesRHMod" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -90,10 +92,10 @@
             android:name="com.bepinex.android.StubActivity"
             android:taskAffinity="${applicationId}.game"
             android:theme="@style/UnityThemeSelector"
-            android:screenOrientation="landscape"
             android:process=":game"
             android:launchMode="standard"
-            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            android:resizeableActivity="false"
             android:hardwareAccelerated="true"
             android:exported="false" />
 

@@ -112,6 +112,7 @@ class ModpackManager {
     companion object {
         const val MODPACK_EXTENSION = "rhp"
         const val MODPACK_MIME_TYPE = "application/octet-stream"
+        private const val MAX_PLUGIN_FILES = 10_000
 
         private val SUPPORTED_MODPACK_EXTENSIONS = setOf("rhp", "zip")
         private const val MODS_KEY = "mods"
@@ -363,6 +364,7 @@ class ModpackManager {
                 // Android paths are case-sensitive and File.extension preserves
                 // the original case. Treat .dll/.DLL/.Dll as the same mod type.
                 .filter { it.isFile && it.extension.equals("dll", ignoreCase = true) }
+                .take(MAX_PLUGIN_FILES)
                 .toList()
         } else {
             emptyList()

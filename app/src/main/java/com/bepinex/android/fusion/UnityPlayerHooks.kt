@@ -2,6 +2,7 @@ package com.bepinex.android.fusion
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.graphics.Color
 import android.os.Looper
 import android.view.Gravity
@@ -233,9 +234,9 @@ object UnityPlayerHooks {
                 val activity = frame.thisObject as? Activity ?: return
                 if (activity.javaClass.classLoader !== gameClassLoader || frame.args.isEmpty()) return
                 val original = frame.args[0] as? Context ?: return
-                if (original is CustomContextWrapper) return
+                if (wrapsCustomContext(original)) return
                 frame.args[0] = CustomContextWrapper(
-                    gameContext, fusionApplication.applicationContext, original
+                    gameContext, fusionApplication.applicationContext, original, activity
                 )
                 BepInExLog.i("attachBaseContext wrapped ${activity.javaClass.name}")
             }
@@ -262,6 +263,16 @@ object UnityPlayerHooks {
             destroyHookInstalled.set(false)
             BepInExLog.e("Failed to hook Activity.onDestroy", e)
         }
+    }
+
+    private fun wrapsCustomContext(context: Context): Boolean {
+        var current: Context? = context
+        val seen = HashSet<Context>()
+        while (current != null && seen.add(current)) {
+            if (current is CustomContextWrapper) return true
+            current = (current as? ContextWrapper)?.baseContext
+        }
+        return false
     }
 
     private fun showLoadingOverlay(activity: Activity, statusText: String): View? {

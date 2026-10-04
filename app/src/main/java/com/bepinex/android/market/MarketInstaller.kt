@@ -27,6 +27,7 @@ object MarketInstaller {
     private const val WORK_DIR = "market-download"
     private const val MAX_REDIRECTS = 8
     private const val MAX_NESTED_ARCHIVES = 3
+    private const val MAX_SCAN_FILES = 10_000
 
     data class Progress(
         val phase: Phase,
@@ -113,7 +114,11 @@ object MarketInstaller {
 
     private fun scanPreparedFiles(scanRoot: File, mod: MarketMod): PreparedKind {
         if (!scanRoot.exists()) return PreparedKind.NoMatch
-        val files = scanRoot.walkTopDown().filter { it.isFile }.toList()
+        val files = scanRoot.walkTopDown()
+            .maxDepth(8)
+            .filter { it.isFile }
+            .take(MAX_SCAN_FILES)
+            .toList()
         if (files.any { it.name.equals("modpack.json", ignoreCase = true) }) {
             return PreparedKind.Modpack(scanRoot)
         }

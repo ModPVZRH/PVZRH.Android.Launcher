@@ -2,7 +2,6 @@ package com.bepinex.android
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
@@ -121,21 +120,15 @@ class MainActivity : ComponentActivity() {
     private val installedAppsPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        BepInExLog.i("GET_INSTALLED_APPS granted=$granted")
-        appListPermissionGranted = granted
-        val alsoStorage = requestStorageAfterAppList
-        requestStorageAfterAppList = false
-        GameDetector.invalidateCache()
-        startGameDetection(askAppListPermission = false)
-        if (alsoStorage && !storagePermissionGranted) {
-            requestStoragePermission()
-        }
+        BepInExLog.i("GET_INSTALLED_APPS callback granted=$granted")
+        onAppListPermissionFinished()
     }
 
-    companion object {
-        private const val GET_INSTALLED_APPS_PERMISSION =
-            "com.android.permission.GET_INSTALLED_APPS"
+    private val installedAppsSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { onAppListPermissionFinished() }
 
+    companion object {
         /** Saved across activity recreations (e.g. language switch) */
         private var savedPackageName: String? = null
         private var savedPagerPage = 0
@@ -214,11 +207,25 @@ class MainActivity : ComponentActivity() {
     private fun completeOnboarding() {
         AppSettings.setOnboardingCompleted(this, true)
         showOnboarding = false
-        if (requestAppListPermission(thenRequestStorage = !storagePermissionGranted)) return
-        if (!storagePermissionGranted) {
-            checkStoragePermission(requestIfMissing = true)
-        } else if (detectedGames.isEmpty() && !isScanning) {
-            startGameDetection(askAppListPermission = false)
+        when (requestAppListPermission(
+            thenRequestStorage = !storagePermissionGranted,
+            allowSettings = true
+        )) {
+            InstalledAppsPermission.Request.RuntimeDialog -> return
+            InstalledAppsPermission.Request.Settings -> {
+                if (detectedGames.isEmpty() && !isScanning) {
+                    startGameDetection(askAppListPermission = false)
+                }
+                return
+            }
+            InstalledAppsPermission.Request.NotNeeded -> {
+                requestStorageAfterAppList = false
+                if (!storagePermissionGranted) {
+                    checkStoragePermission(requestIfMissing = true)
+                } else if (detectedGames.isEmpty() && !isScanning) {
+                    startGameDetection(askAppListPermission = false)
+                }
+            }
         }
     }
 
@@ -337,16 +344,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun needsAppListPermission(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            checkSelfPermission(GET_INSTALLED_APPS_PERMISSION) != PackageManager.PERMISSION_GRANTED
+    private fun needsAppListPermission(): Boolean = InstalledAppsPermission.needsRequest(this)
 
-    private fun requestAppListPermission(thenRequestStorage: Boolean = false): Boolean {
-        if (!needsAppListPermission()) return false
+    private fun requestAppListPermission(
+        thenRequestStorage: Boolean = false,
+        allowSettings: Boolean = true
+    ): InstalledAppsPermission.Request {
+        if (!needsAppListPermission()) {
+            appListPermissionGranted = true
+            return InstalledAppsPermission.Request.NotNeeded
+        }
         requestStorageAfterAppList = thenRequestStorage
-        BepInExLog.i("Requesting GET_INSTALLED_APPS")
-        installedAppsPermissionLauncher.launch(GET_INSTALLED_APPS_PERMISSION)
-        return true
+        return InstalledAppsPermission.request(
+            activity = this,
+            runtimeLauncher = installedAppsPermissionLauncher,
+            settingsLauncher = installedAppsSettingsLauncher,
+            allowSettings = allowSettings
+        )
+    }
+
+    private fun onAppListPermissionFinished() {
+        appListPermissionGranted = !needsAppListPermission()
+        val alsoStorage = requestStorageAfterAppList
+        requestStorageAfterAppList = false
+        GameDetector.invalidateCache()
+        startGameDetection(askAppListPermission = false)
+        if (alsoStorage && !storagePermissionGranted) {
+            requestStoragePermission()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -368,7 +393,9 @@ class MainActivity : ComponentActivity() {
         }
         val permissionChanged = permissionNow != storagePermissionGranted
         storagePermissionGranted = permissionNow
-        appListPermissionGranted = !needsAppListPermission()
+        val appListNow = !needsAppListPermission()
+        val appListBecameGranted = appListNow && !appListPermissionGranted
+        appListPermissionGranted = appListNow
         if (permissionChanged && permissionNow) {
             startGameDetection(askAppListPermission = !showOnboarding)
         }
@@ -387,6 +414,10 @@ class MainActivity : ComponentActivity() {
                 }
                 maybeReportGameCrash(game.packageName)
             }
+        }
+        if (appListBecameGranted && !permissionChanged && !isScanning) {
+            GameDetector.invalidateCache()
+            startGameDetection(askAppListPermission = false)
         }
         selectedGame?.let { ensureFramework(it.packageName) }
     }
@@ -443,7 +474,13 @@ class MainActivity : ComponentActivity() {
     // Game detection
 
     private fun startGameDetection(askAppListPermission: Boolean = true) {
-        if (askAppListPermission && requestAppListPermission()) return
+        if (askAppListPermission) {
+            when (requestAppListPermission(allowSettings = false)) {
+                InstalledAppsPermission.Request.RuntimeDialog -> return
+                InstalledAppsPermission.Request.Settings,
+                InstalledAppsPermission.Request.NotNeeded -> Unit
+            }
+        }
 
         scope.launch {
             isScanning = true

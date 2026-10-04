@@ -137,8 +137,11 @@ static bool stage_fusion_config(const FusionConfig &config)
         patchedIl2CppPath.c_str(),
         1024 * 1024);  // 1 MB code cave, load AFTER libunity
     if (!poolHandle) {
-        LOGE("allocate_setup_injected_noload failed — falling back to original il2cpp path");
-        il2cppPath = gameIl2cppPath;
+        // Loading an unpatched image can leave Dobby branches pointing into a
+        // non-writable ELF and later abort inside il2cpp. Stop here with a
+        // diagnostic instead of continuing in an unsafe mixed state.
+        LOGE("allocate_setup_injected_noload failed — refusing unsafe il2cpp fallback");
+        return false;
     } else {
         il2cppPath = patchedIl2CppPath;
         LOGI("Patched il2cpp ELF written (load deferred until after libunity)");
@@ -198,7 +201,10 @@ static int il2cpp_init_hook(char *domain_name)
 
     /* 4. Start CoreCLR + BepInEx */
     __android_log_write(ANDROID_LOG_ERROR, "FusionB", "calling dotnet_start_runtime...");
-    dotnet_start_runtime();
+    if (!dotnet_start_runtime()) {
+        __android_log_write(ANDROID_LOG_ERROR, "FusionB", "dotnet_start_runtime FAILED");
+        return result;
+    }
 
     __android_log_write(ANDROID_LOG_ERROR, "FusionB", "hook returning");
     return result;

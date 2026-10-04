@@ -324,6 +324,7 @@
     <string name="onboarding_applist_permission_body">启动器需要读取已安装应用列表来发现融合版是否已安装。</string>
     <string name="onboarding_applist_permission_grant">授予应用列表权限</string>
     <string name="onboarding_applist_permission_granted">应用列表权限已授予</string>
+    <string name="applist_permission_settings_hint">请在该应用的权限里开启「读取应用列表」。</string>
     <string name="onboarding_first_launch_title">第一次启动请稍等</string>
     <string name="onboarding_first_launch_body">首次启动会准备运行环境，可能下载文件。保持网络畅通，不要切走应用。</string>
     <string name="onboarding_crash_logs_title">崩溃后请分享日志</string>
