@@ -49,7 +49,7 @@
     <string name="modpack_rename">Ganti nama</string>
     <string name="modpack_rename_failed">Nama tidak sah atau sudah ada</string>
     <string name="modpack_already_exists">Modpack already exists</string>
-    <string name="modpack_overwrite_message">“%1$s” already exists. Overwrite it?</string>
+    <string name="modpack_overwrite_message">\"“%1$s” sudah ada. Timpa?\"</string>
     <string name="modpack_overwrite_confirm">Overwrite</string>
     <string name="modpack_edit">Ubah Modpack</string>
     <string name="modpack_icon">Ikon</string>
@@ -117,9 +117,9 @@
     <string name="modpack_import_from_other_mods_message">Mod yang dipilih beserta konfigurasi yang sesuai akan disalin ke dalam modpack ini.</string>
     <string name="modpack_import_from_other_select_all">Pilih semua</string>
     <string name="modpack_import_from_other_deselect_all">Hapus semua</string>
-    <string name="modpack_import_search_modpacks">Search modpacks</string>
-    <string name="modpack_import_search_mods">Search mods</string>
-    <string name="modpack_import_selected_count">Selected %1$d / %2$d</string>
+    <string name="modpack_import_search_modpacks">Mencari paket</string>
+    <string name="modpack_import_search_mods">Mencari mod</string>
+    <string name="modpack_import_selected_count">Dipilih %1$d / %2$d dari</string>
     <string name="modpack_import_search_empty">No matches</string>
     <string name="modpack_import_result_count">%d shown</string>
     <string name="modpack_import_confirm_count">Import (%d)</string>
