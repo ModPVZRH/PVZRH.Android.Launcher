@@ -6,6 +6,7 @@ import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
 import java.security.MessageDigest
 import java.util.UUID
+import java.io.IOException
 
 /**
  * Extracts BepInEx and .NET runtime from APK assets to per-game directories.
@@ -145,9 +146,14 @@ class FileExtractor(private val context: Context) {
      */
     fun extractDotnetIfNeeded(packageName: String, onProgress: (String) -> Unit = {}) {
         val dotnetDir = BepInExPaths.getDotnetDir(context.filesDir, packageName)
-        val marker = File(dotnetDir, "System.Private.CoreLib.dll")
+        val marker = File(dotnetDir, ".launcher-dotnet-ready")
+        // Native CoreCLR is packaged in jniLibs; dotnet.zip contains the
+        // managed TPA assemblies only. Do not require native files inside the
+        // extracted directory or every valid installation would be rejected.
+        val required = listOf("System.Private.CoreLib.dll")
 
-        if (marker.exists()) {
+        if (marker.isFile && required.all { File(dotnetDir, it).isFile } &&
+            dotnetDir.walkTopDown().count { it.isFile && it.extension.equals("dll", true) } >= 100) {
             BepInExLog.i("dotnet already extracted for $packageName")
             return
         }
@@ -159,7 +165,23 @@ class FileExtractor(private val context: Context) {
 
         onProgress("Extracting .NET runtime for $packageName...")
         BepInExLog.i("Extracting dotnet.zip → ${dotnetDir.absolutePath}")
-        extractZip("dotnet.zip", dotnetDir)
+        val staging = File(dotnetDir.parentFile, ".dotnet-${UUID.randomUUID()}")
+        try {
+            extractZip("dotnet.zip", staging)
+            check(required.all { File(staging, it).isFile } &&
+                staging.walkTopDown().count { it.isFile && it.extension.equals("dll", true) } >= 100) {
+                "Incomplete .NET runtime: missing ${required.filterNot { File(staging, it).isFile }}"
+            }
+            File(staging, ".launcher-dotnet-ready").writeText(
+                "version=1\nfiles=${staging.walkTopDown().count { it.isFile }}\n"
+            )
+            if (dotnetDir.exists() && !dotnetDir.deleteRecursively()) {
+                throw IOException("Cannot replace incomplete dotnet directory")
+            }
+            check(staging.renameTo(dotnetDir)) { "Cannot install extracted dotnet runtime" }
+        } finally {
+            if (staging.exists()) staging.deleteRecursively()
+        }
         BepInExLog.i("dotnet extracted: ${dotnetDir.absolutePath}")
     }
 
@@ -229,6 +251,10 @@ class FileExtractor(private val context: Context) {
                 while (entry != null) {
                     // Normalize path separators: Windows-created zips may use \ instead of /
                     val normalizedName = entry.name.replace('\\', '/')
+                    require(normalizedName.isNotEmpty() && !normalizedName.startsWith("/") &&
+                        normalizedName.split('/').none { it == ".." }) {
+                        "Unsafe ZIP entry: ${entry.name}"
+                    }
                     val outFile = File(destDir, normalizedName)
                     if (entry.isDirectory || normalizedName.endsWith("/")) {
                         if (!outFile.mkdirs() && !outFile.exists()) {

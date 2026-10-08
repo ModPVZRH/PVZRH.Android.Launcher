@@ -3,6 +3,8 @@ package com.bepinex.android.fusion
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import android.app.Activity
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.view.Display
 import java.io.File
@@ -11,7 +13,8 @@ import java.io.File
 class CustomContextWrapper(
     gameContext: Context,
     private val filesContext: Context,
-    private val windowContext: Context
+    private val windowContext: Context,
+    private val ownerActivity: Activity
 ) : ContextWrapper(gameContext) {
     init {
         applicationInfo.dataDir = filesContext.applicationInfo.dataDir
@@ -30,16 +33,28 @@ class CustomContextWrapper(
 
     override fun getSystemService(name: String): Any? = windowContext.getSystemService(name)
     override fun getDisplay(): Display? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val display = windowContext.display
-            if (display != null) return display
-            val activityDisplay = (getBaseContext() as? android.app.Activity)?.display
-            if (activityDisplay != null) return activityDisplay
-            val dm = windowContext.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
-            return dm?.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        // Activity.getDisplay() and ContextWrapper.getDisplay() both forward to
+        // the base context. attachBaseContext installs this wrapper as that base,
+        // so calling the activity or super here recurses until the stack overflows.
+        displayOf(windowContext)?.let { return it }
+        val manager = windowContext.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+        return manager?.getDisplay(Display.DEFAULT_DISPLAY)
+    }
+
+    private fun displayOf(start: Context): Display? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        var current: Context? = start
+        val seen = HashSet<Context>()
+        while (current != null && seen.add(current)) {
+            if (current === this || current === ownerActivity) return null
+            if (current !is ContextWrapper) return current.display
+            val base = current.baseContext
+            if (base == null || base === current || base === this || base === ownerActivity) return null
+            current = base
         }
         return null
     }
+
     override fun getApplicationContext(): Context = filesContext.applicationContext
     override fun getObbDir(): File? = filesContext.obbDir
     override fun getObbDirs(): Array<File> = filesContext.obbDirs

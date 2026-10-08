@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.os.Build;
 import android.view.Display;
 
 import androidx.annotation.Nullable;
@@ -90,10 +89,12 @@ public class GameContextWrapper extends ContextWrapper {
 
     @Override
     public Display getDisplay() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return this.fusionContext.getDisplay();
-        }
-        return null;
+        Display display = this.fusionContext.getDisplay();
+        if (display != null) return display;
+        android.hardware.display.DisplayManager manager =
+                (android.hardware.display.DisplayManager) this.fusionContext
+                        .getSystemService(Context.DISPLAY_SERVICE);
+        return manager != null ? manager.getDisplay(Display.DEFAULT_DISPLAY) : null;
     }
 
     @Override

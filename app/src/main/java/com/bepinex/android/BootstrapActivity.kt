@@ -222,6 +222,7 @@ class BootstrapActivity : Activity() {
         // 7. Start the registered stub via InstrumentationHooks
         updateProgress(getString(R.string.bootstrap_status_launching), "", 95)
         try {
+            ensureLaunchDisplay()
             val launcherClass = gameContext.classLoader.loadClass(launcherClassName)
             BepInExLog.i("Starting game launcher: ${launcherClass.name}")
             initializeFusion(null, null)
@@ -245,6 +246,22 @@ class BootstrapActivity : Activity() {
         } catch (e: Exception) {
             throw IllegalStateException("Failed to load launcher class: $launcherClassName", e)
         }
+    }
+
+    /**
+     * ActivityThread crashes deep inside ContextImpl when a task is launched
+     * with an invalid display id (common in clones, secondary users and OEM
+     * split-screen implementations). Fail before Unity is touched so the
+     * launcher can report a useful error and the process stays recoverable.
+     */
+    private fun ensureLaunchDisplay() {
+        val manager = getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            ?: throw IllegalStateException("Display service is unavailable")
+        val display = manager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+            ?: throw IllegalStateException(
+                "No default display is available. Exit split-screen/clone mode and retry."
+            )
+        BepInExLog.i("Launch display: id=${display.displayId}, state=${display.state}")
     }
 
     // Launcher onCreate hook

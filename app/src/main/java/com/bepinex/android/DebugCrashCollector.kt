@@ -17,6 +17,7 @@ object DebugCrashCollector {
         "com.LanPiaoPiao.PlantsVsZombiesRHMod"
     )
     private const val MAX_FILE_BYTES = 32L * 1024L * 1024L
+    private const val MAX_LOG_FILES = 64
 
     fun collect(context: Context) {
         try {
@@ -60,8 +61,9 @@ object DebugCrashCollector {
             )
             TARGET_PACKAGES.forEach { packageName ->
                 val gameRoot = BepInExPaths.getGameRootDir(packageName)
-                gameRoot.walkTopDown()
+                gameRoot.walkTopDown().maxDepth(8)
                     .filter { it.isFile && it.length() <= MAX_FILE_BYTES && names.contains(it.name) }
+                    .take(MAX_LOG_FILES)
                     .forEach { source ->
                         val relative = source.relativeTo(gameRoot).path.replace(File.separatorChar, '_')
                         copyIfPresent(source, File(snapshot, "${packageName}_$relative"))

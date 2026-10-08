@@ -19,11 +19,27 @@ object GameDetector {
 
     private const val TAG = "GameDetector"
 
-    /** Only packages in this list are shown as supported games. */
-    private val SUPPORTED_PACKAGES = setOf(
+    /**
+     * Only packages in this list are shown as supported games.
+     * The same names are declared in the manifest `<queries>` block.
+     */
+    internal val SUPPORTED_PACKAGES = setOf(
         "com.LanPiaoPiao.PlantsVsZombiesRH",
         "com.LanPiaoPiao.PlantsVsZombiesRHMod"
     )
+
+    /** True when Android 11+ package visibility already reveals a supported game. */
+    fun supportedPackageVisible(context: Context): Boolean {
+        val pm = context.packageManager
+        return SUPPORTED_PACKAGES.any { packageName ->
+            try {
+                pm.getApplicationInfo(packageName, 0)
+                true
+            } catch (_: PackageManager.NameNotFoundException) {
+                false
+            }
+        }
+    }
 
     const val PVZ_LAUNCHER_ACTIVITY = "com.unity3d.player.UnityPlayerActivity"
 
