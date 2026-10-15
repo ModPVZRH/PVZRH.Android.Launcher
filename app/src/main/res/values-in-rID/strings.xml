@@ -324,6 +324,7 @@
     <string name="onboarding_applist_permission_body">Launcher juga perlu membaca daftar aplikasi yang terinstal untuk menemukan Fusion.</string>
     <string name="onboarding_applist_permission_grant">Berikan akses daftar aplikasi</string>
     <string name="onboarding_applist_permission_granted">Akses daftar aplikasi telah diberikan</string>
+    <string name="applist_permission_settings_hint">In this app\'s permissions, allow reading the installed app list.</string>
     <string name="onboarding_first_launch_title">Peluncuran pertama membutuhkan waktu sejenak.</string>
     <string name="onboarding_first_launch_body">Peluncuran pertama menyiapkan *runtime* dan mungkin mengunduh sejumlah file. Pastikan koneksi jaringan tetap aktif dan jangan keluar dari aplikasi.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>

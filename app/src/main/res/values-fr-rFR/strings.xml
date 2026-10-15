@@ -324,6 +324,7 @@
     <string name="onboarding_applist_permission_body">The launcher also needs to read the installed app list to find Fusion.</string>
     <string name="onboarding_applist_permission_grant">Grant app list access</string>
     <string name="onboarding_applist_permission_granted">App list access is granted</string>
+    <string name="applist_permission_settings_hint">In this app\'s permissions, allow reading the installed app list.</string>
     <string name="onboarding_first_launch_title">The first launch takes a moment</string>
     <string name="onboarding_first_launch_body">The first start prepares the runtime and may download files. Keep the network on and stay in the app.</string>
     <string name="onboarding_crash_logs_title">Share logs after a crash</string>
