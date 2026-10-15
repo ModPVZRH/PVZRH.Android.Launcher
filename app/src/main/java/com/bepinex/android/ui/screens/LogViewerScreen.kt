@@ -5,10 +5,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -23,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.bepinex.android.BoundedTextFile
 import com.bepinex.android.R
 import com.bepinex.android.ui.components.CodeEditor
 import com.bepinex.android.ui.theme.glassContainerColor
@@ -31,34 +29,20 @@ import com.bepinex.android.ui.theme.glassTopBarColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
 private const val LOG_REFRESH_INTERVAL_MS = 1_000L
-private const val LOG_SCROLL_BOTTOM_THRESHOLD = 48
 
 private data class LogReadResult(
-    val content: String,
-    val exists: Boolean,
+    val content: String = "",
+    val exists: Boolean = false,
+    val truncated: Boolean = false,
+    val fileLength: Long = 0L,
     val error: String? = null
 )
-
-private suspend fun readLogFile(path: String): LogReadResult = withContext(Dispatchers.IO) {
-    runCatching {
-        val file = File(path)
-        if (!file.exists()) {
-            LogReadResult(content = "", exists = false)
-        } else {
-            LogReadResult(content = file.readText(), exists = true)
-        }
-    }.getOrElse { error ->
-        LogReadResult(
-            content = "",
-            exists = true,
-            error = error.message ?: error.javaClass.simpleName
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,25 +59,32 @@ fun LogViewerScreen(
 ) {
     val context = LocalContext.current
     val refreshScope = rememberCoroutineScope()
-    val verticalScrollState = rememberScrollState()
-    var readResult by remember(logFilePath) {
-        mutableStateOf(LogReadResult(content = "", exists = false))
-    }
+    val follower = remember(logFilePath) { BoundedTextFile.Follower() }
+    val refreshLock = remember(logFilePath) { Mutex() }
+    var readResult by remember(logFilePath) { mutableStateOf(LogReadResult()) }
     var isRefreshing by remember { mutableStateOf(false) }
 
     suspend fun refreshLog() {
-        if (isRefreshing) return
-        isRefreshing = true
-        val previousContent = readResult.content
-        val wasAtBottom = verticalScrollState.maxValue == 0 ||
-            verticalScrollState.value >= verticalScrollState.maxValue - LOG_SCROLL_BOTTOM_THRESHOLD
-        val result = readLogFile(logFilePath)
-        readResult = result
-        isRefreshing = false
-
-        if (autoScroll && wasAtBottom && result.content != previousContent) {
-            withFrameNanos { }
-            verticalScrollState.animateScrollTo(verticalScrollState.maxValue)
+        refreshLock.withLock {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { follower.read(File(logFilePath)) }.fold(
+                    onSuccess = { snapshot ->
+                        LogReadResult(
+                            content = snapshot.text,
+                            exists = snapshot.exists,
+                            truncated = snapshot.truncated,
+                            fileLength = snapshot.fileLength
+                        )
+                    },
+                    onFailure = { error ->
+                        LogReadResult(
+                            exists = true,
+                            error = error.message ?: error.javaClass.simpleName
+                        )
+                    }
+                )
+            }
+            if (result != readResult) readResult = result
         }
     }
 
@@ -148,7 +139,13 @@ fun LogViewerScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { if (!isRefreshing) refreshScope.launch { refreshLog() } },
+                        onClick = {
+                            if (!isRefreshing) refreshScope.launch {
+                                isRefreshing = true
+                                refreshLog()
+                                isRefreshing = false
+                            }
+                        },
                         enabled = !isRefreshing
                     ) {
                         Icon(
@@ -174,8 +171,18 @@ fun LogViewerScreen(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (readResult.truncated) {
+                Text(
+                    text = stringResource(
+                        R.string.log_truncated,
+                        BoundedTextFile.formatByteCount(readResult.fileLength)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Surface(
-                modifier = Modifier.fillMaxSize().glassSurface(MaterialTheme.shapes.medium),
+                modifier = Modifier.weight(1f).fillMaxWidth().glassSurface(MaterialTheme.shapes.medium),
                 shape = MaterialTheme.shapes.medium,
                 color = glassContainerColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
@@ -206,8 +213,8 @@ fun LogViewerScreen(
                             value = logText,
                             onValueChange = {},
                             extension = "log",
-                            wordWrap = wordWrap,
-                            showLineNumbers = showLineNumbers,
+                            wordWrap = wordWrap && !readResult.truncated,
+                            showLineNumbers = showLineNumbers && !readResult.truncated,
                             modifier = Modifier.fillMaxSize(),
                             readOnly = true,
                             showStatusBar = false,

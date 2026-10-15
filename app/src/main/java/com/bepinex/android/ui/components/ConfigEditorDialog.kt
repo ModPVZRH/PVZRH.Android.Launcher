@@ -19,11 +19,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.bepinex.android.BoundedTextFile
 import com.bepinex.android.R
 import com.bepinex.android.ui.theme.GlassAlertDialog
 import com.bepinex.android.ui.theme.glassContainerColor
 import com.bepinex.android.ui.theme.glassSurface
 import com.bepinex.android.ui.theme.glassTopBarColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -36,11 +39,31 @@ fun ConfigEditorDialog(
     onDismiss: () -> Unit,
     onSave: (File, String) -> Boolean
 ) {
-    val initialContent = remember(configFile) {
-        runCatching { configFile.readText() }.getOrDefault("")
+    var initialContent by remember(configFile) { mutableStateOf("") }
+    var content by remember(configFile) { mutableStateOf("") }
+    var truncated by remember(configFile) { mutableStateOf(false) }
+    var fileLength by remember(configFile) { mutableStateOf(0L) }
+    var loaded by remember(configFile) { mutableStateOf(false) }
+    var loadError by remember(configFile) { mutableStateOf<String?>(null) }
+    val canEdit = loaded && !truncated && loadError == null
+    val hasChanges = canEdit && content != initialContent
+
+    LaunchedEffect(configFile) {
+        val result = withContext(Dispatchers.IO) {
+            runCatching { BoundedTextFile.read(configFile) }
+        }
+        result.onSuccess { snapshot ->
+            initialContent = snapshot.text
+            content = snapshot.text
+            truncated = snapshot.truncated
+            fileLength = snapshot.fileLength
+            loadError = null
+            loaded = true
+        }.onFailure { error ->
+            loadError = error.message ?: error.javaClass.simpleName
+            loaded = false
+        }
     }
-    var content by remember(configFile) { mutableStateOf(initialContent) }
-    val hasChanges = content != initialContent
     var showDiscardDialog by remember(configFile) { mutableStateOf(false) }
     var saveFailed by remember(configFile) { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -89,6 +112,7 @@ fun ConfigEditorDialog(
                 actions = {
                     IconButton(
                         onClick = {
+                            if (!canEdit) return@IconButton
                             val saved = runCatching { onSave(configFile, content) }.getOrDefault(false)
                             if (saved) {
                                 saveFailed = false
@@ -97,7 +121,7 @@ fun ConfigEditorDialog(
                                 saveFailed = true
                             }
                         },
-                        enabled = hasChanges
+                        enabled = hasChanges && canEdit
                     ) {
                         Icon(
                             Icons.Filled.Save,
@@ -127,12 +151,31 @@ fun ConfigEditorDialog(
                 )
             }
 
+            if (loadError != null) {
+                Text(
+                    "${stringResource(R.string.error)}: $loadError",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+            if (truncated) {
+                Text(
+                    stringResource(R.string.viewer_truncated, BoundedTextFile.formatByteCount(fileLength)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
             OutlinedTextField(
                 value = content,
                 onValueChange = {
+                    if (!canEdit) return@OutlinedTextField
                     content = it
                     saveFailed = false
                 },
+                readOnly = !canEdit,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),

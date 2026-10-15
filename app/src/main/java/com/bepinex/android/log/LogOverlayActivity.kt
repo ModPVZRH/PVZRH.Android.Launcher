@@ -31,10 +31,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bepinex.android.BoundedTextFile
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
-import java.io.RandomAccessFile
 import kotlin.math.roundToInt
 
 /**
@@ -82,18 +82,29 @@ private fun LogOverlayContent(logFile: File, onClose: () -> Unit) {
     LaunchedEffect(logFile) {
         while (isActive) {
             try {
-                if (logFile.exists() && logFile.length() > lastSize) {
-                    RandomAccessFile(logFile, "r").use { raf ->
-                        raf.seek(lastSize)
-                        val buf = ByteArray((raf.length() - lastSize).toInt())
-                        raf.readFully(buf)
-                        val newLines = String(buf, Charsets.UTF_8)
-                            .lines()
-                            .filter { it.isNotBlank() }
+                if (logFile.isFile) {
+                    val length = logFile.length()
+                    if (length < lastSize) {
+                        lines.clear()
+                        lastSize = 0L
+                    }
+                    if (length > lastSize) {
+                        val start = if (length - lastSize > BoundedTextFile.LIMIT_BYTES) {
+                            lines.clear()
+                            length - BoundedTextFile.LIMIT_BYTES
+                        } else {
+                            lastSize
+                        }
+                        val text = withContext(Dispatchers.IO) {
+                            BoundedTextFile.decodeTail(
+                                BoundedTextFile.readRange(logFile, start, length),
+                                skipPartialLine = BoundedTextFile.startsMidLine(logFile, start)
+                            )
+                        }
+                        val newLines = text.lines().filter { it.isNotBlank() }
                         lines.addAll(newLines)
-                        // Keep last 300 lines
                         while (lines.size > 300) lines.removeFirstOrNull()
-                        lastSize = logFile.length()
+                        lastSize = length
                     }
                 }
             } catch (_: Exception) { }
