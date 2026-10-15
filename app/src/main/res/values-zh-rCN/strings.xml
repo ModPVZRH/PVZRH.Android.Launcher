@@ -177,6 +177,8 @@
     <string name="viewer_line_numbers">显示行号</string>
     <string name="viewer_line_numbers_desc">在编辑器左侧显示行号</string>
     <string name="viewer_empty">文件为空</string>
+    <string name="viewer_loading">正在读取…</string>
+    <string name="viewer_truncated">文件有 %1$s，只显示末尾。已关闭编辑，避免写丢未显示的内容。</string>
     <string name="viewer_cursor_position">第 %1$d 行，第 %2$d 列</string>
     <string name="viewer_preview">预览</string>
     <string name="viewer_preview_text">“每项艺术和每项调查以及同样每项行动和追求都被认为是为了某种好事； 正因为如此，人们正确地宣布，善意是一切事情的目的。 - 亚里士多德，*尼科马丘亚伦理学*</string>
@@ -450,6 +452,7 @@
     <string name="log_copy">复制</string>
     <string name="log_clear">清除</string>
     <string name="log_empty">暂无日志。启动游戏后可查看 BepInEx 日志。</string>
+    <string name="log_truncated">日志共 %1$s，正在显示末尾。分享会发送完整文件。</string>
     <string name="log_copied">日志已复制到剪贴板</string>
     <string name="log_filter_all">全部</string>
     <string name="log_filter_errors">错误</string>

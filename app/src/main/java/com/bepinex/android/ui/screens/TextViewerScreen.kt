@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.bepinex.android.BoundedTextFile
 import com.bepinex.android.R
 import com.bepinex.android.ui.theme.GlassAlertDialog
 import com.bepinex.android.ui.theme.glassContainerColor
@@ -26,6 +27,8 @@ import com.bepinex.android.ui.components.CodeEditor
 import com.bepinex.android.ui.components.SyntaxLanguage
 import com.bepinex.android.ui.components.syntaxLanguageFor
 import com.bepinex.android.ui.components.syntaxLanguageLabel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 private val ViewerPreviewSource = """
@@ -47,16 +50,34 @@ fun TextViewerScreen(
     wordWrap: Boolean = true,
     showLineNumbers: Boolean = true
 ) {
-    val initialContent = remember(file) {
-        runCatching { file.readText() }.getOrDefault("")
-    }
-    var textFieldValue by remember(file) {
-        mutableStateOf(TextFieldValue(initialContent))
-    }
-    val hasChanges = textFieldValue.text != initialContent
+    var initialContent by remember(file) { mutableStateOf("") }
+    var truncated by remember(file) { mutableStateOf(false) }
+    var fileLength by remember(file) { mutableStateOf(0L) }
+    var loaded by remember(file) { mutableStateOf(false) }
+    var loadError by remember(file) { mutableStateOf<String?>(null) }
+    var textFieldValue by remember(file) { mutableStateOf(TextFieldValue("")) }
+    val canEdit = onSave != null && loaded && !truncated
+    val hasChanges = canEdit && textFieldValue.text != initialContent
     var showDiscardDialog by remember(file) { mutableStateOf(false) }
     var saveFailed by remember(file) { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(file) {
+        val result = withContext(Dispatchers.IO) {
+            runCatching { BoundedTextFile.read(file) }
+        }
+        result.onSuccess { snapshot ->
+            initialContent = snapshot.text
+            truncated = snapshot.truncated
+            fileLength = snapshot.fileLength
+            textFieldValue = TextFieldValue(snapshot.text)
+            loadError = null
+            loaded = true
+        }.onFailure { error ->
+            loadError = error.message ?: error.javaClass.simpleName
+            loaded = false
+        }
+    }
     val language = remember(file.extension) { syntaxLanguageFor(file.extension) }
     val languageLabel = remember(language, file.extension) {
         syntaxLanguageLabel(language, file.extension)
@@ -104,9 +125,10 @@ fun TextViewerScreen(
                     }
                 },
                 actions = {
-                    if (onSave != null) {
+                    if (canEdit) {
                         IconButton(
                             onClick = {
+                                if (truncated) return@IconButton
                                 val saved = runCatching { onSave(file, textFieldValue.text) }.getOrDefault(false)
                                 if (saved) {
                                     saveFailed = false
@@ -148,22 +170,57 @@ fun TextViewerScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+            if (truncated) {
+                Text(
+                    stringResource(R.string.viewer_truncated, BoundedTextFile.formatByteCount(fileLength)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            CodeEditor(
-                value = textFieldValue,
-                onValueChange = {
-                    textFieldValue = it
-                    saveFailed = false
-                },
-                extension = file.extension,
-                wordWrap = wordWrap,
-                showLineNumbers = showLineNumbers,
-                readOnly = onSave == null,
-                placeholder = stringResource(R.string.viewer_empty),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            )
+            when {
+                loadError != null -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "${stringResource(R.string.error)}: $loadError",
+                            modifier = Modifier.padding(24.dp),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                !loaded -> {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Text(
+                                stringResource(R.string.viewer_loading),
+                                modifier = Modifier.padding(top = 12.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    CodeEditor(
+                        value = textFieldValue,
+                        onValueChange = {
+                            if (!canEdit) return@CodeEditor
+                            textFieldValue = it
+                            saveFailed = false
+                        },
+                        extension = file.extension,
+                        wordWrap = wordWrap && !truncated,
+                        showLineNumbers = showLineNumbers && !truncated,
+                        readOnly = !canEdit,
+                        placeholder = stringResource(R.string.viewer_empty),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                }
+            }
         }
     }
 

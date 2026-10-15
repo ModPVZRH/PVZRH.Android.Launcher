@@ -13,8 +13,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.bepinex.android.BoundedTextFile
 import java.io.File
-import java.io.RandomAccessFile
 import java.util.ArrayDeque
 
 /**
@@ -352,14 +352,25 @@ object GameLogOverlay {
         pollJob = object : Runnable {
             override fun run() {
                 try {
-                    if (resolvedLogFile.exists() && resolvedLogFile.length() > lastSize) {
-                        RandomAccessFile(resolvedLogFile, "r").use { raf ->
-                            raf.seek(lastSize)
-                            val buf = ByteArray((raf.length() - lastSize).toInt())
-                            raf.readFully(buf)
-                            val newLines = String(buf, Charsets.UTF_8)
-                                .lines()
-                                .filter { it.isNotBlank() }
+                    if (resolvedLogFile.isFile) {
+                        val length = resolvedLogFile.length()
+                        if (length < lastSize) {
+                            logLines.clear()
+                            lastSize = 0L
+                            logTextView.text = ""
+                        }
+                        if (length > lastSize) {
+                            val start = if (length - lastSize > BoundedTextFile.LIMIT_BYTES) {
+                                logLines.clear()
+                                length - BoundedTextFile.LIMIT_BYTES
+                            } else {
+                                lastSize
+                            }
+                            val text = BoundedTextFile.decodeTail(
+                                BoundedTextFile.readRange(resolvedLogFile, start, length),
+                                skipPartialLine = BoundedTextFile.startsMidLine(resolvedLogFile, start)
+                            )
+                            val newLines = text.lines().filter { it.isNotBlank() }
                             if (newLines.isNotEmpty()) {
                                 for (line in newLines) {
                                     if (logLines.size >= MAX_LOG_LINES) logLines.removeFirst()
@@ -371,7 +382,7 @@ object GameLogOverlay {
                                 )
                                 jumpToBottom()
                             }
-                            lastSize = resolvedLogFile.length()
+                            lastSize = length
                         }
                     }
                 } catch (_: Exception) { }
