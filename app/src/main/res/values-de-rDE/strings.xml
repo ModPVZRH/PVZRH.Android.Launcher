@@ -60,7 +60,7 @@
     <string name="modpack_shortcut_enabled">Desktop Shortcut Enabled</string>
     <string name="shortcut_permission_required">Shortcut permission not granted. Opening settings…</string>
     <string name="shortcut_permission_title">Permission Required</string>
-    <string name="shortcut_permission_guide">Creating desktop shortcuts requires the \"Home screen shortcut\" permission. Please enable it in the settings page that opens next.</string>
+    <string name="shortcut_permission_guide">Das Erstellen einer Verknüpfung erfordert die Berechtigung \"Startbildschirm-Verknüpfungen\" zu erstellen. Bitte erlauben Sie es in den Einstellungen, die als nächstes geöffnet werden.</string>
     <string name="shortcut_permission_open_settings">Open Settings</string>
     <string name="modpack_vanilla_desc">No mods loaded</string>
     <string name="modpack_empty">No modpacks installed</string>
