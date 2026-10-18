@@ -135,7 +135,7 @@
     <string name="modpack_mod_count">%d mod(s)</string>
     <string name="modpack_mod_count_ratio">%1$d / %2$d mods</string>
     <string name="modpack_active">Active</string>
-    <string name="modpack_mod_rename">Rename Mod</string>
+    <string name="modpack_mod_rename">Mod umbenennen</string>
     <string name="modpack_mod_display_name">Display name</string>
     <string name="modpack_mod_display_name_hint">Shown in this launcher only. The DLL file name is unchanged.</string>
     <string name="modpack_mod_file_name">File: %s</string>
@@ -175,7 +175,7 @@
     <string name="viewer_word_wrap">Word Wrap</string>
     <string name="viewer_word_wrap_desc">Wrap long lines to fit the screen width</string>
     <string name="viewer_line_numbers">Line Numbers</string>
-    <string name="viewer_line_numbers_desc">Show line numbers on the left side</string>
+    <string name="viewer_line_numbers_desc">Zeilennummern auf der linken Seite anzeigen</string>
     <string name="viewer_empty">Empty file</string>
     <string name="viewer_loading">Loading…</string>
     <string name="viewer_truncated">This file is %1$s. Only the end is shown, and editing is off so the rest is not overwritten.</string>
