@@ -48,7 +48,7 @@
     <string name="modpack_delete">Hapus Modpack</string>
     <string name="modpack_rename">Ganti nama</string>
     <string name="modpack_rename_failed">Nama tidak sah atau sudah ada</string>
-    <string name="modpack_already_exists">Modpack already exists</string>
+    <string name="modpack_already_exists">Indonesia</string>
     <string name="modpack_overwrite_message">\"“%1$s” sudah ada. Timpa?\"</string>
     <string name="modpack_overwrite_confirm">Overwrite</string>
     <string name="modpack_edit">Ubah Modpack</string>
