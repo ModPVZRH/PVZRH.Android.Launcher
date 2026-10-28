@@ -8,26 +8,26 @@
     <string name="nav_modpacks">Fight</string>
     <string name="nav_market">Vct</string>
     <string name="nav_settings">Bh</string>
-    <string name="nav_about">About</string>
+    <string name="nav_about">О нас</string>
     <!-- Game Detection -->
     <string name="scan_title">PlantsVsZombiesRH</string>
-    <string name="scanning">Checking PlantsVsZombiesRH…</string>
-    <string name="no_games_found">PlantsVsZombiesRH Not Found</string>
-    <string name="no_games_hint">Install Plants vs. Zombies: Fusion, then tap Rescan. The package name is com.LanPiaoPiao.PlantsVsZombiesRH.</string>
-    <string name="scan_again">Scan Again</string>
-    <string name="rescan">Rescan</string>
+    <string name="scanning">Поиск PlantsVsZombiesRH…</string>
+    <string name="no_games_found">PlantsVsZombiesRH не найдено</string>
+    <string name="no_games_hint">Установить растения против Зомби: Fusion, затем нажмите Rescan. Имя пакета com.LanPiaoPiao.PlantsVsZombiesRH.</string>
+    <string name="scan_again">Сканировать снова</string>
+    <string name="rescan">Сканировать повторно</string>
     <!-- Framework Status -->
-    <string name="framework_ready">BepInEx Ready</string>
-    <string name="framework_setting_up">Setting up…</string>
-    <string name="framework_setup_failed">Setup failed</string>
-    <string name="framework_setup_failed_permission">All files access is required to extract BepInEx</string>
-    <string name="framework_retry">Retry setup</string>
-    <string name="extracting">Extracting BepInEx…</string>
-    <string name="mod_count">%d mod(s)</string>
+    <string name="framework_ready">BepInEx готов</string>
+    <string name="framework_setting_up">Настройка…</string>
+    <string name="framework_setup_failed">Установка не удалась</string>
+    <string name="framework_setup_failed_permission">Для извлечения BepInEx необходим доступ к файлам</string>
+    <string name="framework_retry">Повторить установку</string>
+    <string name="extracting">Извлечение BepInEx…</string>
+    <string name="mod_count">%d Мод(ы)</string>
     <!-- Actions -->
-    <string name="import_mod">Import Mod</string>
-    <string name="launch">Launch</string>
-    <string name="game_manage_saves">Manage Saves</string>
+    <string name="import_mod">Добавить мод</string>
+    <string name="launch">Запустить</string>
+    <string name="game_manage_saves">Управление сохранениями</string>
     <string name="game_manage_saves_desc">Manage backups and restores for this game</string>
     <string name="refresh">Refresh</string>
     <string name="delete">Delete</string>
