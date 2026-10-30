@@ -23,9 +23,9 @@
     <string name="framework_setup_failed_permission">All files access is required to extract BepInEx</string>
     <string name="framework_retry">Retry setup</string>
     <string name="extracting">Extracting BepInEx…</string>
-    <string name="mod_count">%d mod(s)</string>
+    <string name="mod_count"></string>
     <!-- Actions -->
-    <string name="import_mod">Import Mod</string>
+    <string name="import_mod">Pvz fusion</string>
     <string name="launch">Launch</string>
     <string name="game_manage_saves">Manage Saves</string>
     <string name="game_manage_saves_desc">Manage backups and restores for this game</string>
