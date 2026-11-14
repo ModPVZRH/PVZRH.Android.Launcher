@@ -368,9 +368,10 @@ class BootstrapActivity : Activity() {
                 override fun afterCall(callFrame: top.canyie.pine.Pine.CallFrame) {
                     BepInExLog.i("Game onDestroy - copying logs to modpack folder")
                     try {
-                        com.bepinex.android.modpack.ModpackManager()
-                            .persistRuntimeState(pkg, activeModpack)
-                        BepInExLog.i("Logs copied to modpack: $activeModpack")
+                        com.bepinex.android.modpack.RuntimeCoordinator.saveAsync(
+                            applicationContext, pkg, activeModpack, checkOwner = true
+                        )
+                        BepInExLog.i("Scheduled runtime save for modpack: $activeModpack")
                     } catch (t: Throwable) {
                         BepInExLog.e("Failed to persist logs on destroy", t)
                     }
@@ -480,20 +481,11 @@ class BootstrapActivity : Activity() {
         // Apply active modpack (or clear for vanilla mode) with per-modpack state persistence
         updateProgress(getString(R.string.bootstrap_status_preparing), "", 55)
         val activeModpack = intent.getStringExtra(EXTRA_ACTIVE_MODPACK)
-        val modpackManager = com.bepinex.android.modpack.ModpackManager()
-        val previousActive = com.bepinex.android.settings.AppSettings.getActiveModpack(this, targetPackage)
-
-        // Save whatever runtime generated from previous run back to its owner
-        modpackManager.persistRuntimeState(targetPackage, previousActive)
-
-        if (activeModpack.isNullOrEmpty()) {
-            BepInExLog.i("Vanilla mode  -- restoring vanilla cfg/logs")
-            modpackManager.clearActiveMods(targetPackage)
-        } else {
-            BepInExLog.i("Applying modpack: $activeModpack")
-            modpackManager.applyModpack(targetPackage, activeModpack)
+        kotlinx.coroutines.runBlocking {
+            check(com.bepinex.android.modpack.RuntimeCoordinator.switch(
+                applicationContext, targetPackage, activeModpack
+            )) { "Failed to prepare modpack runtime" }
         }
-        com.bepinex.android.settings.AppSettings.setActiveModpack(this, targetPackage, activeModpack)
 
         // Keep this APK's BepInEx assemblies, then add only the modpack's extra
         // core files (for example Newtonsoft.Json.dll).

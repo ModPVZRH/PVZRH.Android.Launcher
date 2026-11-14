@@ -403,15 +403,7 @@ class MainActivity : ComponentActivity() {
             hasPaused = false
             // Persist runtime logs/config to active modpack when returning from game
             selectedGame?.let { game ->
-                if (!com.bepinex.android.modpack.ModpackManager.runtimeSwitchInProgress) {
-                    val active = AppSettings.getActiveModpack(this, game.packageName)
-                    if (!active.isNullOrEmpty()) {
-                        try {
-                            com.bepinex.android.modpack.ModpackManager()
-                                .persistRuntimeState(game.packageName, active)
-                        } catch (_: Exception) { }
-                    }
-                }
+                com.bepinex.android.modpack.RuntimeCoordinator.saveAsync(this, game.packageName)
                 maybeReportGameCrash(game.packageName)
             }
         }

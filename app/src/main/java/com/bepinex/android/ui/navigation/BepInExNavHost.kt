@@ -54,6 +54,8 @@ import com.bepinex.android.R
 import com.bepinex.android.log.BepInExLogReader
 import com.bepinex.android.modpack.ModpackExportProgress
 import com.bepinex.android.modpack.ModpackManager
+import com.bepinex.android.modpack.RuntimeCoordinator
+import com.bepinex.android.modpack.RuntimePhase
 import com.bepinex.android.modpack.ModpackMeta
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.screens.TextViewerScreen
@@ -75,7 +77,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -185,46 +186,21 @@ fun BepInExNavHost(
 
     // State for modpack list
     var modpacks by remember { mutableStateOf<List<ModpackMeta>>(emptyList()) }
-    var activeModpackName by remember { mutableStateOf<String?>(null) }
+    val runtimeFlow = remember(selectedGame?.packageName) {
+        RuntimeCoordinator.state(selectedGame?.packageName.orEmpty())
+    }
+    val runtimeState by runtimeFlow.collectAsState()
+    val activeModpackName = runtimeState.requestedModpack
+    val isSwitchingModpack = runtimeState.isBusy
     var modpackRefreshKey by remember { mutableStateOf(0) }
     var modpackIconRefreshKey by remember { mutableStateOf(0) }
     var exportProgress by remember { mutableStateOf<ModpackExportProgress?>(null) }
     var exportJob by remember { mutableStateOf<Job?>(null) }
     var importJob by remember { mutableStateOf<Job?>(null) }
-    var appliedModpackName by remember { mutableStateOf<String?>(null) }
-    var isSwitchingModpack by remember { mutableStateOf(false) }
-    var modpackSwitchJob by remember { mutableStateOf<Job?>(null) }
-
-    fun enqueueModpackSwitch(packageName: String, target: String?) {
-        if (target == activeModpackName && appliedModpackName == target && !isSwitchingModpack) return
-        activeModpackName = target
-        isSwitchingModpack = true
-        if (modpackSwitchJob?.isActive == true) return
-        modpackSwitchJob = composeScope.launch {
-            try {
-                while (isActive) {
-                    val targetName = activeModpackName
-                    val from = appliedModpackName
-                    if (targetName == from) break
-                    val ok = withContext(Dispatchers.IO) {
-                        modpackManager.switchRuntime(packageName, from, targetName)
-                    }
-                    if (!ok) {
-                        com.bepinex.android.BepInExLog.e("Failed to switch modpack to ${targetName ?: "vanilla"}")
-                        activeModpackName = appliedModpackName
-                        break
-                    }
-                    appliedModpackName = targetName
-                    AppSettings.setActiveModpack(context, packageName, targetName)
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                com.bepinex.android.BepInExLog.e("Modpack switch failed", error)
-                activeModpackName = appliedModpackName
-            } finally {
-                isSwitchingModpack = false
-            }
+    LaunchedEffect(runtimeState.error) {
+        if (runtimeState.phase == RuntimePhase.Failed) {
+            android.widget.Toast.makeText(context, context.getString(R.string.runtime_operation_failed),
+                android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
@@ -284,17 +260,7 @@ fun BepInExNavHost(
                 modpackManager.listModpacks(game.packageName)
             }
             modpacks = loadedModpacks
-            val savedActiveName = AppSettings.getActiveModpack(context, game.packageName)
-            val validActiveName = savedActiveName?.takeIf { savedName ->
-                loadedModpacks.any { it.name == savedName }
-            }
-            if (!isSwitchingModpack) {
-                activeModpackName = validActiveName
-                appliedModpackName = validActiveName
-            }
-            if (savedActiveName != validActiveName) {
-                AppSettings.setActiveModpack(context, game.packageName, validActiveName)
-            }
+            RuntimeCoordinator.refresh(context, game.packageName)
         }
     }
 
@@ -501,13 +467,6 @@ fun BepInExNavHost(
         }
     }
 
-    DisposableEffect(selectedGame?.packageName) {
-        onDispose {
-            modpackSwitchJob?.cancel()
-            isSwitchingModpack = false
-        }
-    }
-
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -680,64 +639,53 @@ fun BepInExNavHost(
                                     },
                                     onDeleteModpack = { name ->
                                         composeScope.launch {
-                                            modpackSwitchJob?.join()
-                                            val wasActive = activeModpackName == name || appliedModpackName == name
-                                            val deleted = withContext(Dispatchers.IO) {
-                                                if (wasActive) {
-                                                    modpackManager.switchRuntime(packageName, name, null)
-                                                }
-                                                modpackManager.deleteModpack(packageName, name)
-                                            }
-                                            if (deleted) {
+                                            if (RuntimeCoordinator.delete(context, packageName, name)) {
                                                 modpacks = modpacks.filterNot { it.name == name }
-                                                if (wasActive) {
-                                                    AppSettings.setActiveModpack(context, packageName, null)
-                                                    activeModpackName = null
-                                                    appliedModpackName = null
-                                                }
                                                 modpackRefreshKey++
                                             }
                                         }
                                     },
                                     onEditModpack = { oldName, newName, createShortcut, iconBitmap, gameVersion ->
-                                        val existingShortcut = modpackManager.listModpacks(packageName)
-                                            .firstOrNull { it.name == oldName }
-                                            ?.createShortcut == true
-                                        val normalizedName = modpackManager.normalizeModpackName(newName)
-                                        val success = modpackManager.renameModpack(packageName, oldName, newName)
-                                        if (success) {
-                                            val shortcutShouldExist = createShortcut || existingShortcut
-                                            if (activeModpackName == oldName) {
-                                                activeModpackName = normalizedName
-                                                AppSettings.setActiveModpack(context, packageName, normalizedName)
-                                            }
-                                            modpackManager.updateMeta(
-                                                packageName,
-                                                normalizedName,
-                                                shortcutShouldExist,
-                                                gameVersion
-                                            )
-                                            if (createShortcut || (existingShortcut && oldName != normalizedName)) {
-                                                if (oldName != normalizedName) {
-                                                    ModpackShortcutHelper.removeShortcut(context, packageName, oldName)
+                                        composeScope.launch {
+                                            try {
+                                                val normalizedName = modpackManager.normalizeModpackName(newName)
+                                                val existingShortcut = withContext(Dispatchers.IO) {
+                                                    modpackManager.listModpacks(packageName)
+                                                        .firstOrNull { it.name == oldName }?.createShortcut == true
                                                 }
-                                                ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
-                                            }
-                                            if (iconBitmap != null) {
-                                                val ext = when {
-                                                    iconBitmap.config == android.graphics.Bitmap.Config.RGB_565 -> "jpg"
-                                                    else -> "png"
+                                                val success = withContext(Dispatchers.IO) {
+                                                    modpackManager.renameModpack(packageName, oldName, newName)
                                                 }
-                                                modpackManager.saveModpackIcon(packageName, normalizedName, iconBitmap, ext)
+                                                if (success) {
+                                                    RuntimeCoordinator.onRenamed(context, packageName, oldName, normalizedName)
+                                                    val shortcutShouldExist = createShortcut || existingShortcut
+                                                    withContext(Dispatchers.IO) {
+                                                        modpackManager.updateMeta(packageName, normalizedName,
+                                                            shortcutShouldExist, gameVersion)
+                                                        if (iconBitmap != null) {
+                                                            val ext = if (iconBitmap.config == android.graphics.Bitmap.Config.RGB_565) "jpg" else "png"
+                                                            modpackManager.saveModpackIcon(packageName, normalizedName, iconBitmap, ext)
+                                                        }
+                                                    }
+                                                    if (createShortcut || (existingShortcut && oldName != normalizedName)) {
+                                                        if (oldName != normalizedName) {
+                                                            ModpackShortcutHelper.removeShortcut(context, packageName, oldName)
+                                                        }
+                                                        ModpackShortcutHelper.createShortcut(context, packageName, normalizedName, newName)
+                                                    }
+                                                    modpackRefreshKey++
+                                                    modpackIconRefreshKey++
+                                                }
+                                            } catch (error: Exception) {
+                                                if (error is CancellationException) throw error
+                                                com.bepinex.android.BepInExLog.e("Cannot edit modpack", error)
+                                                android.widget.Toast.makeText(context, context.getString(R.string.runtime_operation_failed),
+                                                    android.widget.Toast.LENGTH_LONG).show()
                                             }
-                                            modpacks = modpackManager.listModpacks(packageName)
-                                            modpackRefreshKey++
-                                            modpackIconRefreshKey++
                                         }
-                                        success
                                     },
                                     onSelectModpack = { name ->
-                                        enqueueModpackSwitch(packageName, name)
+                                        RuntimeCoordinator.requestSwitch(context, packageName, name)
                                     },
                                     onOpenModpack = { name ->
                                         navController.navigate(NavRoutes.modpackDetail(packageName, name))

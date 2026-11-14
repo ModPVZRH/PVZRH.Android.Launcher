@@ -597,4 +597,5 @@
     <string name="bootstrap_status_launching">Launching game…</string>
     <string name="bootstrap_status_error">Launch failed</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
+    <string name="runtime_operation_failed">整合包狀態更新失敗，請重試。</string>
 </resources>

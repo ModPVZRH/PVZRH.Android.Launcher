@@ -4,8 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import com.bepinex.android.modpack.ModpackManager
-import com.bepinex.android.settings.AppSettings
+import com.bepinex.android.modpack.RuntimeCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,17 +45,12 @@ class ShortcutLauncherActivity : Activity() {
             finish()
             return
         }
-
-        val modpackManager = ModpackManager()
-        val previous = AppSettings.getActiveModpack(this, packageName)
-
         launchScope.launch {
             try {
                 GameProcessLauncher.launch(this@ShortcutLauncherActivity, packageName, modpackName) {
-                    check(modpackManager.switchRuntime(packageName, previous, modpackName)) {
+                    check(RuntimeCoordinator.switch(applicationContext, packageName, modpackName)) {
                         "Failed to switch modpack"
                     }
-                    AppSettings.setActiveModpack(this@ShortcutLauncherActivity, packageName, modpackName)
                 }
             } catch (error: Exception) {
                 BepInExLog.e("Shortcut modpack switch failed", error)

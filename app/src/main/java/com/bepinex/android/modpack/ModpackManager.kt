@@ -22,8 +22,6 @@ import java.io.InputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
@@ -223,11 +221,7 @@ class ModpackManager {
         fun isModFileName(fileName: String?): Boolean =
             fileName?.substringAfterLast('.', "")?.equals("dll", ignoreCase = true) == true
 
-        private val runtimeMutex = Mutex()
 
-        @Volatile
-        var runtimeSwitchInProgress: Boolean = false
-            internal set
     }
 
     fun normalizeModpackName(name: String): String =
@@ -305,16 +299,20 @@ class ModpackManager {
         }
     }
 
-    fun deleteModpack(packageName: String, name: String): Boolean {
+    fun deleteModpack(packageName: String, name: String): Boolean = runtimeStore(packageName).locked {
+        if (owner(null) == name) return@locked false
         val dir = getModpackDir(packageName, name)
-        return if (dir.exists()) {
+        if (dir.exists()) {
             dir.deleteRecursively().also {
                 BepInExLog.i("Deleted modpack: $name")
             }
         } else false
     }
 
-    fun renameModpack(packageName: String, oldName: String, newName: String): Boolean {
+    fun renameModpack(packageName: String, oldName: String, newName: String): Boolean =
+        runtimeStore(packageName).locked { renameModpackLocked(packageName, oldName, newName) }
+
+    private fun renameModpackLocked(packageName: String, oldName: String, newName: String): Boolean {
         val safeNewName = normalizeModpackName(newName)
         if (safeNewName.isEmpty()) return false
         if (safeNewName == oldName) return true
@@ -324,6 +322,12 @@ class ModpackManager {
         if (!oldDir.exists() || newDir.exists()) return false
 
         if (!oldDir.renameTo(newDir)) return false
+        try {
+            runtimeStore(packageName).renameOwner(oldName, safeNewName)
+        } catch (error: Exception) {
+            check(newDir.renameTo(oldDir)) { "Cannot restore renamed modpack: $oldName" }
+            throw error
+        }
 
         // Metadata is repaired on a best-effort basis after the directory rename.
         try {
@@ -815,216 +819,23 @@ class ModpackManager {
     fun getModCount(packageName: String, modpackName: String): Int =
         listMods(packageName, modpackName).size
 
-    // Activate / Apply
+    // Runtime operations are serialized across launcher and game processes by the store.
+    internal fun activeRuntimeModpack(packageName: String, fallback: String?): String? =
+        runtimeStore(packageName).locked { owner(fallback) }
 
-    /**
-     * Apply the modpack contents to the active BepInEx directory.
-     * Runtime writes stay in BepInEx/; persistRuntimeState() copies them back later.
-     */
-    fun applyModpack(packageName: String, modpackName: String): Boolean {
-        return try {
-            restoreRuntimeState(packageName, modpackName)
-            BepInExLog.i("Applied modpack: $modpackName  -> active")
-            true
-        } catch (e: Exception) {
-            BepInExLog.e("Failed to apply modpack", e)
-            false
+    internal fun switchRuntimeBlocking(packageName: String, from: String?, to: String?) {
+        runtimeStore(packageName).locked {
+            val disabled = to?.let { readMeta(packageName, it)?.disabledDlls }.orEmpty()
+            apply(to, from, disabled, FileExtractor.stagedLauncherUiPlugin(packageName))
         }
     }
 
-    /** Clear active mods (vanilla mode) */
-    fun clearActiveMods(packageName: String) {
-        restoreRuntimeState(packageName, null)
-        BepInExLog.i("Cleared active mods (vanilla mode)")
+    internal fun persistRuntimeState(packageName: String, modpackName: String?) {
+        runtimeStore(packageName).locked { save(modpackName) }
     }
 
-    /**
-     * Persist [from] then restore [to] under a lock so UI switches and
-     * shortcut launches cannot interleave copies.
-     */
-    suspend fun switchRuntime(packageName: String, from: String?, to: String?): Boolean {
-        return runtimeMutex.withLock {
-            runtimeSwitchInProgress = true
-            try {
-                persistRuntimeState(packageName, from)
-                if (to.isNullOrEmpty()) {
-                    clearActiveMods(packageName)
-                    true
-                } else {
-                    applyModpack(packageName, to)
-                }
-            } finally {
-                runtimeSwitchInProgress = false
-            }
-        }
-    }
-
-    fun persistRuntimeState(packageName: String, modpackName: String?) {
-        val destRoot = stateRoot(packageName, modpackName)
-        destRoot.mkdirs()
-        copyDirContents(BepInExPaths.getConfigDir(packageName), File(destRoot, "config"))
-        copyRuntimeLogs(packageName, File(destRoot, "logs"))
-        BepInExLog.i("Persisted runtime cfg/logs -> ${destRoot.absolutePath}")
-    }
-
-    fun restoreRuntimeState(packageName: String, modpackName: String?) {
-        val srcRoot = stateRoot(packageName, modpackName)
-        val bepInExDir = BepInExPaths.getBepInExDir(packageName)
-        val pluginsDir = BepInExPaths.getPluginsDir(packageName)
-        val configDir = BepInExPaths.getConfigDir(packageName)
-        val logsDir = BepInExPaths.getLogsDir(packageName)
-        val logFile = BepInExPaths.getLogFile(packageName)
-
-        replaceDir(logsDir)
-        if (logFile.exists()) logFile.delete()
-
-        if (!modpackName.isNullOrEmpty()) {
-            // plugins/config/logs use their dedicated runtime-state handling.
-            val pluginsSource = getModpackPluginsDir(packageName, modpackName)
-            val disabledDlls = readMeta(packageName, modpackName)?.disabledDlls.orEmpty()
-            if (disabledDlls.isNotEmpty()) {
-                BepInExLog.i("Skipping ${disabledDlls.size} disabled plugin(s) for $modpackName")
-            }
-            syncDirContents(
-                source = pluginsSource,
-                dest = pluginsDir,
-                excludedRelativePaths = disabledDlls,
-                relativeRoot = pluginsSource
-            )
-            copyModpackRootContents(srcRoot, bepInExDir)
-        } else {
-            // Vanilla state never owns plugins, so make sure no active mod is left.
-            replaceDir(pluginsDir)
-        }
-        syncDirContents(File(srcRoot, "config"), configDir)
-        // Do NOT restore LogOutput.log from modpack — let each session start fresh.
-        // persistRuntimeState() will save the latest logs when the session ends.
-        FileExtractor.copyStagedLauncherUiPlugin(packageName)
-        BepInExLog.i("Restored runtime cfg from ${srcRoot.absolutePath}")
-    }
-
-    private fun stateRoot(packageName: String, modpackName: String?): File =
-        if (modpackName.isNullOrEmpty()) {
-            BepInExPaths.getVanillaStateDir(packageName)
-        } else {
-            getModpackDir(packageName, modpackName)
-        }
-
-    private fun copyRuntimeLogs(packageName: String, destLogs: File) {
-        destLogs.mkdirs()
-        BepInExPaths.getLogFile(packageName).takeIf { it.isFile }?.copyTo(
-            File(destLogs, "LogOutput.log"), overwrite = true
-        )
-        copyDirContents(BepInExPaths.getLogsDir(packageName), destLogs)
-    }
-
-    private fun replaceDir(dir: File) {
-        dir.deleteRecursively()
-        dir.mkdirs()
-    }
-
-    private fun copyDirContents(source: File, dest: File) {
-        dest.mkdirs()
-        if (!source.isDirectory) return
-        source.listFiles()?.forEach { child ->
-            val target = File(dest, child.name)
-            if (child.isDirectory) {
-                child.copyRecursively(target, overwrite = true)
-            } else {
-                child.copyTo(target, overwrite = true)
-            }
-        }
-    }
-
-    /**
-     * Mirror [source] into [dest], keeping identical files and updating changed ones.
-     * Files whose path relative to [relativeRoot] is in [excludedRelativePaths] are
-     * treated as absent, so leftover copies in [dest] are removed.
-     */
-    private fun syncDirContents(
-        source: File,
-        dest: File,
-        excludedRelativePaths: Set<String> = emptySet(),
-        relativeRoot: File = source
-    ) {
-        if (!source.isDirectory) {
-            replaceDir(dest)
-            return
-        }
-
-        if (dest.exists() && !dest.isDirectory) dest.delete()
-        dest.mkdirs()
-
-        val sourceChildren = source.listFiles()
-            ?.filterNot { child ->
-                child.isFile &&
-                    excludedRelativePaths.isNotEmpty() &&
-                    normalizeDllKey(child.relativeTo(relativeRoot).invariantSeparatorsPath) in
-                        excludedRelativePaths
-            }
-            ?.associateBy { it.name }
-            .orEmpty()
-        dest.listFiles()
-            ?.filter { it.name !in sourceChildren }
-            ?.forEach { it.deleteRecursively() }
-
-        sourceChildren.values.forEach { child ->
-            syncEntry(child, File(dest, child.name), excludedRelativePaths, relativeRoot)
-        }
-    }
-
-    private fun syncEntry(
-        source: File,
-        target: File,
-        excludedRelativePaths: Set<String> = emptySet(),
-        relativeRoot: File = source
-    ) {
-        if (source.isDirectory) {
-            syncDirContents(source, target, excludedRelativePaths, relativeRoot)
-            return
-        }
-
-        if (target.isFile && filesHaveSameContent(source, target)) return
-        if (target.exists()) target.deleteRecursively()
-        target.parentFile?.mkdirs()
-        source.copyTo(target, overwrite = true)
-    }
-
-    private fun filesHaveSameContent(first: File, second: File): Boolean {
-        if (first.length() != second.length()) return false
-
-        first.inputStream().buffered().use { firstInput ->
-            second.inputStream().buffered().use { secondInput ->
-                val firstBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                val secondBuffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val firstRead = firstInput.read(firstBuffer)
-                    val secondRead = secondInput.read(secondBuffer)
-                    if (firstRead != secondRead) return false
-                    if (firstRead == -1) return true
-                    for (index in 0 until firstRead) {
-                        if (firstBuffer[index] != secondBuffer[index]) return false
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Copy a modpack's BepInEx-root contents, excluding launcher metadata.
-     */
-    private fun copyModpackRootContents(source: File, bepInExDir: File) {
-        if (!source.isDirectory) return
-
-        val runtimeOwned = setOf("modpack.json", "plugins", "config", "logs", "core")
-        source.listFiles()
-            ?.filter { it.name !in runtimeOwned }
-            ?.forEach { child ->
-                val target = File(bepInExDir, child.name)
-                syncEntry(child, target)
-                BepInExLog.i("Restored modpack entry: ${child.name} -> ${target.absolutePath}")
-            }
-    }
+    private fun runtimeStore(packageName: String) =
+        ModpackRuntimeStore(BepInExPaths.getGameRootDir(packageName))
 
     // Export / Import
 
@@ -1137,7 +948,8 @@ class ModpackManager {
     private fun isExportableFile(modpackDir: File, file: File): Boolean {
         if (!file.isFile) return false
         val relativePath = file.relativeTo(modpackDir).invariantSeparatorsPath
-        return !relativePath.substringBefore('/').equals("logs", ignoreCase = true)
+        val root = relativePath.substringBefore('/')
+        return !root.equals("logs", ignoreCase = true) && root != ".launcher-transaction"
     }
 
     fun scanDownloadModpacks(context: Context): List<File> {
