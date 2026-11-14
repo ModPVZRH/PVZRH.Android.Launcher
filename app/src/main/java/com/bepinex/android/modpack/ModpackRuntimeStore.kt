@@ -112,6 +112,7 @@ internal class ModpackRuntimeStore(private val gameRoot: File) {
 
     private fun protected(name: String): Boolean = name.startsWith(".") || name in setOf(
         "modpack.json", "plugins", "config", "logs", "core", "interop", "unity-libs",
+        "launcher-session.txt", "crash-report.txt",
         "LogOutput.log", "launcher-bridge.json", "logcat-capture.txt", "logcat-capture.1.txt",
         "logcat-capture-previous.txt", "java-crash.txt", "java-crash-previous.txt"
     )

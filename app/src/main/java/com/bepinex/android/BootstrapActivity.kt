@@ -69,6 +69,7 @@ class BootstrapActivity : Activity() {
     private var progressBar: ProgressBar? = null
 
     private fun updateProgress(step: String, detail: String = "", percent: Int = -1) {
+        BepInExLog.i("Bootstrap stage [$percent%]: $step $detail")
         runOnUiThread {
             tvStep?.text = step
             tvDetail?.text = detail
@@ -110,6 +111,7 @@ class BootstrapActivity : Activity() {
             return
         }
         BepInExLog.i("=== Bootstrap: $targetPackage ===")
+        GameDiagnosticSession.start(this, targetPackage, intent.getStringExtra(EXTRA_ACTIVE_MODPACK))
         GameLogcatCapture.start(targetPackage)
 
         Thread({

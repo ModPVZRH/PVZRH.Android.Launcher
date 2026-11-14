@@ -481,6 +481,17 @@
     <string name="launch_wait_extraction">请等待 — BepInEx 正在解压中</string>
     <string name="launch_no_game">未选择游戏</string>
     <!-- Crash -->
+    <string name="crash_reason_java">Java/Kotlin 未捕获异常</string>
+    <string name="crash_reason_managed">.NET 未处理异常</string>
+    <string name="crash_reason_native">原生代码崩溃</string>
+    <string name="crash_reason_signal">进程被信号终止</string>
+    <string name="crash_reason_memory">Android 因系统内存不足终止了游戏进程</string>
+    <string name="crash_reason_anr">应用无响应（ANR）</string>
+    <string name="crash_reason_resource">Android 因资源占用过高终止了游戏进程</string>
+    <string name="crash_reason_initialization">进程初始化失败</string>
+    <string name="crash_reason_unknown">现有证据不足以确定退出原因</string>
+    <string name="crash_evidence_hint">下方异常、信号和堆栈是诊断证据。某个库或模组出现在日志中，并不代表它一定导致了闪退；缺少系统堆栈时可能无法确定具体根因。</string>
+    <string name="crash_reason_label">退出原因：%1$s</string>
     <string name="crash_title">检测到运行时错误</string>
     <string name="crash_game_info">%1$s 异常退出</string>
     <string name="crash_signal">信号: %1$s</string>

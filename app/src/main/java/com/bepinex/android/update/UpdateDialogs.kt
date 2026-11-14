@@ -367,7 +367,7 @@ fun CrashDialog(
 
                 if (signal != null) {
                     Text(
-                        text = stringResource(R.string.crash_signal, signal),
+                        text = stringResource(R.string.crash_reason_label, signal),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(bottom = 12.dp)

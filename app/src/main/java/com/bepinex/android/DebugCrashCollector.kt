@@ -33,6 +33,7 @@ object DebugCrashCollector {
             writeCommand(snapshot, "meminfo.txt", arrayOf("dumpsys", "meminfo", context.packageName))
             writeCommand(snapshot, "properties.txt", arrayOf("getprop"))
             val exitRecords = ProcessExitDiagnostics.read(context)
+            ProcessExitDiagnostics.writeNativeTraces(snapshot, exitRecords)
             writeText(
                 snapshot,
                 "application_exit_info.txt",
@@ -70,6 +71,8 @@ object DebugCrashCollector {
                     }
 
                 val sidecars = listOf(
+                    BepInExPaths.getCrashReportFile(packageName),
+                    BepInExPaths.getGameSessionFile(packageName),
                     BepInExPaths.getLogcatCaptureFile(packageName),
                     BepInExPaths.getLogcatCaptureArchiveFile(packageName),
                     BepInExPaths.getPreviousLogcatCaptureFile(packageName),

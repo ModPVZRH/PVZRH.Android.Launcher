@@ -51,6 +51,12 @@ object BepInExPaths {
     fun getJavaCrashFile(packageName: String): File =
         File(getBepInExDir(packageName), "java-crash.txt")
 
+    fun getGameSessionFile(packageName: String): File =
+        File(getBepInExDir(packageName), "launcher-session.txt")
+
+    fun getCrashReportFile(packageName: String): File =
+        File(getBepInExDir(packageName), "crash-report.txt")
+
     fun getPreviousJavaCrashFile(packageName: String): File =
         File(getBepInExDir(packageName), "java-crash-previous.txt")
 

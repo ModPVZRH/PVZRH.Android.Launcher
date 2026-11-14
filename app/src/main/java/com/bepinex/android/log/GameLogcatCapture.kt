@@ -24,6 +24,7 @@ object GameLogcatCapture {
         val outFile = BepInExPaths.getLogcatCaptureFile(packageName)
         outFile.parentFile?.mkdirs()
         preservePreviousRun(outFile, BepInExPaths.getPreviousLogcatCaptureFile(packageName))
+        BepInExPaths.getLogcatCaptureArchiveFile(packageName).delete()
         prepareJavaCrashCapture(packageName)
         outFile.writeText("=== game logcat session ${Date()} pid=${android.os.Process.myPid()} ===\n")
 
@@ -32,17 +33,11 @@ object GameLogcatCapture {
                 Runtime.getRuntime().exec(
                     arrayOf(
                         "logcat",
-                        "-v", "threadtime",
+                        "-b", "main", "-b", "system", "-b", "crash",
+                        "-v", "epoch",
                         "-T", "1",
-                        "Unity:V",
-                        "BepInEx:V",
-                        "AndroidRuntime:V",
-                        "DEBUG:V",
-                        "libc:V",
-                        "crash_dump64:V",
-                        "tombstoned:V",
-                        "ActivityManager:I",
-                        "*:S"
+                        "--pid=${android.os.Process.myPid()}",
+                        "*:V"
                     )
                 )
             } catch (error: Exception) {
@@ -61,8 +56,7 @@ object GameLogcatCapture {
                             output = FileOutputStream(outFile, true)
                             output.write("=== continued game logcat ${Date()} ===\n".toByteArray())
                         }
-                        // The tag filter already limits the stream. Keep every emitted line so
-                        // exception causes, Java frames and native backtraces remain intact.
+                        // Capture all tags in this process, including Fusion, Dobby and CoreCLR.
                         output.write(bytes)
                         if (isRelevant(line)) {
                             output.flush()
@@ -94,6 +88,8 @@ object GameLogcatCapture {
     fun isRelevant(line: String): Boolean {
         val lower = line.lowercase()
         if (lower.contains("fatal exception")) return true
+        if (Regex("\\s[EF]\\s").containsMatchIn(line)) return true
+        if (lower.contains("abort message:") || lower.contains("unhandled exception")) return true
         if (lower.contains("[error") || lower.contains("[fatal")) return true
         if (lower.contains("notsupportedexception")) return true
         if (lower.contains("il2cppinterop") &&

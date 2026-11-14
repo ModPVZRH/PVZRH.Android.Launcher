@@ -5,6 +5,7 @@ import android.app.ApplicationExitInfo
 import android.content.Context
 import android.os.Build
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.util.Date
 
 /** Reads the OS-owned exit record, which survives native crashes and process death. */
@@ -20,25 +21,30 @@ object ProcessExitDiagnostics {
         val importance: Int,
         val pss: Long,
         val rss: Long,
-        val trace: String
+        val trace: String,
+        val pid: Int = 0,
+        val nativeTrace: ByteArray? = null
     ) {
+        val reasonLabel: String get() = reasonName(reason)
         val isAbnormal: Boolean
             get() = reason == ApplicationExitInfo.REASON_CRASH ||
                 reason == ApplicationExitInfo.REASON_CRASH_NATIVE ||
                 reason == ApplicationExitInfo.REASON_ANR ||
                 reason == ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE ||
                 reason == ApplicationExitInfo.REASON_LOW_MEMORY ||
+                reason == ApplicationExitInfo.REASON_INITIALIZATION_FAILURE ||
                 reason == ApplicationExitInfo.REASON_SIGNALED
 
         fun format(): String = buildString {
             appendLine("process=$processName")
+            appendLine("pid=$pid")
             appendLine("time=${Date(timestamp)} ($timestamp)")
             appendLine("reason=${reasonName(reason)} ($reason)")
             appendLine("status=$status")
             appendLine("description=$description")
             appendLine("importance=$importance")
-            appendLine("pss=$pss")
-            appendLine("rss=$rss")
+            appendLine("pss_kb=$pss")
+            appendLine("rss_kb=$rss")
             if (trace.isNotBlank()) {
                 appendLine()
                 appendLine("--- system trace ---")
@@ -61,6 +67,7 @@ object ProcessExitDiagnostics {
                 .filter { it.timestamp >= sinceMillis }
                 .filter { processName == null || it.processName == processName }
                 .map { info ->
+                    val trace = readTrace(info)
                     ExitRecord(
                         processName = info.processName,
                         timestamp = info.timestamp,
@@ -70,7 +77,9 @@ object ProcessExitDiagnostics {
                         importance = info.importance,
                         pss = info.pss,
                         rss = info.rss,
-                        trace = readTrace(info)
+                        trace = trace.first,
+                        pid = info.pid,
+                        nativeTrace = trace.second
                     )
                 }
                 .sortedByDescending { it.timestamp }
@@ -83,7 +92,16 @@ object ProcessExitDiagnostics {
     fun format(records: List<ExitRecord>): String = records
         .joinToString("\n\n====================\n\n") { it.format() }
 
-    private fun readTrace(info: ApplicationExitInfo): String {
+    fun writeNativeTraces(directory: File, records: List<ExitRecord>) {
+        records.forEach { record ->
+            record.nativeTrace?.let { bytes ->
+                directory.mkdirs()
+                File(directory, "native-${record.timestamp}-${record.pid}.pb").writeBytes(bytes)
+            }
+        }
+    }
+
+    private fun readTrace(info: ApplicationExitInfo): Pair<String, ByteArray?> {
         return try {
             info.traceInputStream?.use { input ->
                 val output = ByteArrayOutputStream()
@@ -95,11 +113,20 @@ object ProcessExitDiagnostics {
                     output.write(buffer, 0, count)
                     remaining -= count
                 }
-                output.toString(Charsets.UTF_8.name()) +
-                    if (remaining == 0) "\n[trace truncated at $MAX_TRACE_BYTES bytes]" else ""
-            }.orEmpty()
-        } catch (_: Throwable) {
-            ""
+                val truncated = remaining == 0 && input.read() != -1
+                if (info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+                    if (truncated) {
+                        "Native tombstone exceeded $MAX_TRACE_BYTES bytes; incomplete protobuf omitted." to null
+                    } else {
+                        "Native tombstone is binary protobuf; see native-${info.timestamp}-${info.pid}.pb in the exported logs." to output.toByteArray()
+                    }
+                } else {
+                    (output.toString(Charsets.UTF_8.name()) +
+                        if (truncated) "\n[trace truncated at $MAX_TRACE_BYTES bytes]" else "") to null
+                }
+            } ?: ("System trace not provided by Android." to null)
+        } catch (error: Exception) {
+            "System trace unavailable: ${error.javaClass.simpleName}: ${error.message}" to null
         }
     }
 
