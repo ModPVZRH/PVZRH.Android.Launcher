@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">ตัวเปิดเกม PVZRH</string>
-    <string name="app_tagline">ตัวเปิดเกม PVZRH</string>
+    <string name="app_name">ตัวเปิดเกมส์ PVZRH</string>
+    <string name="app_tagline">ตัวเปิดเกมส์ PVZRH</string>
     <!-- Navigation -->
     <string name="nav_games">เกมส์</string>
     <string name="nav_modpacks">ม็อดแพ็ค</string>
