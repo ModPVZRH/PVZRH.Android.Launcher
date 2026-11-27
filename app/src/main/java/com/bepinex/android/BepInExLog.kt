@@ -1,7 +1,9 @@
 package com.bepinex.android
 
 import android.content.Context
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
 import java.io.FileOutputStream
@@ -13,9 +15,12 @@ object BepInExLog {
 
     private const val MAX_LOGCAT_CHUNK_BYTES = 4L * 1024L * 1024L
 
-    private val _entries = MutableStateFlow<List<LogEntry>>(emptyList())
-    val entries: StateFlow<List<LogEntry>> = _entries
+    private val cache = BatchedLogBuffer<LogEntry>(
+        CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    ) { it.timestamp.length + it.message.length }
+    val entries: StateFlow<List<LogEntry>> = cache.entries
 
+    private val writeLock = Any()
     private var logFile: File? = null
     private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
     private var crashHandlerInstalled = false
@@ -30,7 +35,9 @@ object BepInExLog {
 
     fun init(context: Context) {
         // Write log to external storage so we can adb pull it
-        logFile = File(context.getExternalFilesDir(null), "bepinex_launcher.log")
+        synchronized(writeLock) {
+            logFile = File(context.getExternalFilesDir(null), "bepinex_launcher.log")
+        }
         installCrashHandler(context)
         // Also capture native logcat for crash diagnosis
         startLogcatCapture(context)
@@ -122,7 +129,7 @@ object BepInExLog {
     fun getBepInExLogFile(packageName: String): File =
         BepInExPaths.getLogFile(packageName)
 
-    fun getEntries(): List<LogEntry> = _entries.value
+    fun getEntries(): List<LogEntry> = cache.snapshot()
 
     fun i(message: String) = log(Level.INFO, message)
     fun w(message: String) = log(Level.WARN, message)
@@ -133,15 +140,15 @@ object BepInExLog {
     fun d(message: String) = log(Level.DEBUG, message)
 
     /** Clear in-memory log entries */
-    fun clear() { _entries.value = emptyList() }
+    fun clear() = cache.clear()
 
     private fun log(level: Level, message: String) {
-        val timestamp = dateFormat.format(Date())
-        val entry = LogEntry(timestamp, level, message)
-        _entries.value = _entries.value + entry
-
-        // Write to file
-        logFile?.appendText("[$timestamp] [${level.name}] $message\n")
+        synchronized(writeLock) {
+            val timestamp = dateFormat.format(Date())
+            cache.add(LogEntry(timestamp, level, LogMemoryLimits.preview(message)))
+            // The disk log keeps the complete message, independent of the preview budget.
+            logFile?.appendText("[$timestamp] [${level.name}] $message\n")
+        }
 
         // Output to logcat
         val prio = when (level) {
