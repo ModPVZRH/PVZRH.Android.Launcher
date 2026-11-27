@@ -154,7 +154,10 @@ fun ModpackDetailScreen(
     onExportModpack: () -> Unit,
     onBrowseModFiles: () -> Unit = {},
     onImportDownloadDlls: (List<File>) -> Unit = {},
-    onImportModsFromModpack: (sourceModpack: String, relativePaths: List<String>) -> Unit = { _, _ -> }
+    onImportModsFromModpack: (sourceModpack: String, relativePaths: List<String>) -> Unit = { _, _ -> },
+    isLoading: Boolean = false,
+    loadFailed: Boolean = false,
+    onRetry: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val manager = remember { ModpackManager() }
@@ -235,19 +238,23 @@ fun ModpackDetailScreen(
     }
 
     fun openImportFromModpack() {
-        val packs = manager.listModpacks(packageName).filter { it.name != modpackName }
-        if (packs.isEmpty()) {
-            android.widget.Toast.makeText(
-                context,
-                context.getString(R.string.modpack_import_from_other_empty),
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-            return
+        scanScope.launch {
+            val packs = withContext(Dispatchers.IO) {
+                manager.listModpacks(packageName).filter { it.name != modpackName }
+            }
+            if (packs.isEmpty()) {
+                android.widget.Toast.makeText(
+                    context,
+                    context.getString(R.string.modpack_import_from_other_empty),
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
+            otherModpacks = packs
+            importSourceName = null
+            importSourceMods = emptyList()
+            selectedImportPaths = emptySet()
         }
-        otherModpacks = packs
-        importSourceName = null
-        importSourceMods = emptyList()
-        selectedImportPaths = emptySet()
     }
 
     fun selectImportSource(sourceName: String) {
@@ -337,7 +344,7 @@ fun ModpackDetailScreen(
                 .padding(padding)
                 .navigationBarsPadding()
         ) {
-            if (scanningDownloads) {
+            if (scanningDownloads || isLoading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
         Box(
@@ -394,6 +401,7 @@ fun ModpackDetailScreen(
                             if (filteredMods.isNotEmpty()) {
                                 val allEnabled = filteredMods.all { it.enabled }
                                 TextButton(
+                                    enabled = !isLoading,
                                     onClick = {
                                         if (allEnabled) {
                                             onSetModsEnabled(filteredMods, false)
@@ -469,7 +477,18 @@ fun ModpackDetailScreen(
                 }
             }
 
-            if (mods.isEmpty()) {
+            if (loadFailed) {
+                item {
+                    Column(Modifier.fillMaxWidth().padding(24.dp)) {
+                        Text(stringResource(R.string.runtime_operation_failed))
+                        TextButton(onClick = onRetry) { Text(stringResource(R.string.market_retry)) }
+                    }
+                }
+            } else if (isLoading && mods.isEmpty()) {
+                item {
+                    Text(stringResource(R.string.loading), modifier = Modifier.padding(24.dp))
+                }
+            } else if (mods.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier
@@ -539,6 +558,7 @@ fun ModpackDetailScreen(
                 ) { mod ->
                     ModItemCard(
                         mod = mod,
+                        enabled = !isLoading,
                         onToggle = { enabled -> onToggleMod(mod, enabled) },
                         onRename = { modPendingRename = mod },
                         onSetCategory = { modPendingCategory = mod },
@@ -1115,6 +1135,7 @@ private fun ModCategoryFilterRow(
 @Composable
 private fun ModItemCard(
     mod: ModpackMod,
+    enabled: Boolean = true,
     onToggle: (Boolean) -> Unit,
     onRename: () -> Unit,
     onSetCategory: () -> Unit,
@@ -1132,7 +1153,7 @@ private fun ModItemCard(
             append(mod.relativePath)
             append(" · ")
         }
-        append(formatFileSize(mod.file.length()))
+        append(formatFileSize(mod.sizeBytes))
     }
 
     Card(
@@ -1199,13 +1220,17 @@ private fun ModItemCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                com.bepinex.android.ui.liquid.LiquidToggle(
-                    checked = mod.enabled,
-                    onCheckedChange = onToggle,
-                    modifier = Modifier.semantics {
-                        contentDescription = enableLabel + ": " + mod.displayName
-                    }
-                )
+                if (enabled) {
+                    com.bepinex.android.ui.liquid.LiquidToggle(
+                        checked = mod.enabled,
+                        onCheckedChange = onToggle,
+                        modifier = Modifier.semantics {
+                            contentDescription = enableLabel + ": " + mod.displayName
+                        }
+                    )
+                } else {
+                    Switch(checked = mod.enabled, onCheckedChange = null, enabled = false)
+                }
             }
 
             HorizontalDivider(
@@ -1220,7 +1245,7 @@ private fun ModItemCard(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onSetCategory) {
+                TextButton(onClick = onSetCategory, enabled = enabled) {
                     Icon(
                         imageVector = Icons.Outlined.Category,
                         contentDescription = null,
@@ -1229,7 +1254,7 @@ private fun ModItemCard(
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.modpack_mod_category))
                 }
-                TextButton(onClick = onRename) {
+                TextButton(onClick = onRename, enabled = enabled) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
                         contentDescription = null,
@@ -1240,6 +1265,7 @@ private fun ModItemCard(
                 }
                 TextButton(
                     onClick = onDelete,
+                    enabled = enabled,
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )

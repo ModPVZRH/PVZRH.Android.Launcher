@@ -73,8 +73,11 @@ data class ModpackMod(
     val relativePath: String,
     val displayName: String,
     val enabled: Boolean = true,
-    val category: String? = null
+    val category: String? = null,
+    val sizeBytes: Long = 0L
 )
+
+data class ModpackDetails(val mods: List<ModpackMod>, val configFiles: List<File>)
 
 data class PeekedModpackInfo(
     val name: String,
@@ -105,7 +108,7 @@ data class ModpackExportProgress(
 /**
  * Manages modpack CRUD operations on the file system.
  */
-class ModpackManager {
+class ModpackManager(private val gameRoot: (String) -> File = BepInExPaths::getGameRootDir) {
 
     companion object {
         const val MODPACK_EXTENSION = "rhp"
@@ -228,19 +231,19 @@ class ModpackManager {
         name.replace(Regex("[/\\\\:*?\"<>|]"), "_").trim()
 
     private fun getModpacksDir(packageName: String): File =
-        File(BepInExPaths.getGameRootDir(packageName), "modpacks")
+        File(gameRoot(packageName), "modpacks")
 
     private fun getModpackDir(packageName: String, name: String): File =
-        BepInExPaths.getModpackDir(packageName, name)
+        File(getModpacksDir(packageName), name)
 
     private fun getModpackPluginsDir(packageName: String, name: String): File =
         File(getModpackDir(packageName, name), "plugins")
 
     private fun getModpackConfigDir(packageName: String, name: String): File =
-        BepInExPaths.getModpackConfigDir(packageName, name)
+        File(getModpackDir(packageName, name), "config")
 
     private fun getModpackLogsDir(packageName: String, name: String): File =
-        BepInExPaths.getModpackLogsDir(packageName, name)
+        File(getModpackDir(packageName, name), "logs")
 
     private fun getMetaFile(packageName: String, name: String): File =
         File(getModpackDir(packageName, name), "modpack.json")
@@ -377,19 +380,25 @@ class ModpackManager {
 
     fun listModEntries(packageName: String, modpackName: String): List<ModpackMod> {
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        val stored = readMeta(packageName, modpackName)?.mods.orEmpty()
-        return listMods(packageName, modpackName).map { file ->
+        val files = listMods(packageName, modpackName)
+        val stored = readMeta(packageName, modpackName, files)?.mods.orEmpty()
+        val byFileName = modInfoByFileName(stored)
+        return files.map { file ->
             val relativePath = dllRelativePath(pluginsDir, file)
-            val info = lookupModInfo(stored, relativePath, file.name)
+            val info = stored[relativePath] ?: stored[file.name] ?: byFileName[file.name]
             ModpackMod(
                 file = file,
                 relativePath = relativePath,
                 displayName = info?.displayName?.takeIf { it.isNotBlank() } ?: file.name,
                 enabled = info?.enabled ?: true,
-                category = info?.category?.takeIf { it.isNotBlank() }
+                category = info?.category?.takeIf { it.isNotBlank() },
+                sizeBytes = file.length()
             )
         }
     }
+
+    fun loadDetails(packageName: String, modpackName: String): ModpackDetails =
+        ModpackDetails(listModEntries(packageName, modpackName), listConfigs(packageName, modpackName))
 
     fun setDllDisplayName(
         packageName: String,
@@ -402,7 +411,7 @@ class ModpackManager {
         val current = readMeta(packageName, modpackName) ?: return false
         val fileName = normalizeDllKey(relativePath).substringAfterLast('/')
         writeMeta(
-            updateModInfo(current, packageName, modpackName, relativePath) { info ->
+            updateModInfo(current, relativePath) { info ->
                 info.copy(displayName = name.takeUnless { it == fileName })
             }
         )
@@ -418,7 +427,7 @@ class ModpackManager {
         val current = readMeta(packageName, modpackName) ?: return false
         val name = category?.trim().orEmpty()
         writeMeta(
-            updateModInfo(current, packageName, modpackName, relativePath) { info ->
+            updateModInfo(current, relativePath) { info ->
                 info.copy(category = name.takeIf { it.isNotEmpty() })
             }
         )
@@ -441,7 +450,7 @@ class ModpackManager {
     ): Boolean {
         if (relativePaths.isEmpty()) return false
         val current = readMeta(packageName, modpackName) ?: return false
-        val mods = syncedMods(packageName, modpackName, current.mods).toMutableMap()
+        val mods = current.mods.toMutableMap()
         relativePaths.forEach { raw ->
             val key = normalizeDllKey(raw)
             if (key.isEmpty()) return@forEach
@@ -457,7 +466,6 @@ class ModpackManager {
         }
         writeMeta(
             current.copy(
-                modCount = getModCount(packageName, modpackName),
                 mods = mods
             )
         )
@@ -835,7 +843,7 @@ class ModpackManager {
     }
 
     private fun runtimeStore(packageName: String) =
-        ModpackRuntimeStore(BepInExPaths.getGameRootDir(packageName))
+        ModpackRuntimeStore(gameRoot(packageName))
 
     // Export / Import
 
@@ -1472,9 +1480,13 @@ class ModpackManager {
     }
     // Metadata persistence
 
-    private fun readMeta(packageName: String, name: String): ModpackMeta? {
+    private fun readMeta(
+        packageName: String,
+        name: String,
+        files: List<File> = listMods(packageName, name)
+    ): ModpackMeta? {
         val file = getMetaFile(packageName, name)
-        val actualModCount = getModCount(packageName, name)
+        val actualModCount = files.size
         if (!file.exists()) {
             return ModpackMeta(
                 name = name,
@@ -1485,7 +1497,7 @@ class ModpackManager {
         return try {
             val json = JSONObject(file.readText())
             val parsedMods = parseMods(json)
-            val mods = syncedMods(packageName, name, parsedMods)
+            val mods = syncedMods(packageName, name, parsedMods, files)
             val meta = ModpackMeta(
                 name = name,
                 packageName = packageName,
@@ -1543,15 +1555,13 @@ class ModpackManager {
 
     private fun updateModInfo(
         current: ModpackMeta,
-        packageName: String,
-        modpackName: String,
         relativePath: String,
         transform: (StoredModInfo) -> StoredModInfo
     ): ModpackMeta {
         val key = normalizeDllKey(relativePath)
         if (key.isEmpty()) return current
         val fileName = key.substringAfterLast('/')
-        val mods = syncedMods(packageName, modpackName, current.mods).toMutableMap()
+        val mods = current.mods.toMutableMap()
         val updated = transform(lookupModInfo(mods, key, fileName) ?: StoredModInfo())
         mods.remove(fileName)
         if (updated.isDefault(fileName)) {
@@ -1560,7 +1570,6 @@ class ModpackManager {
             mods[key] = updated
         }
         return current.copy(
-            modCount = getModCount(packageName, modpackName),
             mods = mods
         )
     }
@@ -1660,18 +1669,20 @@ class ModpackManager {
     private fun syncedMods(
         packageName: String,
         modpackName: String,
-        existing: Map<String, StoredModInfo>
+        existing: Map<String, StoredModInfo>,
+        files: List<File>? = null
     ): Map<String, StoredModInfo> {
         if (existing.isEmpty()) return emptyMap()
         val pluginsDir = getModpackPluginsDir(packageName, modpackName)
-        val knownFiles = listMods(packageName, modpackName).associate { file ->
+        val knownFiles = (files ?: listMods(packageName, modpackName)).associate { file ->
             dllRelativePath(pluginsDir, file) to file.name
         }
         if (knownFiles.isEmpty()) return emptyMap()
 
         val result = linkedMapOf<String, StoredModInfo>()
+        val byFileName = modInfoByFileName(existing)
         knownFiles.forEach { (relativePath, fileName) ->
-            val info = lookupModInfo(existing, relativePath, fileName) ?: return@forEach
+            val info = existing[relativePath] ?: existing[fileName] ?: byFileName[fileName] ?: return@forEach
             val normalized = StoredModInfo(
                 displayName = info.displayName?.trim()?.takeIf { it.isNotEmpty() && it != fileName },
                 enabled = info.enabled,
@@ -1681,6 +1692,11 @@ class ModpackManager {
         }
         return result
     }
+
+    private fun modInfoByFileName(mods: Map<String, StoredModInfo>): Map<String, StoredModInfo> =
+        buildMap {
+            mods.forEach { (path, info) -> putIfAbsent(path.substringAfterLast('/'), info) }
+        }
 
     private fun lookupModInfo(
         mods: Map<String, StoredModInfo>,

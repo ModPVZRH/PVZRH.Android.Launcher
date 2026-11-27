@@ -57,6 +57,7 @@ import com.bepinex.android.modpack.ModpackManager
 import com.bepinex.android.modpack.RuntimeCoordinator
 import com.bepinex.android.modpack.RuntimePhase
 import com.bepinex.android.modpack.ModpackMeta
+import com.bepinex.android.modpack.ModpackDetails
 import com.bepinex.android.settings.AppSettings
 import com.bepinex.android.ui.screens.TextViewerScreen
 import com.bepinex.android.ui.liquid.LiquidBottomTab
@@ -77,9 +78,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.resume
 import java.io.File
 
@@ -893,62 +897,90 @@ fun BepInExNavHost(
                     val packageName = backStackEntry.arguments?.getString("packageName") ?: return@composable
                     val modpackName = backStackEntry.arguments?.getString("modpackName") ?: return@composable
 
-                    var mods by remember(packageName, modpackName, modpackRefreshKey) {
-                        mutableStateOf(modpackManager.listModEntries(packageName, modpackName))
+                    val detailScope = rememberCoroutineScope()
+                    val detailLock = remember(packageName, modpackName) { Mutex() }
+                    var details by remember(packageName, modpackName) {
+                        mutableStateOf(ModpackDetails(emptyList(), emptyList()))
                     }
-                    val configFiles = remember(packageName, modpackName, modpackRefreshKey) {
-                        modpackManager.listConfigs(packageName, modpackName)
+                    var loading by remember(packageName, modpackName) { mutableStateOf(true) }
+                    var loadFailed by remember(packageName, modpackName) { mutableStateOf(false) }
+                    var updating by remember(packageName, modpackName) { mutableStateOf(false) }
+
+                    LaunchedEffect(packageName, modpackName, modpackRefreshKey) {
+                        loading = true
+                        loadFailed = false
+                        try {
+                            // Keep list composition out of the navigation transition's frame budget.
+                            backStackEntry.lifecycle.currentStateFlow.first { it == Lifecycle.State.RESUMED }
+                            details = withContext(Dispatchers.IO) {
+                                detailLock.withLock { modpackManager.loadDetails(packageName, modpackName) }
+                            }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            loadFailed = true
+                            com.bepinex.android.BepInExLog.e("Cannot load modpack details", error)
+                        } finally {
+                            loading = false
+                        }
+                    }
+
+                    fun updateDetails(successMessage: (() -> String)? = null, operation: () -> Boolean) {
+                        if (updating || loading) return
+                        updating = true
+                        detailScope.launch {
+                            try {
+                                withContext(NonCancellable + Dispatchers.IO) {
+                                    detailLock.withLock { check(operation()) { "Modpack update failed" } }
+                                }
+                                successMessage?.let {
+                                    android.widget.Toast.makeText(context, it(), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (error: Exception) {
+                                com.bepinex.android.BepInExLog.e("Cannot update modpack details", error)
+                                android.widget.Toast.makeText(context, context.getString(R.string.runtime_operation_failed),
+                                    android.widget.Toast.LENGTH_LONG).show()
+                            } finally {
+                                updating = false
+                                modpackRefreshKey++
+                            }
+                        }
                     }
 
                     ModpackDetailScreen(
                         packageName = packageName,
                         modpackName = modpackName,
-                        mods = mods,
-                        configFiles = configFiles,
+                        mods = details.mods,
+                        configFiles = details.configFiles,
+                        isLoading = loading || updating,
+                        loadFailed = loadFailed,
+                        onRetry = { modpackRefreshKey++ },
                         onNavigateBack = { navController.safePopBackStack() },
                         onAddMod = { addModTrigger = modpackName },
                         onDeleteMod = { mod ->
-                            modpackManager.removeMod(mod.file)
-                            mods = modpackManager.listModEntries(packageName, modpackName)
-                            modpackRefreshKey++
+                            updateDetails { modpackManager.removeMod(mod.file) }
                         },
                         onRenameMod = { mod, displayName ->
-                            modpackManager.setDllDisplayName(
-                                packageName,
-                                modpackName,
-                                mod.relativePath,
-                                displayName
-                            )
-                            mods = modpackManager.listModEntries(packageName, modpackName)
+                            updateDetails {
+                                modpackManager.setDllDisplayName(packageName, modpackName, mod.relativePath, displayName)
+                            }
                         },
                         onSetModCategory = { mod, category ->
-                            modpackManager.setDllCategory(
-                                packageName,
-                                modpackName,
-                                mod.relativePath,
-                                category
-                            )
-                            mods = modpackManager.listModEntries(packageName, modpackName)
+                            updateDetails {
+                                modpackManager.setDllCategory(packageName, modpackName, mod.relativePath, category)
+                            }
                         },
                         onToggleMod = { mod, enabled ->
-                            modpackManager.setDllEnabled(
-                                packageName,
-                                modpackName,
-                                mod.relativePath,
-                                enabled
-                            )
-                            mods = modpackManager.listModEntries(packageName, modpackName)
-                            modpackRefreshKey++
+                            updateDetails {
+                                modpackManager.setDllEnabled(packageName, modpackName, mod.relativePath, enabled)
+                            }
                         },
                         onSetModsEnabled = { targets, enabled ->
-                            modpackManager.setDllsEnabled(
-                                packageName,
-                                modpackName,
-                                targets.map { it.relativePath },
-                                enabled
-                            )
-                            mods = modpackManager.listModEntries(packageName, modpackName)
-                            modpackRefreshKey++
+                            updateDetails {
+                                modpackManager.setDllsEnabled(packageName, modpackName, targets.map { it.relativePath }, enabled)
+                            }
                         },
                         onOpenConfig = { configFile ->
                             navController.navigate(NavRoutes.configEditor(configFile.absolutePath))
@@ -963,83 +995,24 @@ fun BepInExNavHost(
                             startModpackExport(packageName, modpackName)
                         },
                         onImportDownloadDlls = { files ->
-                            composeScope.launch(Dispatchers.IO) {
-                                var importedCount = 0
-                                try {
-                                    files.forEach { file ->
-                                        val added = modpackManager.addMod(
-                                            packageName,
-                                            modpackName,
-                                            file
-                                        )
-                                        if (added != null) importedCount++
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        mods = modpackManager.listModEntries(
-                                            packageName,
-                                            modpackName
-                                        )
-                                        modpackRefreshKey++
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(
-                                                R.string.modpack_scan_dlls_imported,
-                                                importedCount,
-                                                files.size
-                                            ),
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                } catch (_: CancellationException) {
-                                } catch (error: Exception) {
-                                    com.bepinex.android.BepInExLog.e("DLL download import failed", error)
-                                    withContext(Dispatchers.Main) {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(R.string.import_failed),
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
+                            var importedCount = 0
+                            updateDetails(successMessage = {
+                                context.getString(R.string.modpack_scan_dlls_imported, importedCount, files.size)
+                            }) {
+                                files.forEach { file ->
+                                    if (modpackManager.addMod(packageName, modpackName, file) != null) importedCount++
                                 }
+                                true
                             }
                         },
                         onImportModsFromModpack = { sourceModpack, relativePaths ->
-                            composeScope.launch(Dispatchers.IO) {
-                                try {
-                                    val result = modpackManager.importModsFromModpack(
-                                        packageName,
-                                        sourceModpack,
-                                        modpackName,
-                                        relativePaths
-                                    )
-                                    withContext(Dispatchers.Main) {
-                                        mods = modpackManager.listModEntries(
-                                            packageName,
-                                            modpackName
-                                        )
-                                        modpackRefreshKey++
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(
-                                                R.string.modpack_import_from_other_imported,
-                                                result.importedMods,
-                                                relativePaths.size,
-                                                result.importedConfigs
-                                            ),
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                } catch (_: CancellationException) {
-                                } catch (error: Exception) {
-                                    com.bepinex.android.BepInExLog.e("Import from modpack failed", error)
-                                    withContext(Dispatchers.Main) {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(R.string.import_failed),
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
+                            var result = com.bepinex.android.modpack.ModImportResult(0, 0)
+                            updateDetails(successMessage = {
+                                context.getString(R.string.modpack_import_from_other_imported,
+                                    result.importedMods, relativePaths.size, result.importedConfigs)
+                            }) {
+                                result = modpackManager.importModsFromModpack(packageName, sourceModpack, modpackName, relativePaths)
+                                true
                             }
                         }
                     )
