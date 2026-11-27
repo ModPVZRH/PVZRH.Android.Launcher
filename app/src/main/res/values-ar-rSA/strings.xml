@@ -481,6 +481,17 @@
     <string name="launch_wait_extraction"> م</string>
     <string name="launch_no_game">م</string>
     <!-- Crash -->
+    <string name="crash_reason_java">Uncaught Java/Kotlin exception</string>
+    <string name="crash_reason_managed">Unhandled .NET exception</string>
+    <string name="crash_reason_native">Native code crash</string>
+    <string name="crash_reason_signal">Process terminated by a signal</string>
+    <string name="crash_reason_memory">Android terminated the process due to low memory</string>
+    <string name="crash_reason_anr">Application not responding (ANR)</string>
+    <string name="crash_reason_resource">Android terminated the process for excessive resource usage</string>
+    <string name="crash_reason_initialization">Process initialization failed</string>
+    <string name="crash_reason_unknown">Exit cause could not be determined</string>
+    <string name="crash_evidence_hint">The exception, signal and stack frames below are diagnostic evidence. A library or mod appearing in the log does not by itself prove it caused the crash. Missing system traces may prevent an exact diagnosis.</string>
+    <string name="crash_reason_label">Exit reason: %1$s</string>
     <string name="crash_title">م</string>
     <string name="crash_game_info">م</string>
     <string name="crash_signal">م</string>
@@ -597,4 +608,5 @@
     <string name="bootstrap_status_launching">مم</string>
     <string name="bootstrap_status_error">م</string>
     <string name="bootstrap_download_progress">م</string>
+    <string name="runtime_operation_failed">Unable to update modpack state. Please try again.</string>
 </resources>
