@@ -86,7 +86,7 @@
     <string name="modpack_game_version">Kompatible Spielversionen</string>
     <string name="modpack_game_version_hint">Leer lassen für jede Version. Trennen Sie mehrere Versionen mit Kommas.</string>
     <string name="modpack_game_version_value">Für v%s</string>
-    <string name="modpack_game_version_unset">Keine kompatible Version festgelegt</string>
+    <string name="modpack_game_version_unset">Keine kompatiblen Version festgelegt</string>
     <string name="modpack_game_version_any">Beliebige Versionen</string>
     <string name="modpack_game_version_mismatch_title">Versionen stimmen nicht überein</string>
     <string name="modpack_game_version_mismatch_message">Dieses Modpack zeigt auf %1$s, aber das jetzige Spiel befindet sich in %2$s. Trotzdem importieren?</string>
@@ -481,6 +481,17 @@
     <string name="launch_wait_extraction">Bitte warten Sie — BepInEx wird noch extrahiert</string>
     <string name="launch_no_game">Kein Spiel ausgewählt</string>
     <!-- Crash -->
+    <string name="crash_reason_java">Uncaught Java/Kotlin exception</string>
+    <string name="crash_reason_managed">Unhandled .NET exception</string>
+    <string name="crash_reason_native">Native code crash</string>
+    <string name="crash_reason_signal">Process terminated by a signal</string>
+    <string name="crash_reason_memory">Android terminated the process due to low memory</string>
+    <string name="crash_reason_anr">Application not responding (ANR)</string>
+    <string name="crash_reason_resource">Android terminated the process for excessive resource usage</string>
+    <string name="crash_reason_initialization">Process initialization failed</string>
+    <string name="crash_reason_unknown">Exit cause could not be determined</string>
+    <string name="crash_evidence_hint">The exception, signal and stack frames below are diagnostic evidence. A library or mod appearing in the log does not by itself prove it caused the crash. Missing system traces may prevent an exact diagnosis.</string>
+    <string name="crash_reason_label">Exit reason: %1$s</string>
     <string name="crash_title">Laufzeitfehler erkannt</string>
     <string name="crash_game_info">%1$s wurde unerwartet beendet</string>
     <string name="crash_signal">Signal: %1$s</string>
@@ -597,4 +608,5 @@
     <string name="bootstrap_status_launching">Starte Spiel…</string>
     <string name="bootstrap_status_error">Start fehlgeschlagen</string>
     <string name="bootstrap_download_progress">%1$d%% (%2$s / %3$s)</string>
+    <string name="runtime_operation_failed">Unable to update modpack state. Please try again.</string>
 </resources>
