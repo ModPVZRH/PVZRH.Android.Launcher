@@ -7,6 +7,7 @@
 #include <cstring>
 #include <android/log.h>
 #include <filesystem>
+#include <limits>
 
 #define TAG "LibUnityHook"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
@@ -29,14 +30,15 @@ static void* scripting_method_invoke_hook(void* method, void* obj,
     return g_original_scripting_method_invoke(method, obj, args, exc, something);
 }
 
-// Path check hook (sub_69A808) — blocks UnityPlayer.kill() on storage paths
+// IsInForbiddenLocation(const core::basic_string<...>&, const char* const*, size_t).
+// Keep the Unity string opaque: it is not a null-terminated char*.
 
-using path_check_fn = bool (*)(const char* path);
+using path_check_fn = bool (*)(const void* path, const char* const* blacklist, size_t count);
 static path_check_fn g_original_path_check = nullptr;
 
-static bool path_check_hook(const char* path)
+static bool path_check_hook(const void* path, const char* const*, size_t)
 {
-    LOGI("path_check_hook called with: %s — returning false", path ? path : "(null)");
+    LOGI("IsInForbiddenLocation called with string object %p — returning false", path);
     return false;
 }
 
@@ -78,8 +80,9 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
     }
 
     // 2. Check for companion .sym.so file
-    fs::path libunity_path(libUnityPath);
-    fs::path sym_path = libunity_path.replace_extension("sym.so");
+    const fs::path libunity_path(libUnityPath);
+    fs::path sym_path(libUnityPath);
+    sym_path.replace_extension(".sym.so");
     if (!fs::exists(libunity_path) || !fs::exists(sym_path)) {
         LOGE("Failed to find libunity or libunity.sym.so at %s", libUnityPath);
         return false;
@@ -93,9 +96,9 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
         "_Z23scripting_method_invoke18ScriptingMethodPtr18ScriptingObjectPtr"
         "R18ScriptingArgumentsP21ScriptingExceptionPtrb";
 
-    uintptr_t rva = get_rva_from_sym_file(sym_path.c_str(), mangled);
+    uintptr_t rva = get_function_rva_from_files(libUnityPath, sym_path.c_str(), mangled);
     if (rva == 0) {
-        LOGE("Failed to find scripting_method_invoke in libunity.sym.so");
+        LOGE("No unique executable scripting_method_invoke in matching libunity/symbol files");
         return false;
     }
 
@@ -107,11 +110,11 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
     }
 
     // 5. Calculate target and hook
-    void *target = reinterpret_cast<void *>(base + rva);
-    if (!target) {
+    if (rva > std::numeric_limits<uintptr_t>::max() - base) {
         LOGE("Failed to find target function for scripting_method_invoke_hook");
         return false;
     }
+    void *target = reinterpret_cast<void *>(base + rva);
 
     LOGI("scripting_method_invoke @ %p (base=%p, rva=0x%zx)", target, (void*)base, rva);
 
@@ -127,7 +130,14 @@ bool try_hook_libunity(const char *libUnityPath, const char *fallbackLibUnityPat
 
     LOGI("scripting_method_invoke hook installed");
 
-    constexpr uintptr_t path_check_rva = 0x69A808;
+    const char* path_check_symbol =
+        "_ZL21IsInForbiddenLocationRKN4core12basic_stringIcNS_20StringStorageDefaultIcEEEEPKPKcm";
+    uintptr_t path_check_rva = get_function_rva_from_files(
+        libUnityPath, sym_path.c_str(), path_check_symbol);
+    if (path_check_rva == 0 || path_check_rva > std::numeric_limits<uintptr_t>::max() - base) {
+        LOGI("Skipping path check hook: no unique IsInForbiddenLocation in matching executable symbols");
+        return true;
+    }
     void *path_check_target = reinterpret_cast<void *>(base + path_check_rva);
 
     LOGI("path_check @ %p (base=%p, rva=0x%zx)", path_check_target, (void*)base, path_check_rva);
